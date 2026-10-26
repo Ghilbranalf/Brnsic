@@ -8,7 +8,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "MARKERS AND SUCH PENS FLASHDISKS",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
     duration: 234,
-    youtubeId: "gu6rT1Jelis",
+    youtubeId: "lABZ_-uhC0E",
     tags: ["bunga", "matahari", "gala", "matahri", "sal", "priadi", "markers"]
   },
   {
@@ -17,7 +17,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "MARKERS AND SUCH PENS FLASHDISKS",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
     duration: 290,
-    youtubeId: "5NPu6JHzbuo",
+    youtubeId: "Xd-L2O4taPI",
     tags: ["dari", "planet", "lain", "sepertinya", "kau", "memang", "sal", "priadi"]
   },
   {
@@ -132,7 +132,7 @@ const POPULAR_SEARCH_INDEX = [
     title: "Cincin",
     artist: "Hindia",
     album: "Lagipula Hidup Akan Berakhir",
-    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8b/6e/c3/8b6ec33c-3094-1a61-9c3f-c6b9bb787ef6/cover.jpg/600x600bb.jpg",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/7f/5f/99/7f5f99c7-1ddd-93cb-9b79-7efec9d6dd53/cover.jpg/600x600bb.jpg",
     duration: 279,
     youtubeId: "S0Kez6MERGE",
     tags: ["cincin", "hindia"]

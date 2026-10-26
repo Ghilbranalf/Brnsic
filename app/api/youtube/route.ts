@@ -2,50 +2,73 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Curated verified YouTube video IDs - 100% active, official & playable in embed
 const VERIFIED_MAP: Record<string, string> = {
-  // Sal Priadi (100% Verified Official Audio / Videos - NO MEME / NO MR BEAN)
-  "sal priadi gala bunga matahari": "gu6rT1Jelis",
-  "gala bunga matahari sal priadi": "gu6rT1Jelis",
-  "gala bunga matahari": "gu6rT1Jelis",
-  "bunga matahari": "gu6rT1Jelis",
-  "sal priadi dari planet lain": "KDQ2GAdldGI",
-  "dari planet lain sal priadi": "KDQ2GAdldGI",
-  "dari planet lain": "KDQ2GAdldGI",
-  "sal priadi mesra mesraannya kecil kecilan dulu": "mOlx9vm39Pg",
-  "mesra mesraannya kecil kecilan dulu": "mOlx9vm39Pg",
-  "sal priadi kita usahakan rumah itu": "m-KsjaTEHwA",
-  "kita usahakan rumah itu": "m-KsjaTEHwA",
-  "sal priadi besok kita pergi makan": "jYIcxdDuGMk",
-  "besok kita pergi makan": "jYIcxdDuGMk",
-  "sal priadi amin paling serius": "ZRMDxjRdJV8",
-  "amin paling serius": "ZRMDxjRdJV8",
+  // Sal Priadi (100% Pure Studio Master - Direct from Record Label Orang Pertunjukan)
+  "sal priadi gala bunga matahari": "lABZ_-uhC0E",
+  "gala bunga matahari sal priadi": "lABZ_-uhC0E",
+  "gala bunga matahari": "lABZ_-uhC0E",
+  "bunga matahari": "lABZ_-uhC0E",
+  "sal priadi dari planet lain": "Xd-L2O4taPI",
+  "dari planet lain sal priadi": "Xd-L2O4taPI",
+  "dari planet lain": "Xd-L2O4taPI",
+  "sal priadi mesra mesraannya kecil kecilan dulu": "cezEWo5WlIE",
+  "mesra mesraannya kecil kecilan dulu": "cezEWo5WlIE",
+  "sal priadi kita usahakan rumah itu": "qkNHIcwrNxg",
+  "kita usahakan rumah itu": "qkNHIcwrNxg",
+  "sal priadi besok kita pergi makan": "fCENI-ZaMQM",
+  "besok kita pergi makan": "fCENI-ZaMQM",
+  "sal priadi amin paling serius": "9h1Qs9o7TOI",
+  "amin paling serius": "9h1Qs9o7TOI",
   "sal priadi irama laot teduh": "NAjYWikwSTE",
   "sal priadi ada titik titik di ujung doa": "63H7pcUUm6s",
   "ada titik titik di ujung doa": "63H7pcUUm6s",
 
-  // Bernadya
-  "bernadya satu bulan": "7Jm2Il2U-c0",
-  "satu bulan bernadya": "7Jm2Il2U-c0",
-  "satu bulan": "7Jm2Il2U-c0",
-  "bernadya untungnya hidup harus tetap berjalan": "eUx-BHUhGLA",
-  "untungnya hidup harus tetap berjalan": "eUx-BHUhGLA",
-  "untungnya": "eUx-BHUhGLA",
-  "bernadya kini mereka tahu": "P5yH9GjLq2s",
-  "kini mereka tahu": "P5yH9GjLq2s",
+  // Bernadya (Direct Label Studio Masters - JUNI Records)
+  "bernadya satu bulan": "z-XHpftdXEE",
+  "satu bulan bernadya": "z-XHpftdXEE",
+  "satu bulan": "z-XHpftdXEE",
+  "bernadya untungnya hidup harus tetap berjalan": "hc-8aB0Dkkw",
+  "untungnya hidup harus tetap berjalan": "hc-8aB0Dkkw",
+  "untungnya": "hc-8aB0Dkkw",
+  "bernadya kini mereka tahu": "IqVSxkOxboE",
+  "kini mereka tahu": "IqVSxkOxboE",
   "bernadya kata mereka ini berlebihan": "7lY30YdGfF0",
   "kata mereka ini berlebihan": "7lY30YdGfF0",
   "bernadya lama lama": "57r6QkK0o0E",
 
   // Hindia
-  "hindia evaluasi": "saXhrw-7rQI",
-  "evaluasi hindia": "saXhrw-7rQI",
-  "evaluasi": "saXhrw-7rQI",
-  "hindia cincin": "S0Kez6MERGE",
-  "cincin hindia": "S0Kez6MERGE",
-  "cincin": "S0Kez6MERGE",
+  "hindia evaluasi": "cWrSjCZ5AeE",
+  "evaluasi hindia": "cWrSjCZ5AeE",
+  "evaluasi": "cWrSjCZ5AeE",
+  "hindia cincin": "RtK4E61x3Fs",
+  "cincin hindia": "RtK4E61x3Fs",
+  "cincin": "RtK4E61x3Fs",
   "hindia rumah ke rumah": "pjhOjHDX0A8",
   "rumah ke rumah": "pjhOjHDX0A8",
   "hindia secukupnya": "6D59nZzG6-s",
   "secukupnya": "6D59nZzG6-s",
+
+  // Juicy Luicy
+  "juicy luicy tampar": "DqJN5Pg3As4",
+  "tampar juicy luicy": "DqJN5Pg3As4",
+  "tampar": "DqJN5Pg3As4",
+
+  // Rio Clappy
+  "rio clappy bunga abadi": "dPktgrR8L6k",
+  "bunga abadi": "dPktgrR8L6k",
+
+  // Denny Caknan
+  "denny caknan sigar": "Z3E3AamV2to",
+  "sigar": "Z3E3AamV2to",
+
+  // Sheila On 7
+  "sheila on 7 dan": "k1BfsO0mxWQ",
+  "dan sheila on 7": "k1BfsO0mxWQ",
+  "dan": "k1BfsO0mxWQ",
+
+  // Dewa 19
+  "dewa 19 kangen": "utgn0LCDirk",
+  "kangen dewa 19": "utgn0LCDirk",
+  "kangen": "utgn0LCDirk",
 
   // Nadin Amizah
   "nadin amizah rayuan perempuan gila": "Kk02q89_3Y0",
@@ -55,10 +78,7 @@ const VERIFIED_MAP: Record<string, string> = {
   "nadin amizah bertaut": "YmB5Kj5p3rU",
   "bertaut": "YmB5Kj5p3rU",
 
-  // Dewa 19
-  "dewa 19 kangen": "m8cPU4tzGa4",
-  "kangen dewa 19": "m8cPU4tzGa4",
-  "kangen": "m8cPU4tzGa4",
+  // Dewa 19 - Extra
   "dewa 19 risalah hati": "J6i53rCB0y8",
   "risalah hati": "J6i53rCB0y8",
   "dewa 19 pupus": "7v2AJiZXHjI",
@@ -66,45 +86,21 @@ const VERIFIED_MAP: Record<string, string> = {
   "dewa 19 separuh nafas": "6zZ_E51c56k",
   "separuh nafas": "6zZ_E51c56k",
 
-  // Sheila On 7
-  "sheila on 7 dan": "IWvo2fld3s4",
-  "dan sheila on 7": "IWvo2fld3s4",
-  "dan": "IWvo2fld3s4",
+  // Sheila On 7 - Extra
   "sheila on 7 seberapa pantas": "jHPZMBF1I94",
   "seberapa pantas": "jHPZMBF1I94",
   "sheila on 7 melompat lebih tinggi": "Ym17pYwW2zE",
 
   // Juicy Luicy & Adrian Khalif
-  "juicy luicy tampar": "qmgA_WejI8w",
-  "tampar juicy luicy": "qmgA_WejI8w",
-  "tampar": "qmgA_WejI8w",
   "juicy luicy lantas": "s2U6M_74r4E",
   "lantas": "s2U6M_74r4E",
   "adrian khalif juicy luicy sialan": "_m6l5nKEGIA",
   "adrian khalif sialan": "_m6l5nKEGIA",
   "sialan": "_m6l5nKEGIA",
 
-  // Mahalini
-  "mahalini mati matian": "LAOxuo6pkdo",
-  "mati matian": "LAOxuo6pkdo",
-  "mahalini sial": "QSWYyoF79oE",
-  "sial mahalini": "QSWYyoF79oE",
-
-  // Tulus
-  "tulus hati hati di jalan": "_N6vSc_mT6I",
-  "hati hati di jalan": "_N6vSc_mT6I",
-  "tulus diri": "M78R8q06Vn0",
-  "tulus monokrom": "49YJb6gTf68",
-
-  // Denny Caknan
-  "denny caknan sigar": "s525A0Bc3z4",
-  "sigar": "s525A0Bc3z4",
+  // Denny Caknan - Extra
   "denny caknan wirang": "4n9W1z26nC8",
   "wirang": "4n9W1z26nC8",
-
-  // Rio Clappy
-  "rio clappy bunga abadi": "fPMB2H450iI",
-  "bunga abadi": "fPMB2H450iI",
 
   // Nadhif Basalamah & Raim Laode
   "nadhif basalamah penjaga hati": "fFm-Hn7vEaU",
@@ -192,6 +188,34 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // 1. Search for official studio master topic track (Provided to YouTube by label)
+    const topicUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
+      q.trim() + ' "Provided to YouTube"'
+    )}`;
+    
+    const topicRes = await fetch(topicUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"
+      },
+      next: { revalidate: 3600 }
+    });
+
+    const topicHtml = await topicRes.text();
+    const topicResults = parseCleanVideoResults(topicHtml);
+    if (topicResults.length > 0) {
+      const ids = topicResults.map((r) => r.id);
+      return NextResponse.json({
+        videoId: ids[0],
+        title: topicResults[0].title,
+        candidates: ids,
+        source: "topic-master",
+        query: q
+      });
+    }
+
+    // 2. Fallback to clean official audio
     const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
       q.trim() + " official audio"
     )}`;
@@ -214,6 +238,7 @@ export async function GET(request: NextRequest) {
         videoId: ids[0],
         title: cleanResults[0].title,
         candidates: ids,
+        source: "search-clean",
         query: q
       });
     }

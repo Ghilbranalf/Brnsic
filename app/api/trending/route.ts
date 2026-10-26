@@ -24,7 +24,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 234,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
     plays: "290M+ Streams",
-    youtubeId: "gu6rT1Jelis",
+    youtubeId: "lABZ_-uhC0E",
     youtubeQuery: "Sal Priadi - Gala Bunga Matahari official audio"
   },
   {
@@ -132,7 +132,7 @@ const MOST_PLAYED_INDONESIA = [
     artist: "Hindia",
     album: "Lagipula Hidup Akan Berakhir",
     duration: 279,
-    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8b/6e/c3/8b6ec33c-3094-1a61-9c3f-c6b9bb787ef6/cover.jpg/600x600bb.jpg",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/7f/5f/99/7f5f99c7-1ddd-93cb-9b79-7efec9d6dd53/cover.jpg/600x600bb.jpg",
     plays: "210M+ Streams",
     youtubeId: "S0Kez6MERGE",
     youtubeQuery: "Hindia - Cincin official audio"

@@ -1,7 +1,7 @@
-// Brnsic PWA Service Worker v2.6
+// Brnsic PWA Service Worker v2.7
 // Provides offline caching and background media support
 
-const CACHE_NAME = "brnsic-cache-v2.6";
+const CACHE_NAME = "brnsic-cache-v2.7";
 const STATIC_ASSETS = [
   "/manifest.json",
   "/favicon.png",
