@@ -4,10 +4,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   return NextResponse.json({
-    version: "2.4.0",
+    version: "2.5.0",
     releaseDate: "2026-10-26",
-    title: "Brnsic 2.4 • Supabase Cloud Sync & User Accounts",
-    notes: "Fitur akun pengguna & login lintas perangkat terintegrasi Supabase Studio, modal onboarding kurasi selera awal (pilih 3+ artis & genre), logging aktivitas real-time (putar, like, skip, replay, selesai), dan sinkronisasi preferensi cloud.",
+    title: "Brnsic 2.5 • Background Audio & Seamless PWA Install",
+    notes: "Fitur pemutaran lagu di latar belakang saat membuka aplikasi lain (WhatsApp, Instagram, dsb.) atau layar mati di HP & laptop, integrasi MediaSession API, service worker offline cache, serta modal instalasi bertahap dengan indikator loading unduhan jelas.",
     buildTime: Date.now()
   });
 }
