@@ -1402,6 +1402,11 @@ export default function BrnsicMusicPage() {
             setCurrentUser(data.user);
             if (data.user.taste) {
               setUserTaste(data.user.taste);
+              const dbVector = buildUserTasteVector(
+                data.user.taste.likedArtists || [],
+                data.user.selectedGenres || Object.keys(data.user.taste.genreWeights || {})
+              );
+              setUserTasteVector(dbVector);
               try {
                 localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.user.taste));
               } catch (e) {}
@@ -1859,6 +1864,11 @@ export default function BrnsicMusicPage() {
 
       if (data.user?.taste) {
         setUserTaste(data.user.taste);
+        const dbVector = buildUserTasteVector(
+          data.user.taste.likedArtists || [],
+          data.user.selectedGenres || Object.keys(data.user.taste.genreWeights || {})
+        );
+        setUserTasteVector(dbVector);
         try {
           localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.user.taste));
         } catch (e) {}
