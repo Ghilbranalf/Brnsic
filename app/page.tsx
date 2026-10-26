@@ -1381,10 +1381,6 @@ export default function BrnsicMusicPage() {
 
     // Global touch/click unlock for background audio permission on mobile
     const unlockAudio = () => {
-      if (silentAudioRef.current) {
-        silentAudioRef.current.volume = 0.001;
-        silentAudioRef.current.play().catch(() => {});
-      }
       if (typeof window !== "undefined" && (window.AudioContext || (window as any).webkitAudioContext)) {
         try {
           const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -1440,7 +1436,7 @@ export default function BrnsicMusicPage() {
       if (document.hidden) {
         if (isPlayingRef.current) {
           if (silentAudioRef.current && silentAudioRef.current.paused) {
-            silentAudioRef.current.volume = 0.001;
+            silentAudioRef.current.volume = 0;
             silentAudioRef.current.play().catch(() => {});
           }
           if (ytPlayerRef.current) {
@@ -1465,8 +1461,8 @@ export default function BrnsicMusicPage() {
   }, []);
 
   const startBackgroundKeepalive = () => {
-    if (silentAudioRef.current) {
-      silentAudioRef.current.volume = 0.001;
+    if (silentAudioRef.current && isPlayingRef.current) {
+      silentAudioRef.current.volume = 0;
       silentAudioRef.current.play().catch(() => {});
     }
     if (typeof window !== "undefined" && "wakeLock" in navigator) {
@@ -3032,9 +3028,9 @@ export default function BrnsicMusicPage() {
         <div id="master-yt-player" className="w-full h-full"></div>
         <audio
           ref={silentAudioRef}
-          src="/audio/liquid-motion.mp3"
+          src="/audio/silence.wav"
           loop
-          preload="auto"
+          preload="none"
           playsInline
         />
       </div>
