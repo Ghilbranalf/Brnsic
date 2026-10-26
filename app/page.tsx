@@ -3230,88 +3230,6 @@ export default function BrnsicMusicPage() {
           </div>
         </div>
 
-        {/* Web / Desktop Liquid Glass Pill Tab Bar (Image 1) */}
-        <div className="hidden lg:flex items-center justify-center flex-1 max-w-xs mx-4">
-          <nav className="liquid-glass rounded-full px-2 py-1 flex items-center justify-between gap-1.5 border border-white/15 bg-black/60 backdrop-blur-2xl shadow-lg w-full">
-            <button
-              onClick={() => {
-                setMobileNavTab("home");
-                setCurrentView("home");
-              }}
-              className={`flex items-center justify-center transition-all duration-300 ${
-                currentView === "home"
-                  ? "w-9 h-9 rounded-full bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.4)] scale-105"
-                  : "w-9 h-9 rounded-full text-white/50 hover:text-white hover:bg-white/5"
-              }`}
-              title="Home"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill={currentView === "home" ? "currentColor" : "none"} stroke="currentColor" strokeWidth={currentView === "home" ? "0" : "2"}>
-                <path d="M12.5 3.247a1 1 0 0 0-1 0L4 7.577V20h4.5v-6a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v6H20V7.577l-7.5-4.33z" fill={currentView === "home" ? "currentColor" : "none"} />
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                setMobileNavTab("liked");
-                setCurrentView("liked");
-              }}
-              className={`flex items-center justify-center transition-all duration-300 ${
-                currentView === "liked"
-                  ? "w-9 h-9 rounded-full bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.4)] scale-105"
-                  : "w-9 h-9 rounded-full text-white/50 hover:text-white hover:bg-white/5"
-              }`}
-              title="Lagu yang Disukai"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill={currentView === "liked" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                setMobileNavTab("search");
-                setCurrentView("search");
-              }}
-              className={`flex items-center justify-center transition-all duration-300 ${
-                currentView === "search"
-                  ? "w-9 h-9 rounded-full bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.4)] scale-105"
-                  : "w-9 h-9 rounded-full text-white/50 hover:text-white hover:bg-white/5"
-              }`}
-              title="Cari"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={currentView === "search" ? "2.8" : "2"}>
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                if (currentUser) {
-                  setIsProfileModalOpen(true);
-                } else {
-                  setAuthError(null);
-                  setIsAuthModalOpen(true);
-                }
-              }}
-              className={`flex items-center justify-center transition-all duration-300 ${
-                isProfileModalOpen || isAuthModalOpen
-                  ? "w-9 h-9 rounded-full bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.4)] scale-105"
-                  : "w-9 h-9 rounded-full text-white/50 hover:text-white hover:bg-white/5"
-              }`}
-              title={currentUser ? `Profil: ${currentUser.name}` : "Masuk Akun"}
-            >
-              {currentUser ? (
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isProfileModalOpen ? "bg-black text-[#1ed760]" : "bg-white text-black"} font-black text-[11px] select-none shadow-sm`}>
-                  {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                </div>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isProfileModalOpen || isAuthModalOpen ? "2.5" : "2"}>
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-              )}
-            </button>
-          </nav>
-        </div>
-
         <div className="flex items-center gap-3">
           <button
             onClick={loadTrendingData}
@@ -5640,9 +5558,9 @@ export default function BrnsicMusicPage() {
       </footer>
 
       {/* ====================================================================
-          4. MOBILE & IPAD FLOATING MINI-PLAYER + LIQUID GLASS TAB BAR (IMAGE 1)
+          4. MOBILE & TABLET FLOATING MINI-PLAYER + LIQUID GLASS TAB BAR (IMAGE 1)
           ==================================================================== */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex flex-col pointer-events-none pb-3 sm:pb-4">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex flex-col pointer-events-none pb-3 sm:pb-4">
         {!isMobilePlayerOpen && hasUserStartedPlayback && (
           <div
             onClick={() => setIsMobilePlayerOpen(true)}
