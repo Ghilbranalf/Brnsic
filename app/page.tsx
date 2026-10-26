@@ -1394,6 +1394,51 @@ export default function BrnsicMusicPage() {
     window.addEventListener("touchstart", unlockAudio, { once: true, passive: true });
     window.addEventListener("click", unlockAudio, { once: true });
 
+    // Check Cloud Session (Supabase / Next.js Auth) - Function declaration hoisted safely
+    async function checkAuthSession(explicitToken?: string) {
+      try {
+        const token =
+          explicitToken ||
+          (typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null);
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const res = await fetch("/api/auth/me", {
+          headers,
+          cache: "no-store",
+          credentials: "include"
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user) {
+            setCurrentUser(data.user);
+            setIsAuthModalOpen(false);
+            if (data.user.taste) {
+              setUserTaste(data.user.taste);
+              const dbVector = buildUserTasteVector(
+                data.user.taste.likedArtists || [],
+                data.user.selectedGenres || Object.keys(data.user.taste.genreWeights || {})
+              );
+              setUserTasteVector(dbVector);
+              try {
+                localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.user.taste));
+              } catch (e) {}
+            }
+            if (Array.isArray(data.user.likedSongs)) {
+              setLikedSongIds(data.user.likedSongs);
+            }
+            if (Array.isArray(data.user.playlists)) {
+              setUserPlaylists(data.user.playlists);
+            }
+            if (!data.user.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
+              setIsOnboardingModalOpen(true);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     // Handle URL search params (Google Direct OAuth redirect)
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -1454,50 +1499,6 @@ export default function BrnsicMusicPage() {
       }
     }
 
-    // Check Cloud Session (Supabase / Next.js Auth)
-    const checkAuthSession = async (explicitToken?: string) => {
-      try {
-        const token =
-          explicitToken ||
-          (typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null);
-        const headers: Record<string, string> = {};
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-        const res = await fetch("/api/auth/me", {
-          headers,
-          cache: "no-store",
-          credentials: "include"
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.authenticated && data.user) {
-            setCurrentUser(data.user);
-            setIsAuthModalOpen(false);
-            if (data.user.taste) {
-              setUserTaste(data.user.taste);
-              const dbVector = buildUserTasteVector(
-                data.user.taste.likedArtists || [],
-                data.user.selectedGenres || Object.keys(data.user.taste.genreWeights || {})
-              );
-              setUserTasteVector(dbVector);
-              try {
-                localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.user.taste));
-              } catch (e) {}
-            }
-            if (Array.isArray(data.user.likedSongs)) {
-              setLikedSongIds(data.user.likedSongs);
-            }
-            if (Array.isArray(data.user.playlists)) {
-              setUserPlaylists(data.user.playlists);
-            }
-            if (!data.user.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
-              setIsOnboardingModalOpen(true);
-            }
-          }
-        }
-      } catch (e) {}
-    };
     checkAuthSession();
 
     // Ensure First-Time Visitors (Guests or New Users) Always Get Onboarding Modal
