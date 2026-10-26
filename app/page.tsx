@@ -1805,10 +1805,19 @@ export default function BrnsicMusicPage() {
     }
   };
 
-  // Google-Only Auth Handler (No password required)
+  // Google Auth Handler (No password required)
   const handleGoogleSignIn = async (customEmail?: string) => {
     setAuthError(null);
     setIsAuthSubmitting(true);
+
+    const targetEmail = (customEmail || googleEmail).trim().toLowerCase();
+
+    // If no email was provided, prompt user to enter their Gmail!
+    if (!targetEmail || !targetEmail.includes("@")) {
+      setAuthError("Masukkan alamat email Google (Gmail) kamu terlebih dahulu");
+      setIsAuthSubmitting(false);
+      return;
+    }
 
     try {
       // 1. If Supabase Google OAuth is configured, redirect to Google OAuth Consent screen
@@ -1821,9 +1830,8 @@ export default function BrnsicMusicPage() {
         }
       }
 
-      // 2. Seamless Google Sign In
-      const targetEmail = (customEmail || googleEmail).trim().toLowerCase() || "pengguna.google@gmail.com";
-      const targetName = targetEmail.split("@")[0].replace(/[._-]/g, " ") || "Pengguna Google";
+      // 2. Direct Google Sign In with the user's REAL email (no password needed)
+      const targetName = targetEmail.split("@")[0].replace(/[._-]/g, " ");
 
       const res = await fetch("/api/auth/google", {
         method: "POST",
@@ -1844,6 +1852,10 @@ export default function BrnsicMusicPage() {
       setCurrentUser(data.user);
       setIsAuthModalOpen(false);
       setGoogleEmail("");
+
+      try {
+        localStorage.setItem("brnsic_last_gmail", targetEmail);
+      } catch (e) {}
 
       if (data.user?.taste) {
         setUserTaste(data.user.taste);
@@ -6452,7 +6464,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between"
               >
-                <span>Lihat Riwayat Putar di Database</span>
+                <span>Riwayat Putar</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
@@ -6566,11 +6578,28 @@ export default function BrnsicMusicPage() {
               </div>
             )}
 
-            {/* Google-Only Authentication Button (Single Clean 1-Click Action) */}
-            <div className="flex flex-col gap-3 my-2">
+            {/* Google Authentication Form (Email-only, No password required) */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleGoogleSignIn(googleEmail);
+              }}
+              className="flex flex-col gap-3 my-2 text-left"
+            >
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-white/80">Masukkan Akun Gmail Kamu</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="nama.kamu@gmail.com"
+                  value={googleEmail}
+                  onChange={(e) => setGoogleEmail(e.target.value)}
+                  className="w-full px-4 py-3.5 rounded-2xl bg-white/5 border border-white/15 text-white text-xs placeholder-white/30 focus:border-[#1ed760] focus:bg-white/10 outline-none transition"
+                />
+              </div>
+
               <button
-                type="button"
-                onClick={() => handleGoogleSignIn()}
+                type="submit"
                 disabled={isAuthSubmitting}
                 className="w-full py-4 px-6 rounded-full bg-white hover:bg-neutral-100 text-neutral-900 font-black text-sm flex items-center justify-center gap-3 transition shadow-[0_0_25px_rgba(255,255,255,0.25)] hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
               >
@@ -6582,7 +6611,7 @@ export default function BrnsicMusicPage() {
                 </svg>
                 <span>{isAuthSubmitting ? "Menghubungkan Akun Google..." : "Lanjutkan dengan Google"}</span>
               </button>
-            </div>
+            </form>
 
             <div className="text-center pt-1">
               <span className="text-[10px] text-white/40">
