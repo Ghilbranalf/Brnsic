@@ -1,6 +1,14 @@
 import fs from "fs";
 import path from "path";
 import {
+  isPrismaConfigured,
+  prismaGetUserByEmail,
+  prismaGetUserById,
+  prismaCreateUser,
+  prismaUpdateUser,
+  prismaLogActivity
+} from "./prisma-db";
+import {
   isSupabaseConfigured,
   supabaseGetUserByEmail,
   supabaseGetUserById,
@@ -129,8 +137,12 @@ export const defaultTasteForUser = (name: string): TasteProfile => ({
   totalPlays: 0
 });
 
-// Database Public Operations (Supabase First, Local Fallback)
+// Database Public Operations (Prisma ORM First, Supabase REST Second, Local Fallback)
 export const dbFindUserByEmail = async (email: string): Promise<User | null> => {
+  if (isPrismaConfigured()) {
+    const pUser = await prismaGetUserByEmail(email);
+    if (pUser) return pUser;
+  }
   if (isSupabaseConfigured()) {
     const sbUser = await supabaseGetUserByEmail(email);
     if (sbUser) return sbUser;
@@ -141,6 +153,10 @@ export const dbFindUserByEmail = async (email: string): Promise<User | null> => 
 };
 
 export const dbFindUserById = async (id: string): Promise<User | null> => {
+  if (isPrismaConfigured()) {
+    const pUser = await prismaGetUserById(id);
+    if (pUser) return pUser;
+  }
   if (isSupabaseConfigured()) {
     const sbUser = await supabaseGetUserById(id);
     if (sbUser) return sbUser;
@@ -178,7 +194,9 @@ export const dbCreateUser = async (
     history: []
   };
 
-  if (isSupabaseConfigured()) {
+  if (isPrismaConfigured()) {
+    await prismaCreateUser(newUser);
+  } else if (isSupabaseConfigured()) {
     await supabaseCreateUser(newUser);
   }
 
@@ -189,7 +207,9 @@ export const dbCreateUser = async (
 };
 
 export const dbUpdateUser = async (id: string, updates: Partial<User>): Promise<User | null> => {
-  if (isSupabaseConfigured()) {
+  if (isPrismaConfigured()) {
+    await prismaUpdateUser(id, updates);
+  } else if (isSupabaseConfigured()) {
     await supabaseUpdateUser(id, updates);
   }
 
@@ -206,6 +226,9 @@ export const dbUpdateUser = async (id: string, updates: Partial<User>): Promise<
   }
 
   if (!targetUser || !targetKey) {
+    if (isPrismaConfigured()) {
+      return await prismaGetUserById(id);
+    }
     if (isSupabaseConfigured()) {
       return await supabaseGetUserById(id);
     }
@@ -313,7 +336,9 @@ export const dbLogUserActivity = async (
     listenSeconds: activity.listenSeconds
   };
 
-  if (isSupabaseConfigured()) {
+  if (isPrismaConfigured()) {
+    await prismaLogActivity(userId, newActivityEntry);
+  } else if (isSupabaseConfigured()) {
     await supabaseLogActivity(userId, newActivityEntry);
   }
 

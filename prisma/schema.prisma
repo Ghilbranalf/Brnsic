@@ -1,0 +1,89 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  String         @id @default(uuid())
+  email               String         @unique
+  name                String
+  passwordHash        String?        @map("password_hash")
+  salt                String?
+  avatar              String?
+  onboardingCompleted Boolean        @default(false) @map("onboarding_completed")
+  selectedGenres      String[]       @default([]) @map("selected_genres")
+  selectedArtists     String[]       @default([]) @map("selected_artists")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  taste               TasteProfile?
+  likedSongs          LikedSong[]
+  playlists           Playlist[]
+  activities          UserActivity[]
+
+  @@map("users")
+}
+
+model TasteProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userSeed      String   @default("") @map("user_seed")
+  persona       String   @default("Penjelajah Musik Indonesia & Global")
+  artistWeights Json     @default("{}") @map("artist_weights")
+  genreWeights  Json     @default("{}") @map("genre_weights")
+  playCounts    Json     @default("{}") @map("play_counts")
+  likedArtists  String[] @default([]) @map("liked_artists")
+  totalPlays    Int      @default(0) @map("total_plays")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("user_taste")
+}
+
+model LikedSong {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  songId    String   @map("song_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, songId])
+  @@index([userId])
+  @@map("user_likes")
+}
+
+model Playlist {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  cover     String?
+  songs     Json     @default("[]")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("user_playlists")
+}
+
+model UserActivity {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  songId        String   @map("song_id")
+  title         String
+  artist        String
+  genre         String?
+  action        String
+  duration      Int?
+  listenSeconds Int?     @map("listen_seconds")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("user_activity")
+}
