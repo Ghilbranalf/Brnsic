@@ -247,7 +247,9 @@ export async function GET(request: Request) {
                 fullTitle.toLowerCase().includes("reaction") ||
                 fullTitle.toLowerCase().includes("cover live") ||
                 fullTitle.toLowerCase().includes("mr bean") ||
-                fullTitle.toLowerCase().includes("parodi")
+                fullTitle.toLowerCase().includes("parodi") ||
+                fullTitle.toLowerCase().includes("6sentani") ||
+                fullTitle.toLowerCase().includes("only siji")
               ) {
                 continue;
               }
@@ -285,6 +287,12 @@ export async function GET(request: Request) {
     const listToMerge = [...popularMatches, ...itunesItems, ...ytItems];
 
     for (const item of listToMerge) {
+      const t = (item.trackName || "").toLowerCase();
+      const a = (item.artistName || "").toLowerCase();
+      if (t.includes("6sentani") || t.includes("only siji") || a.includes("6sentani") || a.includes("only siji")) {
+        continue;
+      }
+
       const cleanKey = `${(item.artistName || "").toLowerCase()} ${(item.trackName || "").toLowerCase()}`.replace(
         /[^a-z0-9]/g,
         ""
