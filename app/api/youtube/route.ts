@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 // Curated verified YouTube Studio Master IDs (100% Official Audio, 0s movie/dialogue intro)
 const VERIFIED_MAP: Record<string, string> = {
   // Sal Priadi (100% Pure Label Studio Master)
-  "sal priadi gala bunga matahari": "lABZ_-uhC0E",
-  "gala bunga matahari": "lABZ_-uhC0E",
+  "sal priadi gala bunga matahari": "gu6rT1Jelis",
+  "gala bunga matahari": "gu6rT1Jelis",
   "sal priadi dari planet lain": "Xd-L2O4taPI",
   "dari planet lain": "Xd-L2O4taPI",
   "sal priadi mesra mesraannya kecil kecilan dulu": "cezEWo5WlIE",
@@ -111,6 +111,11 @@ const VERIFIED_MAP: Record<string, string> = {
   "nadin amizah bertaut": "YmB5Kj5p3rU",
   "bertaut": "YmB5Kj5p3rU",
 
+  // Curated Indonesian Storytelling Podcasts (Rintik Sedu)
+  "rintik sedu nanti kita akan sampai": "mqNhPq10w8k",
+  "rintik sedu aneh banget kita pisah gitu aja": "G-MhvHm_-HA",
+  "rintik sedu capek gak sih salam kenal mulu": "5_jiR9_xg5Y",
+
   // International Studio Audio
   "lady gaga bruno mars die with a smile": "kPa7bsKwL-c",
   "bruno mars die with a smile": "kPa7bsKwL-c",
@@ -132,6 +137,12 @@ const PENALIZED_WORDS = [
   "kartun", "short", "shorts", "jedag jedug", "dj tiktok", "funny",
   "kompilasi", "speed up", "slowed", "live session", "live acoustic",
   "konser", "cover by", "karaoke"
+];
+
+// Spoken word / podcast exclusions (Block foreign talk shows & podcasts, permit curated Indonesian chill like Rintik Sedu)
+const PODCAST_EXCLUSIONS = [
+  "podcast", "talkshow", "talk show", "interview", "wawancara",
+  "full episode", "episode", "eps.", "audiobook", "stand up comedy"
 ];
 
 function cleanString(str: string): string {
@@ -184,6 +195,13 @@ function parseCleanVideoResults(html: string): Array<{ id: string; title: string
           }
         }
 
+        // Apply harsh penalty for foreign talk shows / podcasts (protect Indonesian storytelling like Rintik Sedu)
+        for (const pod of PODCAST_EXCLUSIONS) {
+          if (lower.includes(pod) && !lower.includes("rintik sedu")) {
+            score -= 100;
+          }
+        }
+
         if (score > 0 && !candidates.some((c) => c.id === id)) {
           candidates.push({ id, title: rawTitle, score });
         }
@@ -205,6 +223,9 @@ function parseCleanVideoResults(html: string): Array<{ id: string; title: string
       if (lower.includes("topic") || lower.includes("official audio")) score += 40;
       for (const bad of PENALIZED_WORDS) {
         if (lower.includes(bad)) score -= 50;
+      }
+      for (const pod of PODCAST_EXCLUSIONS) {
+        if (lower.includes(pod) && !lower.includes("rintik sedu")) score -= 100;
       }
 
       if (score > 0 && !candidates.some((c) => c.id === id)) {

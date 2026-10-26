@@ -98,7 +98,7 @@ const DEFAULT_CATALOG: Track[] = [
     year: "2024",
     duration: 234,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
-    youtubeId: "lABZ_-uhC0E",
+    youtubeId: "gu6rT1Jelis",
     plays: "290M+ Streams",
     lyrics: [
       { time: 0, text: "(Intro Piano)" },
@@ -320,7 +320,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "MARKERS AND SUCH PENS FLASHDISKS",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
     duration: 234,
-    youtubeId: "lABZ_-uhC0E",
+    youtubeId: "gu6rT1Jelis",
     tags: ["bunga", "matahari", "gala", "matahri", "sal", "priadi", "markers"]
   },
   {
@@ -2106,7 +2106,7 @@ export default function BrnsicMusicPage() {
 
         ytPlayerRef.current = new window.YT.Player("master-yt-player", {
           host: "https://www.youtube-nocookie.com",
-          videoId: currentTrack.youtubeId || "lABZ_-uhC0E",
+          videoId: currentTrack.youtubeId || "gu6rT1Jelis",
           playerVars: {
             autoplay: 0, // Starts PAUSED! No sudden blast of sound!
             controls: 0,
@@ -2423,11 +2423,11 @@ export default function BrnsicMusicPage() {
       )
         .then((r) => r.json())
         .then((d) => {
-          const vid = d.videoId || "lABZ_-uhC0E";
+          const vid = d.videoId || "gu6rT1Jelis";
           startAudio(vid);
         })
         .catch(() => {
-          startAudio("lABZ_-uhC0E");
+          startAudio("gu6rT1Jelis");
         });
     }
 
@@ -3237,16 +3237,6 @@ export default function BrnsicMusicPage() {
                     className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
                     Profil
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsProfileDropdownOpen(false);
-                      setCurrentView("queue");
-                      setQueueTab("history");
-                    }}
-                    className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
-                  >
-                    Riwayat Putar
                   </button>
                   <div className="h-[1px] bg-white/10 my-1"></div>
                   <button
@@ -6466,19 +6456,6 @@ export default function BrnsicMusicPage() {
 
             {/* Section: Pengaturan Akun */}
             <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
-              <button
-                onClick={() => {
-                  setIsProfileModalOpen(false);
-                  setCurrentView("queue");
-                  setQueueTab("history");
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between"
-              >
-                <span>Riwayat Putar</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              </button>
 
               <button
                 onClick={async () => {

@@ -24,7 +24,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 234,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
     plays: "290M+ Streams",
-    youtubeId: "lABZ_-uhC0E",
+    youtubeId: "gu6rT1Jelis",
     youtubeQuery: "Sal Priadi - Gala Bunga Matahari official audio"
   },
   {
