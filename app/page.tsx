@@ -483,6 +483,16 @@ const derivePersona = (artistWeights: Record<string, number>): string => {
   return `Penggemar ${sorted[0][0]}`;
 };
 
+// Stable default taste profile for deterministic SSR & Hydration parity
+const DEFAULT_INITIAL_TASTE: TasteProfile = {
+  userSeed: "brnsic-user-default",
+  persona: "Penjelajah Musik Indonesia & Global",
+  artistWeights: { "Sal Priadi": 3, "Bernadya": 3, "Sheila On 7": 2 },
+  playCounts: {},
+  likedArtists: ["Sal Priadi", "Bernadya", "Sheila On 7"],
+  totalPlays: 0
+};
+
 // Initial Cold-Start Taste Profile: Gives each user a uniquely seeded experience
 const generateInitialTaste = (): TasteProfile => {
   const seedOptions: Array<{ name: string; weights: Record<string, number> }> = [
@@ -755,7 +765,7 @@ export default function BrnsicMusicPage() {
   const [updateInfo, setUpdateInfo] = useState<{ version: string; title: string; notes: string } | null>(null);
 
   // 13. Dynamic User Taste Profile (Personalized Learning Engine)
-  const [userTaste, setUserTaste] = useState<TasteProfile>(generateInitialTaste());
+  const [userTaste, setUserTaste] = useState<TasteProfile>(DEFAULT_INITIAL_TASTE);
 
   // 14. Spotify Shuffle Tri-State: "off" | "standard" (balanced fewer repeats) | "smart" (hybrid recommendation)
   const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("off");

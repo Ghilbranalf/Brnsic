@@ -25,12 +25,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id">
+    <html lang="id" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className="antialiased bg-black text-white overflow-hidden select-none">
+      <body className="antialiased bg-black text-white overflow-hidden select-none" suppressHydrationWarning>
         {children}
       </body>
     </html>
