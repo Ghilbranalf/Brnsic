@@ -4,10 +4,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   return NextResponse.json({
-    version: "2.3.0",
+    version: "2.4.0",
     releaseDate: "2026-10-26",
-    title: "Brnsic 2.3 • Spotify Smart Shuffle & Taste Engine",
-    notes: "Fitur Spotify Smart Shuffle 3-state (Off / Standard Fewer Repeats / Smart ✨), algoritma pengacakan seimbang berbasis genre & selera lokal tanpa login, serta penataan kontrol audio resmi Spotify.",
+    title: "Brnsic 2.4 • Supabase Cloud Sync & User Accounts",
+    notes: "Fitur akun pengguna & login lintas perangkat terintegrasi Supabase Studio, modal onboarding kurasi selera awal (pilih 3+ artis & genre), logging aktivitas real-time (putar, like, skip, replay, selesai), dan sinkronisasi preferensi cloud.",
     buildTime: Date.now()
   });
 }

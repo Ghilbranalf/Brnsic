@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import type { SafeUser } from "@/lib/auth";
 
 // --- Types ---
 interface LyricLine {
@@ -529,6 +530,37 @@ const GENRES = [
   { name: "Nostalgia 2000-an", color: "bg-[#503750]" }
 ];
 
+// Cold-Start Onboarding Candidates for New & Existing Users
+const ONBOARDING_ARTISTS = [
+  { name: "Bernadya", sub: "Pop Galau" },
+  { name: "Sal Priadi", sub: "Indie Pop" },
+  { name: "Hindia", sub: "Indie Rock" },
+  { name: "Sheila On 7", sub: "Pop Rock" },
+  { name: "Dewa 19", sub: "Rock Legend" },
+  { name: "Denny Caknan", sub: "Dangdut Koplo" },
+  { name: "Juicy Luicy", sub: "Pop Acoustic" },
+  { name: "Mahalini", sub: "Pop Ballad" },
+  { name: "Tulus", sub: "Pop Soul" },
+  { name: "Bruno Mars", sub: "Global Pop" },
+  { name: "Billie Eilish", sub: "Alt Pop" },
+  { name: "Lady Gaga", sub: "Pop Dance" },
+  { name: "NIKI", sub: "R&B / Soul" },
+  { name: "Rio Clappy", sub: "Indie Folk" },
+  { name: "Happy Asmara", sub: "Koplo Jawa" },
+  { name: "Nadin Amizah", sub: "Folk Akustik" }
+];
+
+const ONBOARDING_GENRES = [
+  "Pop Indonesia",
+  "Indie Senja",
+  "Dangdut Koplo",
+  "Pop Galau",
+  "Rock Nostalgia",
+  "Hits Global",
+  "Akustik Santai",
+  "Viral TikTok"
+];
+
 // Quick lookup for verified official YouTube video IDs
 const getVerifiedVideoId = (title: string, artist: string): string | undefined => {
   const normT = (title || "").toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
@@ -771,6 +803,22 @@ export default function BrnsicMusicPage() {
   const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("off");
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
 
+  // 15. User Authentication & Cloud Preference Sync (Supabase PostgreSQL / Cloud API)
+  const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState<boolean>(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState<boolean>(false);
+
+  // 16. Cold-Start Onboarding (Pick 3+ Artists or Genres)
+  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState<boolean>(false);
+  const [selectedOnboardingArtists, setSelectedOnboardingArtists] = useState<string[]>([]);
+  const [selectedOnboardingGenres, setSelectedOnboardingGenres] = useState<string[]>([]);
+  const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState<boolean>(false);
+  const hasLoggedCompletionRef = useRef<boolean>(false);
+
   // References
   const ytPlayerRef = useRef<any>(null);
   const pendingVideoIdRef = useRef<string | null>(null);
@@ -876,7 +924,7 @@ export default function BrnsicMusicPage() {
     }, 280);
   };
 
-  // 3. Load Saved Liked Songs, Playlists & Taste Profile from LocalStorage
+  // 3. Load Saved Liked Songs, Playlists & Taste Profile (LocalStorage + Cloud Supabase Session)
   useEffect(() => {
     try {
       const storedLikes = localStorage.getItem("brnsic_liked_songs");
@@ -896,10 +944,42 @@ export default function BrnsicMusicPage() {
         localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(fresh));
       }
     } catch (e) {}
+
+    // Check Cloud Session (Supabase / Next.js Auth)
+    const checkAuthSession = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user) {
+            setCurrentUser(data.user);
+            if (data.user.taste) {
+              setUserTaste(data.user.taste);
+              try {
+                localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.user.taste));
+              } catch (e) {}
+            }
+            if (Array.isArray(data.user.likedSongs) && data.user.likedSongs.length > 0) {
+              setLikedSongIds((prev) => Array.from(new Set([...prev, ...data.user.likedSongs])));
+            }
+            if (Array.isArray(data.user.playlists) && data.user.playlists.length > 0) {
+              setUserPlaylists(data.user.playlists);
+            }
+            if (!data.user.onboardingCompleted) {
+              setIsOnboardingModalOpen(true);
+            }
+          }
+        }
+      } catch (e) {}
+    };
+    checkAuthSession();
   }, []);
 
-  // Record User Taste Interaction (Play, Like, Playlist, Skip)
-  const recordTasteInteraction = (song: any, action: "play" | "like" | "playlist" | "skip") => {
+  // Record User Taste Interaction (Play, Like, Playlist, Skip, Replay, Complete)
+  const recordTasteInteraction = (
+    song: any,
+    action: "play" | "like" | "playlist" | "skip" | "replay" | "complete"
+  ) => {
     if (!song || !song.artist) return;
     const artist = song.artist.trim();
     const songId = song.id || song.title;
@@ -907,14 +987,26 @@ export default function BrnsicMusicPage() {
     setUserTaste((prev) => {
       const nextWeights = { ...prev.artistWeights };
       const nextCounts = { ...prev.playCounts };
-      const boost = action === "like" ? 5 : action === "playlist" ? 4 : action === "play" ? 1 : -1;
+      const boost =
+        action === "like"
+          ? 5
+          : action === "playlist"
+          ? 4
+          : action === "replay"
+          ? 4
+          : action === "complete"
+          ? 3
+          : action === "play"
+          ? 1
+          : -1;
       nextWeights[artist] = Math.max(0, (nextWeights[artist] || 0) + boost);
       if (action === "play") {
         nextCounts[songId] = (nextCounts[songId] || 0) + 1;
       }
-      const nextLikedArtists = action === "like" && !prev.likedArtists.includes(artist)
-        ? [...prev.likedArtists, artist]
-        : prev.likedArtists;
+      const nextLikedArtists =
+        action === "like" && !prev.likedArtists.includes(artist)
+          ? [...prev.likedArtists, artist]
+          : prev.likedArtists;
 
       const updated: TasteProfile = {
         ...prev,
@@ -930,6 +1022,30 @@ export default function BrnsicMusicPage() {
       } catch (e) {}
       return updated;
     });
+
+    // Also persist interaction to Supabase / Backend Activity Log
+    try {
+      fetch("/api/user/activity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          songId,
+          title: song.title || song.trackName,
+          artist,
+          genre: song.genre,
+          action,
+          duration: currentTrack?.duration || 210,
+          listenSeconds: Math.floor(currentTime)
+        })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.taste) {
+            setUserTaste(data.taste);
+          }
+        })
+        .catch(() => {});
+    } catch (e) {}
   };
 
   const toggleLike = (songId: string) => {
@@ -941,6 +1057,13 @@ export default function BrnsicMusicPage() {
       } catch (e) {}
       if (isLiking && currentTrack && currentTrack.id === songId) {
         recordTasteInteraction(currentTrack, "like");
+      }
+      if (currentUser) {
+        fetch("/api/user/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ likedSongs: next })
+        }).catch(() => {});
       }
       return next;
     });
@@ -1088,6 +1211,122 @@ export default function BrnsicMusicPage() {
     try {
       localStorage.setItem("brnsic_user_playlists", JSON.stringify(playlists));
     } catch (e) {}
+    if (currentUser) {
+      fetch("/api/user/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playlists })
+      }).catch(() => {});
+    }
+  };
+
+  // Auth Submit Handler (Login & Register)
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setIsAuthSubmitting(true);
+
+    try {
+      const url = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const payload =
+        authMode === "login"
+          ? { email: authForm.email, password: authForm.password }
+          : { name: authForm.name, email: authForm.email, password: authForm.password };
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setAuthError(data.error || "Gagal memproses autentikasi");
+        return;
+      }
+
+      setCurrentUser(data.user);
+      setIsAuthModalOpen(false);
+      setAuthForm({ name: "", email: "", password: "" });
+
+      if (data.user?.taste) {
+        setUserTaste(data.user.taste);
+        try {
+          localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.user.taste));
+        } catch (e) {}
+      }
+
+      // Sync local guest playlists and likes into newly logged in account
+      try {
+        fetch("/api/user/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            likedSongs: likedSongIds,
+            playlists: userPlaylists,
+            taste: userTaste
+          })
+        });
+      } catch (e) {}
+
+      if (!data.user?.onboardingCompleted) {
+        setIsOnboardingModalOpen(true);
+      } else {
+        showToast(`Selamat datang, ${data.user.name}! Selera musikmu tersinkron ☁️`);
+      }
+    } catch (err: any) {
+      setAuthError("Koneksi gagal. Coba beberapa saat lagi.");
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  };
+
+  // Logout Handler
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {}
+    setCurrentUser(null);
+    setIsProfileDropdownOpen(false);
+    setIsProfileModalOpen(false);
+    showToast("Berhasil keluar dari akun. Kamu sekarang dalam mode tamu.");
+  };
+
+  // Cold-Start Onboarding Submit Handler
+  const handleOnboardingSubmit = async () => {
+    if (selectedOnboardingArtists.length + selectedOnboardingGenres.length < 3) {
+      showToast("Pilih minimal 3 artis atau genre favorit untuk melanjutkan");
+      return;
+    }
+    setIsOnboardingSubmitting(true);
+    try {
+      const res = await fetch("/api/user/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selectedArtists: selectedOnboardingArtists,
+          selectedGenres: selectedOnboardingGenres
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setCurrentUser(data.user);
+          if (data.user.taste) {
+            setUserTaste(data.user.taste);
+            try {
+              localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.user.taste));
+            } catch (e) {}
+          }
+        }
+      }
+      setIsOnboardingModalOpen(false);
+      showToast("Preferensi tersimpan! Rekomendasi musikmu kini disesuaikan ✨");
+    } catch (e) {
+      setIsOnboardingModalOpen(false);
+    } finally {
+      setIsOnboardingSubmitting(false);
+    }
   };
 
   const handleCreatePlaylist = () => {
@@ -1288,13 +1527,24 @@ export default function BrnsicMusicPage() {
           if (state === 1) {
             const exactSeconds = ytPlayerRef.current.getCurrentTime();
             setCurrentTime(exactSeconds);
+
+            // Automatically log "complete" (+3 taste boost) when listened past 80% duration
+            if (
+              !hasLoggedCompletionRef.current &&
+              currentTrack &&
+              currentTrack.duration > 25 &&
+              exactSeconds / currentTrack.duration >= 0.8
+            ) {
+              hasLoggedCompletionRef.current = true;
+              recordTasteInteraction(currentTrack, "complete");
+            }
           }
         } catch (e) {}
       }
     }, 100);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [currentTrack]);
 
   // Universal Player: Plays ANY song with Stale Race-Condition Guard & Taste Intelligence
   const playAnySong = async (
@@ -1306,6 +1556,7 @@ export default function BrnsicMusicPage() {
       return;
     }
 
+    hasLoggedCompletionRef.current = false;
     const currentRequestId = ++playRequestIdRef.current;
 
     if (userInitiated) {
@@ -1584,6 +1835,7 @@ export default function BrnsicMusicPage() {
 
     // 1. If Repeat 1 (Single Track) is active, replay current song from 0
     if (repeatMode === "one") {
+      recordTasteInteraction(currentTrack, "replay");
       setCurrentTime(0);
       if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
         ytPlayerRef.current.seekTo(0, true);
@@ -2119,16 +2371,87 @@ export default function BrnsicMusicPage() {
           >
             <span>+ Buat Playlist</span>
           </button>
-          <button
-            onClick={() => setIsProfileModalOpen(true)}
-            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center cursor-pointer transition text-white/80 hover:text-white hover:scale-105 active:scale-95 shadow"
-            title="Profil Pengguna"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-          </button>
+
+          {/* Account Authentication & Supabase Cloud Sync Control */}
+          {currentUser ? (
+            <div className="relative">
+              <button
+                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-3 py-1.5 rounded-full border border-white/15 transition cursor-pointer active:scale-95 shadow"
+                title="Akun & Preferensi Cloud"
+              >
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  className="w-6 h-6 rounded-full object-cover border border-[#1ed760]"
+                />
+                <span className="text-xs font-bold text-white max-w-[110px] truncate">{currentUser.name}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+
+              {isProfileDropdownOpen && (
+                <div className="absolute right-0 top-11 w-64 liquid-glass rounded-2xl p-2 border border-white/15 shadow-2xl z-50 flex flex-col gap-1 text-left animate-fadeIn">
+                  <div className="p-2 border-b border-white/10">
+                    <div className="text-xs font-black text-white truncate">{currentUser.name}</div>
+                    <div className="text-[10px] text-[#b3b3b3] truncate">{currentUser.email}</div>
+                    <div className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold text-[#1ed760] bg-[#1ed760]/10 px-2 py-0.5 rounded-full">
+                      <span>☁️ Supabase Cloud Sync</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsProfileDropdownOpen(false);
+                      setIsProfileModalOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-white/10 transition text-white/90"
+                  >
+                    Profil &amp; Karakter Musik
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsProfileDropdownOpen(false);
+                      setIsOnboardingModalOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-white/10 transition text-white/90"
+                  >
+                    Atur Ulang Artis &amp; Genre Favorit
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-red-500/20 text-red-400 transition"
+                  >
+                    Keluar (Logout)
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setAuthMode("login");
+                  setAuthError(null);
+                  setIsAuthModalOpen(true);
+                }}
+                className="text-xs font-bold text-white/80 hover:text-white px-3 py-1.5 rounded-full hover:bg-white/10 transition"
+                title="Masuk untuk simpan preferensi & riwayat di cloud"
+              >
+                Masuk
+              </button>
+              <button
+                onClick={() => {
+                  setAuthMode("register");
+                  setAuthError(null);
+                  setIsAuthModalOpen(true);
+                }}
+                className="text-xs font-black text-black bg-white hover:bg-[#1ed760] px-3.5 py-1.5 rounded-full hover:scale-105 active:scale-95 transition shadow"
+              >
+                Daftar
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -2305,16 +2628,26 @@ export default function BrnsicMusicPage() {
                     Install
                   </button>
                 )}
-                <button
-                  onClick={() => setIsProfileModalOpen(true)}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/80 active:scale-95 transition shadow-md"
-                  title="Profil Pengguna"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                </button>
+                {currentUser ? (
+                  <button
+                    onClick={() => setIsProfileModalOpen(true)}
+                    className="w-8 h-8 rounded-full overflow-hidden border border-[#1ed760] active:scale-95 transition shadow-md"
+                    title={currentUser.name}
+                  >
+                    <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setAuthMode("login");
+                      setAuthError(null);
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="text-[11px] font-bold bg-[#1ed760] text-black px-3 py-1 rounded-full shadow active:scale-95 transition"
+                  >
+                    Masuk
+                  </button>
+                )}
               </div>
             </div>
 
@@ -5021,7 +5354,7 @@ export default function BrnsicMusicPage() {
       )}
 
       {/* ====================================================================
-          9. MODAL: PROFIL PENGGUNA (LIQUID GLASS AVATAR MODAL)
+          9. MODAL: PROFIL PENGGUNA & PREFERENSI DATABASE (SUPABASE INTEGRATED)
           ==================================================================== */}
       {isProfileModalOpen && (
         <div
@@ -5041,19 +5374,28 @@ export default function BrnsicMusicPage() {
 
             {/* Avatar Circle */}
             <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-white/10 to-white/20 border border-white/20 flex items-center justify-center text-white shadow-xl">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-white/10 to-white/20 border border-white/20 flex items-center justify-center text-white shadow-xl overflow-hidden">
+                {currentUser?.avatar ? (
+                  <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                )}
               </div>
               <span className="absolute bottom-1 right-1 w-4 h-4 bg-[#1ed760] rounded-full border-2 border-black" title="Aktif"></span>
             </div>
 
             {/* Profile Info */}
             <div className="text-center">
-              <h2 className="text-lg font-black text-white">Profil Pengguna</h2>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 mt-1.5">
+              <h2 className="text-lg font-black text-white">{currentUser?.name || "Mode Tamu (Guest)"}</h2>
+              {currentUser?.email ? (
+                <p className="text-xs text-[#b3b3b3] mt-0.5">{currentUser.email}</p>
+              ) : (
+                <p className="text-[11px] text-[#b3b3b3] mt-0.5">Daftar/Masuk untuk sinkronisasi ke Supabase</p>
+              )}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760] animate-pulse"></span>
                 <span className="text-xs font-bold text-[#1ed760]">{userTaste.persona}</span>
               </div>
@@ -5098,27 +5440,55 @@ export default function BrnsicMusicPage() {
               </div>
             )}
 
-            {/* Cloud Sync & Taste Engine Notice */}
-            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-1.5 text-left">
-              <div className="flex items-center gap-1.5 text-white text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-[#1ed760]"></span>
-                <span>Mesin Selera Brnsic Pintar</span>
+            {/* Database & Cloud Sync Status */}
+            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 text-left">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-white text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-[#1ed760]"></span>
+                  <span>Database Cloud Supabase</span>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#1ed760]/20 text-[#1ed760]">
+                  {currentUser ? "Tersinkron" : "Lokal"}
+                </span>
               </div>
               <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
-                Aplikasi mempelajari lagu yang kamu dengar dan sukai untuk memberikan rekomendasi yang unik khusus untukmu.
+                {currentUser
+                  ? "Selera musik, riwayat putar, dan playlist kamu tersimpan rapi di Supabase PostgreSQL & siap diakses dari perangkat lain."
+                  : "Kamu saat ini dalam mode tamu. Masuk atau daftar akun untuk menyimpan data ke database cloud Supabase."}
               </p>
-              <button
-                onClick={() => {
-                  const fresh = generateInitialTaste();
-                  setUserTaste(fresh);
-                  try {
-                    localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(fresh));
-                  } catch (e) {}
-                }}
-                className="text-[11px] font-bold text-[#1ed760] hover:underline text-left mt-1"
-              >
-                ↻ Acak Ulang / Reset Selera Musik
-              </button>
+
+              <div className="flex flex-col gap-1.5 mt-1">
+                <button
+                  onClick={() => {
+                    setIsProfileModalOpen(false);
+                    setIsOnboardingModalOpen(true);
+                  }}
+                  className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition flex items-center justify-center gap-1.5"
+                >
+                  <span>✨ Atur Artis &amp; Genre Favorit</span>
+                </button>
+
+                {!currentUser ? (
+                  <button
+                    onClick={() => {
+                      setIsProfileModalOpen(false);
+                      setAuthMode("login");
+                      setAuthError(null);
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="w-full py-2 rounded-xl bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-xs transition"
+                  >
+                    Masuk / Buat Akun Cloud
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleLogout}
+                    className="w-full py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-xs transition"
+                  >
+                    Keluar dari Akun (Logout)
+                  </button>
+                )}
+              </div>
             </div>
 
             <button
@@ -5127,6 +5497,278 @@ export default function BrnsicMusicPage() {
             >
               Tutup
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          9B. MODAL: AUTENTIKASI PENGGUNA (LOGIN & REGISTER SUPABASE)
+          ==================================================================== */}
+      {isAuthModalOpen && (
+        <div
+          onClick={() => setIsAuthModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm liquid-glass rounded-3xl p-6 flex flex-col gap-5 border border-white/10 shadow-2xl relative"
+          >
+            <button
+              onClick={() => setIsAuthModalOpen(false)}
+              className="absolute top-4 right-4 text-white/60 hover:text-white text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition"
+            >
+              &times;
+            </button>
+
+            {/* Header with Ambient Logo */}
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="relative flex items-center justify-center my-1">
+                <div className="absolute inset-0 rounded-full bg-[#1ed760]/20 blur-xl animate-pulse"></div>
+                <img
+                  src="/brnsic-loader-logo.png"
+                  alt="Brnsic"
+                  className="w-12 h-12 object-contain relative z-10"
+                />
+              </div>
+              <h2 className="text-xl font-black text-white">
+                {authMode === "login" ? "Masuk ke Brnsic" : "Buat Akun Brnsic Baru"}
+              </h2>
+              <p className="text-xs text-[#b3b3b3]">
+                {authMode === "login"
+                  ? "Akses selera musik dan playlist kamu dari perangkat apa pun."
+                  : "Mulai perjalanan musikmu dengan rekomendasi pintar berbasis cloud."}
+              </p>
+            </div>
+
+            {/* Tab Selector */}
+            <div className="grid grid-cols-2 p-1 bg-white/5 rounded-full border border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("login");
+                  setAuthError(null);
+                }}
+                className={`py-1.5 rounded-full text-xs font-bold transition ${
+                  authMode === "login" ? "bg-white text-black shadow" : "text-white/60 hover:text-white"
+                }`}
+              >
+                Masuk
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("register");
+                  setAuthError(null);
+                }}
+                className={`py-1.5 rounded-full text-xs font-bold transition ${
+                  authMode === "register" ? "bg-white text-black shadow" : "text-white/60 hover:text-white"
+                }`}
+              >
+                Daftar Akun
+              </button>
+            </div>
+
+            {/* Error Banner */}
+            {authError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-xs text-red-400 font-semibold text-center">
+                {authError}
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleAuthSubmit} className="flex flex-col gap-3">
+              {authMode === "register" && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-[11px] font-bold text-white/70 px-1">Nama Lengkap</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Ghilbran"
+                    value={authForm.name}
+                    onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-white/30 focus:border-[#1ed760] outline-none transition"
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold text-white/70 px-1">Alamat Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="nama@email.com"
+                  value={authForm.email}
+                  onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-white/30 focus:border-[#1ed760] outline-none transition"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold text-white/70 px-1">Kata Sandi</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Minimal 6 karakter"
+                  value={authForm.password}
+                  onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-white/30 focus:border-[#1ed760] outline-none transition"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isAuthSubmitting}
+                className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] disabled:opacity-50 text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_20px_rgba(30,215,96,0.35)] mt-2 flex items-center justify-center gap-2"
+              >
+                {isAuthSubmitting ? (
+                  <span>Memproses...</span>
+                ) : (
+                  <span>{authMode === "login" ? "Masuk Sekarang" : "Daftar & Mulai"}</span>
+                )}
+              </button>
+            </form>
+
+            <div className="text-center">
+              <span className="text-[10px] text-white/40">
+                Terhubung dengan aman ke database cloud Supabase PostgreSQL
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          9C. MODAL: COLD-START ONBOARDING (PILIH ARTIS & GENRE FAVORIT)
+          ==================================================================== */}
+      {isOnboardingModalOpen && (
+        <div
+          onClick={() => setIsOnboardingModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md liquid-glass rounded-3xl p-6 flex flex-col gap-4 border border-white/15 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
+          >
+            <button
+              onClick={() => setIsOnboardingModalOpen(false)}
+              className="absolute top-4 right-4 text-white/60 hover:text-white text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition"
+            >
+              &times;
+            </button>
+
+            {/* Header */}
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 mb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#1ed760]">
+                  Kurasi Selera Musik Pintar
+                </span>
+              </div>
+              <h2 className="text-xl font-black text-white">Pilih Musik Favoritmu ✨</h2>
+              <p className="text-xs text-[#b3b3b3] mt-1 leading-relaxed">
+                Pilih minimal 3 artis atau genre favorit untuk memulai sistem rekomendasi dan Smart Shuffle pribadimu.
+              </p>
+            </div>
+
+            {/* Section 1: Artis Pilihan */}
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-white/60">
+                1. Artis Favorit
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {ONBOARDING_ARTISTS.map((artist) => {
+                  const isSelected = selectedOnboardingArtists.includes(artist.name);
+                  return (
+                    <button
+                      key={artist.name}
+                      type="button"
+                      onClick={() => {
+                        setSelectedOnboardingArtists((prev) =>
+                          isSelected ? prev.filter((a) => a !== artist.name) : [...prev, artist.name]
+                        );
+                      }}
+                      className={`p-2.5 rounded-2xl border text-left transition flex items-center justify-between group ${
+                        isSelected
+                          ? "bg-[#1ed760]/20 border-[#1ed760] text-white shadow-[0_0_15px_rgba(30,215,96,0.2)]"
+                          : "bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1 pr-1">
+                        <div className="text-xs font-bold truncate group-hover:text-white">{artist.name}</div>
+                        <div className="text-[10px] text-white/40 truncate">{artist.sub}</div>
+                      </div>
+                      <div
+                        className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black transition ${
+                          isSelected ? "bg-[#1ed760] text-black" : "bg-white/10 text-transparent"
+                        }`}
+                      >
+                        ✓
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section 2: Genre & Suasana */}
+            <div className="flex flex-col gap-2 mt-1">
+              <span className="text-xs font-black uppercase tracking-wider text-white/60">
+                2. Genre &amp; Suasana Musik
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {ONBOARDING_GENRES.map((genre) => {
+                  const isSelected = selectedOnboardingGenres.includes(genre);
+                  return (
+                    <button
+                      key={genre}
+                      type="button"
+                      onClick={() => {
+                        setSelectedOnboardingGenres((prev) =>
+                          isSelected ? prev.filter((g) => g !== genre) : [...prev, genre]
+                        );
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold border transition ${
+                        isSelected
+                          ? "bg-[#1ed760] text-black border-[#1ed760] shadow"
+                          : "bg-white/5 text-white/70 border-white/10 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      {genre} {isSelected ? "✓" : "+"}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Actions & Counter */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-white/10 mt-1">
+              <div className="flex items-center justify-between text-xs px-1 font-semibold text-white/60">
+                <span>
+                  Dipilih:{" "}
+                  <strong className="text-white">
+                    {selectedOnboardingArtists.length + selectedOnboardingGenres.length}
+                  </strong>{" "}
+                  (Minimal 3)
+                </span>
+                {selectedOnboardingArtists.length + selectedOnboardingGenres.length >= 3 && (
+                  <span className="text-[#1ed760] font-black">Siap Melanjutkan! ✓</span>
+                )}
+              </div>
+
+              <button
+                onClick={handleOnboardingSubmit}
+                disabled={
+                  isOnboardingSubmitting ||
+                  selectedOnboardingArtists.length + selectedOnboardingGenres.length < 3
+                }
+                className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] disabled:opacity-40 disabled:pointer-events-none text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_25px_rgba(30,215,96,0.35)] flex items-center justify-center gap-2"
+              >
+                {isOnboardingSubmitting ? (
+                  <span>Menyimpan ke Database...</span>
+                ) : (
+                  <span>Mulai Mendengarkan Musik ✨</span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
