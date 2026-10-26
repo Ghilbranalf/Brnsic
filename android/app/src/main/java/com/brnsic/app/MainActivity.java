@@ -12,6 +12,8 @@ public class MainActivity extends BridgeActivity {
             if (bridge != null && bridge.getWebView() != null) {
                 WebSettings webSettings = bridge.getWebView().getSettings();
                 webSettings.setMediaPlaybackRequiresUserGesture(false);
+                webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
+                bridge.getWebView().clearCache(true);
             }
         } catch (Exception ignored) {}
     }
