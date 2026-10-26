@@ -270,6 +270,7 @@ export default function BrnsicMusicPage() {
   const [userPlaylists, setUserPlaylists] = useState<UserPlaylist[]>([]);
   const [activeCustomPlaylist, setActiveCustomPlaylist] = useState<UserPlaylist | null>(null);
   const [isCreatePlaylistModalOpen, setIsCreatePlaylistModalOpen] = useState<boolean>(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
   const [newPlaylistName, setNewPlaylistName] = useState<string>("");
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<any | null>(null);
 
@@ -982,40 +983,6 @@ export default function BrnsicMusicPage() {
     }
   };
 
-  // Center active lyric line smoothly
-  useEffect(() => {
-    if (!userIsScrollingLyrics) {
-      if (activeLyricRef.current && lyricsScrollContainerRef.current) {
-        const el = activeLyricRef.current;
-        const container = lyricsScrollContainerRef.current;
-        const target = el.offsetTop - container.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
-        container.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
-      }
-
-      if (mobileActiveLyricRef.current && mobileLyricsScrollRef.current) {
-        const el = mobileActiveLyricRef.current;
-        const container = mobileLyricsScrollRef.current;
-        const target = el.offsetTop - container.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
-        container.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
-      }
-
-      if (zoomedActiveLyricRef.current && zoomedLyricsScrollRef.current) {
-        const el = zoomedActiveLyricRef.current;
-        const container = zoomedLyricsScrollRef.current;
-        const target = el.offsetTop - container.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
-        container.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
-      }
-    }
-  }, [currentTime, isZoomed, isMobilePlayerOpen, mobileTab, userIsScrollingLyrics]);
-
-  const handleUserScroll = () => {
-    setUserIsScrollingLyrics(true);
-    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-    scrollTimeoutRef.current = setTimeout(() => {
-      setUserIsScrollingLyrics(false);
-    }, 5000);
-  };
-
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
@@ -1028,6 +995,37 @@ export default function BrnsicMusicPage() {
   currentTrack.lyrics.forEach((line, idx) => {
     if (vocalTime >= line.time) activeLyricIdx = idx;
   });
+
+  // Smoothly center active lyric line WITHOUT rapid 100ms jitter/glitching
+  useEffect(() => {
+    if (userIsScrollingLyrics) return;
+
+    const smoothCenter = (container: HTMLElement | null, el: HTMLElement | null) => {
+      if (!container || !el) return;
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const currentScroll = container.scrollTop;
+      const targetTop =
+        currentScroll + (elRect.top - containerRect.top) - containerRect.height / 2 + elRect.height / 2;
+      container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    };
+
+    if (mobileTab === "lyrics" && mobileActiveLyricRef.current && mobileLyricsScrollRef.current) {
+      smoothCenter(mobileLyricsScrollRef.current, mobileActiveLyricRef.current);
+    }
+
+    if (isZoomed && zoomedActiveLyricRef.current && zoomedLyricsScrollRef.current) {
+      smoothCenter(zoomedLyricsScrollRef.current, zoomedActiveLyricRef.current);
+    }
+  }, [activeLyricIdx, isZoomed, isMobilePlayerOpen, mobileTab, userIsScrollingLyrics]);
+
+  const handleUserScroll = () => {
+    setUserIsScrollingLyrics(true);
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    scrollTimeoutRef.current = setTimeout(() => {
+      setUserIsScrollingLyrics(false);
+    }, 4000);
+  };
 
   return (
     <div className="w-full max-w-[100vw] h-screen bg-black text-white flex flex-col p-0 md:p-2 gap-2 overflow-x-hidden overflow-y-hidden font-sans select-none relative">
@@ -1174,9 +1172,16 @@ export default function BrnsicMusicPage() {
           >
             <span>+ Buat Playlist</span>
           </button>
-          <div className="w-8 h-8 rounded-full bg-[#1ed760] text-black font-black flex items-center justify-center cursor-pointer shadow-md text-xs">
-            G
-          </div>
+          <button
+            onClick={() => setIsProfileModalOpen(true)}
+            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center cursor-pointer transition text-white/80 hover:text-white hover:scale-105 active:scale-95 shadow"
+            title="Profil Pengguna"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -1351,9 +1356,16 @@ export default function BrnsicMusicPage() {
                 >
                   Install
                 </button>
-                <div className="w-8 h-8 rounded-full bg-[#1ed760] text-black font-black flex items-center justify-center text-xs shadow-md">
-                  G
-                </div>
+                <button
+                  onClick={() => setIsProfileModalOpen(true)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/80 active:scale-95 transition shadow-md"
+                  title="Profil Pengguna"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -3073,10 +3085,10 @@ export default function BrnsicMusicPage() {
                           }
                           setUserIsScrollingLyrics(false);
                         }}
-                        className={`transition-all duration-300 cursor-pointer select-none leading-relaxed ${
+                        className={`transition-colors duration-300 cursor-pointer select-none leading-relaxed text-xl sm:text-2xl font-bold ${
                           isActive
-                            ? "text-white font-black text-2xl sm:text-3xl drop-shadow-[0_0_20px_rgba(255,255,255,0.9)] scale-105"
-                            : "text-white/30 font-bold text-lg sm:text-xl hover:text-white/60"
+                            ? "text-white font-black opacity-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.85)]"
+                            : "text-white/35 opacity-40 hover:opacity-75"
                         }`}
                       >
                         {line.text}
@@ -3277,10 +3289,10 @@ export default function BrnsicMusicPage() {
                           }
                           setUserIsScrollingLyrics(false);
                         }}
-                        className={`transition-all duration-300 cursor-pointer select-none leading-relaxed ${
+                        className={`transition-colors duration-300 cursor-pointer select-none leading-relaxed text-2xl sm:text-4xl font-bold ${
                           isActive
-                            ? "text-white font-black text-3xl sm:text-5xl drop-shadow-[0_0_30px_rgba(255,255,255,0.9)]"
-                            : "text-white/30 font-bold text-2xl sm:text-3xl hover:text-white/70"
+                            ? "text-white font-black opacity-100 drop-shadow-[0_0_30px_rgba(255,255,255,0.9)]"
+                            : "text-white/30 opacity-40 hover:opacity-75"
                         }`}
                       >
                         {line.text}
@@ -3383,6 +3395,77 @@ export default function BrnsicMusicPage() {
               className="w-full py-2.5 rounded-xl border border-dashed border-white/20 hover:border-white/40 text-xs font-bold text-white/80 hover:text-white transition"
             >
               + Buat Playlist Baru Sekarang
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          9. MODAL: PROFIL PENGGUNA (LIQUID GLASS AVATAR MODAL)
+          ==================================================================== */}
+      {isProfileModalOpen && (
+        <div
+          onClick={() => setIsProfileModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm liquid-glass rounded-3xl p-6 flex flex-col items-center gap-5 border border-white/10 shadow-2xl relative"
+          >
+            <button
+              onClick={() => setIsProfileModalOpen(false)}
+              className="absolute top-4 right-4 text-white/60 hover:text-white text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition"
+            >
+              &times;
+            </button>
+
+            {/* Avatar Circle */}
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-white/10 to-white/20 border border-white/20 flex items-center justify-center text-white shadow-xl">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <span className="absolute bottom-1 right-1 w-4 h-4 bg-[#1ed760] rounded-full border-2 border-black" title="Aktif"></span>
+            </div>
+
+            {/* Profile Info */}
+            <div className="text-center">
+              <h2 className="text-lg font-black text-white">Profil Pengguna</h2>
+              <p className="text-xs text-[#b3b3b3] mt-0.5">Akun Tersimpan di Perangkat Ini</p>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="w-full grid grid-cols-2 gap-2.5">
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-3 text-center">
+                <div className="text-xl font-black text-[#1ed760]">{likedSongIds.length}</div>
+                <div className="text-[11px] font-semibold text-[#b3b3b3] mt-0.5">Lagu Disukai</div>
+              </div>
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-3 text-center">
+                <div className="text-xl font-black text-white">{userPlaylists.length}</div>
+                <div className="text-[11px] font-semibold text-[#b3b3b3] mt-0.5">Playlist Kamu</div>
+              </div>
+            </div>
+
+            {/* Cloud Sync / Login Notice */}
+            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-3.5 flex flex-col gap-2 text-left">
+              <div className="flex items-center gap-2 text-white text-xs font-bold">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+                </svg>
+                <span>Sinkronisasi Akun</span>
+              </div>
+              <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
+                Saat ini data tersimpan aman secara otomatis di browser/HP Anda. Fitur Login Google / Email untuk sinkronisasi antar perangkat (HP &amp; Laptop) dapat diaktifkan jika diperlukan.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsProfileModalOpen(false)}
+              className="w-full py-2.5 rounded-full bg-white text-black font-extrabold text-xs hover:scale-105 active:scale-95 transition shadow-lg"
+            >
+              Tutup
             </button>
           </div>
         </div>
