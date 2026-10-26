@@ -16,10 +16,14 @@ export async function POST(req: Request) {
 
     const updates: any = {};
 
-    // Merge liked songs (union set)
+    // Sync liked songs
     if (Array.isArray(likedSongs)) {
-      const mergedLikes = Array.from(new Set([...(user.likedSongs || []), ...likedSongs]));
-      updates.likedSongs = mergedLikes;
+      if (body.replaceLikes) {
+        updates.likedSongs = Array.from(new Set(likedSongs));
+      } else {
+        const mergedLikes = Array.from(new Set([...(user.likedSongs || []), ...likedSongs]));
+        updates.likedSongs = mergedLikes;
+      }
     }
 
     // Merge playlists (avoid duplicates by playlist id or name)

@@ -55,6 +55,30 @@ export const supabaseGetUserByEmail = async (email: string): Promise<User | null
     const likedSongs = Array.isArray(row.user_likes) ? row.user_likes.map((l: any) => l.song_id) : [];
     const playlists = Array.isArray(row.user_playlists) ? row.user_playlists : [];
 
+    let history: UserActivity[] = [];
+    try {
+      const actRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_activity?user_id=eq.${encodeURIComponent(row.id)}&order=created_at.desc&limit=60`,
+        { headers: getHeaders(), cache: "no-store" }
+      );
+      if (actRes.ok) {
+        const actRows = await actRes.json();
+        if (Array.isArray(actRows)) {
+          history = actRows.map((a: any) => ({
+            id: a.id || `act_${a.created_at}`,
+            songId: a.song_id || a.title,
+            title: a.title,
+            artist: a.artist,
+            genre: a.genre || undefined,
+            action: a.action,
+            timestamp: new Date(a.created_at).getTime(),
+            duration: a.duration,
+            listenSeconds: a.listen_seconds
+          }));
+        }
+      }
+    } catch (e) {}
+
     return {
       id: row.id,
       email: row.email,
@@ -69,7 +93,7 @@ export const supabaseGetUserByEmail = async (email: string): Promise<User | null
       taste,
       likedSongs,
       playlists,
-      history: []
+      history
     };
   } catch (err) {
     console.error("Supabase getUserByEmail error:", err);
@@ -112,6 +136,30 @@ export const supabaseGetUserById = async (id: string): Promise<User | null> => {
     const likedSongs = Array.isArray(row.user_likes) ? row.user_likes.map((l: any) => l.song_id) : [];
     const playlists = Array.isArray(row.user_playlists) ? row.user_playlists : [];
 
+    let history: UserActivity[] = [];
+    try {
+      const actRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_activity?user_id=eq.${encodeURIComponent(row.id)}&order=created_at.desc&limit=60`,
+        { headers: getHeaders(), cache: "no-store" }
+      );
+      if (actRes.ok) {
+        const actRows = await actRes.json();
+        if (Array.isArray(actRows)) {
+          history = actRows.map((a: any) => ({
+            id: a.id || `act_${a.created_at}`,
+            songId: a.song_id || a.title,
+            title: a.title,
+            artist: a.artist,
+            genre: a.genre || undefined,
+            action: a.action,
+            timestamp: new Date(a.created_at).getTime(),
+            duration: a.duration,
+            listenSeconds: a.listen_seconds
+          }));
+        }
+      }
+    } catch (e) {}
+
     return {
       id: row.id,
       email: row.email,
@@ -126,7 +174,7 @@ export const supabaseGetUserById = async (id: string): Promise<User | null> => {
       taste,
       likedSongs,
       playlists,
-      history: []
+      history
     };
   } catch (err) {
     console.error("Supabase getUserById error:", err);

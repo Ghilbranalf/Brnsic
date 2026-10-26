@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { User, dbFindUserById } from "./db";
+import { User, UserActivity, dbFindUserById } from "./db";
 
 const JWT_SECRET = process.env.JWT_SECRET || "brnsic-secret-salt-liquid-dark-2026-v2";
 
@@ -15,6 +15,7 @@ export interface SafeUser {
   taste: User["taste"];
   likedSongs: string[];
   playlists: any[];
+  history: UserActivity[];
 }
 
 export const toSafeUser = (user: User): SafeUser => ({
@@ -28,7 +29,8 @@ export const toSafeUser = (user: User): SafeUser => ({
   selectedArtists: user.selectedArtists || [],
   taste: user.taste,
   likedSongs: user.likedSongs || [],
-  playlists: user.playlists || []
+  playlists: user.playlists || [],
+  history: user.history || []
 });
 
 export const hashPassword = (password: string): { hash: string; salt: string } => {

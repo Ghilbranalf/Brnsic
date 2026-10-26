@@ -1148,6 +1148,7 @@ export default function BrnsicMusicPage() {
   // 10. Queue Drag & Reorder State
   const [draggedQueueIndex, setDraggedQueueIndex] = useState<number | null>(null);
   const [dragOverQueueIndex, setDragOverQueueIndex] = useState<number | null>(null);
+  const [queueTab, setQueueTab] = useState<"queue" | "history">("queue");
 
   // 11. PWA Install Modal & Installed State (Removes button once installed)
   const [isAppInstalled, setIsAppInstalled] = useState<boolean>(false);
@@ -1405,14 +1406,23 @@ export default function BrnsicMusicPage() {
                 localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.user.taste));
               } catch (e) {}
             }
-            if (Array.isArray(data.user.likedSongs) && data.user.likedSongs.length > 0) {
-              setLikedSongIds((prev) => Array.from(new Set([...prev, ...data.user.likedSongs])));
+            if (Array.isArray(data.user.likedSongs)) {
+              setLikedSongIds(data.user.likedSongs);
             }
-            if (Array.isArray(data.user.playlists) && data.user.playlists.length > 0) {
+            if (Array.isArray(data.user.playlists)) {
               setUserPlaylists(data.user.playlists);
             }
             if (!data.user.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
               setIsOnboardingModalOpen(true);
+            }
+          } else {
+            // Unauthenticated: Prompt login once on entry so user knows they must log in to store data
+            const prompted = sessionStorage.getItem("brnsic_login_prompted");
+            if (!prompted) {
+              sessionStorage.setItem("brnsic_login_prompted", "true");
+              setTimeout(() => {
+                setIsAuthModalOpen(true);
+              }, 1200);
             }
           }
         }
@@ -1555,12 +1565,21 @@ export default function BrnsicMusicPage() {
           if (data?.taste) {
             setUserTaste(data.taste);
           }
+          if (data?.user) {
+            setCurrentUser(data.user);
+          }
         })
         .catch(() => {});
     } catch (e) {}
   };
 
   const toggleLike = (songId: string) => {
+    if (!currentUser) {
+      setAuthError("Masuk dengan akun Google agar lagu favoritmu tersimpan permanen di database Supabase.");
+      setIsAuthModalOpen(true);
+      showToast("Wajib masuk akun Google untuk menyimpan lagu disukai ke database");
+      return;
+    }
     setLikedSongIds((prev) => {
       const isLiking = !prev.includes(songId);
       const next = isLiking ? [...prev, songId] : prev.filter((id) => id !== songId);
@@ -1574,7 +1593,7 @@ export default function BrnsicMusicPage() {
         fetch("/api/user/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ likedSongs: next })
+          body: JSON.stringify({ likedSongs: next, replaceLikes: true })
         }).catch(() => {});
       }
       return next;
@@ -1939,6 +1958,12 @@ export default function BrnsicMusicPage() {
   };
 
   const handleCreatePlaylist = () => {
+    if (!currentUser) {
+      setAuthError("Masuk dengan akun Google agar playlist kamu tersimpan permanen di database Supabase.");
+      setIsAuthModalOpen(true);
+      showToast("Wajib masuk akun Google untuk membuat playlist di database");
+      return;
+    }
     if (!newPlaylistName.trim()) return;
     const newPl: UserPlaylist = {
       id: `pl-${Date.now()}`,
@@ -1956,6 +1981,12 @@ export default function BrnsicMusicPage() {
   };
 
   const handleAddSongToPlaylist = (playlistId: string) => {
+    if (!currentUser) {
+      setAuthError("Masuk dengan akun Google agar lagu tersimpan ke playlist di database Supabase.");
+      setIsAuthModalOpen(true);
+      showToast("Wajib masuk akun Google untuk menambahkan lagu ke playlist");
+      return;
+    }
     if (!songToAddToPlaylist) return;
     const updated = userPlaylists.map((pl) => {
       if (pl.id === playlistId) {
@@ -4567,7 +4598,108 @@ export default function BrnsicMusicPage() {
                 </button>
               </div>
 
-              {/* Now Playing Card */}
+              {/* Tab Selector: Antrean Pemutaran vs Riwayat Baru Diputar */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setQueueTab("queue")}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition ${
+                    queueTab === "queue"
+                      ? "bg-white text-black shadow"
+                      : "bg-white/10 text-white hover:bg-white/15"
+                  }`}
+                >
+                  Antrean Pemutaran
+                </button>
+                <button
+                  onClick={() => setQueueTab("history")}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center gap-2 ${
+                    queueTab === "history"
+                      ? "bg-white text-black shadow"
+                      : "bg-white/10 text-white hover:bg-white/15"
+                  }`}
+                >
+                  <span>Riwayat Baru Diputar (Database)</span>
+                  {currentUser?.history && currentUser.history.length > 0 && (
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                        queueTab === "history" ? "bg-black/20 text-black" : "bg-[#1ed760]/20 text-[#1ed760]"
+                      }`}
+                    >
+                      {currentUser.history.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {queueTab === "history" ? (
+                <div className="flex flex-col gap-4">
+                  {!currentUser ? (
+                    <div className="liquid-glass rounded-3xl p-8 text-center flex flex-col items-center gap-3 border border-white/10">
+                      <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                      </div>
+                      <h3 className="text-base font-black text-white">Riwayat Tersimpan di Database</h3>
+                      <p className="text-xs text-[#b3b3b3] max-w-sm">
+                        Masuk dengan akun Google agar setiap lagu yang kamu dengarkan otomatis tercatat dan tersimpan rapi di database Supabase PostgreSQL.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setAuthError(null);
+                          setIsAuthModalOpen(true);
+                        }}
+                        className="py-2.5 px-6 rounded-full bg-white hover:bg-neutral-100 text-black font-extrabold text-xs transition"
+                      >
+                        Masuk dengan Akun Google
+                      </button>
+                    </div>
+                  ) : currentUser.history && currentUser.history.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-xs text-white/50 px-2 pb-1 border-b border-white/10">
+                        <span>Lagu &amp; Artis</span>
+                        <span>Aktivitas</span>
+                      </div>
+                      {currentUser.history.map((item, idx) => (
+                        <div
+                          key={item.id || idx}
+                          onClick={() => handlePlaySingleSongWithRadio({ title: item.title, artist: item.artist, id: item.songId })}
+                          className="liquid-glass rounded-2xl p-3 flex items-center justify-between hover:bg-white/10 cursor-pointer transition group"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white/60 group-hover:text-[#1ed760] group-hover:bg-[#1ed760]/10 flex-shrink-0 transition">
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-bold text-white truncate group-hover:text-[#1ed760] transition">
+                                {item.title}
+                              </div>
+                              <div className="text-xs text-[#b3b3b3] truncate">{item.artist}</div>
+                            </div>
+                          </div>
+                          <div className="text-right flex flex-col items-end flex-shrink-0">
+                            <span className="text-[10px] uppercase font-bold text-[#1ed760] bg-[#1ed760]/10 px-2 py-0.5 rounded-full">
+                              {item.action === "like" ? "Disukai" : item.action === "complete" ? "Selesai" : "Diputar"}
+                            </span>
+                            <span className="text-[10px] text-white/40 mt-1">
+                              {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="liquid-glass rounded-3xl p-8 text-center text-[#b3b3b3] text-xs border border-white/10">
+                      Belum ada riwayat lagu yang tercatat. Putar lagu apa saja untuk mulai mencatat riwayat ke database Supabase!
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Now Playing Card */}
               <div>
                 <span className="text-xs font-black uppercase tracking-wider text-white/50 block mb-2">
                   Sedang Diputar
@@ -4774,8 +4906,10 @@ export default function BrnsicMusicPage() {
                   </div>
                 )}
               </div>
-            </div>
+            </>
           )}
+        </div>
+      )}
 
           {/* VIEW: NOW PLAYING FOCUS */}
           {currentView === "now-playing" && (
@@ -6294,11 +6428,12 @@ export default function BrnsicMusicPage() {
               <button
                 onClick={() => {
                   setIsProfileModalOpen(false);
-                  setIsOnboardingModalOpen(true);
+                  setCurrentView("queue");
+                  setQueueTab("history");
                 }}
                 className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between"
               >
-                <span>Atur Preferensi Artis dan Genre</span>
+                <span>Lihat Riwayat Putar di Database</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
