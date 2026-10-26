@@ -1,0 +1,78 @@
+name: Build Brnsic Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradle Executable
+        run: chmod +x ./android/gradlew
+
+      - name: Build Debug APK
+        working-directory: ./android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Prepare APK Output
+        run: |
+          mkdir -p output
+          cp android/app/build/outputs/apk/debug/app-debug.apk output/Brnsic.apk
+          echo "APK successfully built and prepared: output/Brnsic.apk"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Brnsic-Android-APK
+          path: output/Brnsic.apk
+          retention-days: 30
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest-apk
+          name: "Brnsic Android App Release (v1.0)"
+          body: |
+            ### Brnsic Music Android Native APK
+            Unduh dan pasang aplikasi resmi Brnsic untuk HP Android Anda.
+            
+            **Fitur Versi Native APK:**
+            - Musik tetap berputar saat layar HP dimatikan atau membuka aplikasi lain.
+            - Kontrol musik (Play/Pause/Next) muncul di Lock Screen & status bar Android.
+            - Sinkronisasi otomatis ke website & database Supabase.
+            - Performa instan tanpa hambatan pembatasan browser.
+          files: output/Brnsic.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

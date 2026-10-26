@@ -1,0 +1,17 @@
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.brnsic.app',
+  appName: 'Brnsic',
+  webDir: 'public',
+  server: {
+    url: 'https://brnsic.vercel.app',
+    cleartext: true
+  },
+  android: {
+    allowMixedContent: true,
+    backgroundColor: '#0a0a0a'
+  }
+};
+
+export default config;

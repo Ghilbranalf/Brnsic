@@ -2112,7 +2112,11 @@ export default function BrnsicMusicPage() {
               }
               // Attempt to recover by querying fresh ID for the current track first
               const recoveringSong = currentTrack.title;
-              fetch(`/api/youtube?q=${encodeURIComponent(`${currentTrack.artist} ${currentTrack.title}`)}`)
+              fetch(
+                `/api/youtube?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(
+                  currentTrack.title
+                )}&q=${encodeURIComponent(`${currentTrack.artist} ${currentTrack.title}`)}`
+              )
                 .then((r) => r.json())
                 .then((d) => {
                   if (d.videoId && d.videoId !== currentTrack.youtubeId && ytPlayerRef.current) {
@@ -2383,7 +2387,11 @@ export default function BrnsicMusicPage() {
     if (directVid) {
       startAudio(directVid);
     } else {
-      fetch(`/api/youtube?q=${encodeURIComponent(`${song.artist} ${song.title}`)}`)
+      fetch(
+        `/api/youtube?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(
+          song.title
+        )}&q=${encodeURIComponent(`${song.artist} ${song.title}`)}`
+      )
         .then((r) => r.json())
         .then((d) => {
           const vid = d.videoId || "lABZ_-uhC0E";
@@ -6853,17 +6861,28 @@ export default function BrnsicMusicPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={handlePerformInstall}
-                  className="w-full py-3.5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-105 active:scale-95 transition shadow-[0_0_25px_rgba(30,215,96,0.4)] flex items-center justify-center gap-2"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                  </svg>
-                  <span>Pasang Sekarang (Install App)</span>
-                </button>
+                <div className="flex flex-col gap-2.5 w-full">
+                  <a
+                    href="https://github.com/Ghilbranalf/Brnsic/releases/download/latest-apk/Brnsic.apk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3.5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_25px_rgba(30,215,96,0.4)] flex items-center justify-center gap-2"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Unduh APK Android Resmi (.apk)</span>
+                  </a>
+
+                  <button
+                    onClick={handlePerformInstall}
+                    className="w-full py-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition flex items-center justify-center gap-1.5"
+                  >
+                    <span>Pasang sebagai Web PWA di Layar Utama</span>
+                  </button>
+                </div>
               </div>
             )}
 
