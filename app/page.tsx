@@ -1291,29 +1291,26 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
-  const getDeviceType = () => {
-    if (typeof window === "undefined") return { isIOS: false, isAndroid: false, isDesktop: true };
-    const ua = navigator.userAgent || "";
-    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-    const isAndroid = /Android/.test(ua);
-    return { isIOS, isAndroid, isDesktop: !isIOS && !isAndroid };
-  };
-
   const handleInstallClick = () => {
-    const { isIOS } = getDeviceType();
     setIsInstallModalOpen(true);
-    if (isIOS) {
-      setInstallStep("ios_guide");
-    } else {
-      setInstallStep("ready");
+    setInstallStep("ready");
+    if (typeof window !== "undefined") {
+      try {
+        const link = document.createElement("a");
+        link.href = "https://github.com/Ghilbranalf/Brnsic/releases/download/latest-apk/Brnsic.apk";
+        link.download = "Brnsic.apk";
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast("Mengunduh Brnsic.apk... Buka notifikasi setelah selesai.");
+      } catch (e) {}
     }
   };
 
   const handlePerformInstall = async () => {
-    const { isIOS } = getDeviceType();
-    if (isIOS) {
-      setInstallStep("ios_guide");
-      return;
+    if (typeof window !== "undefined") {
+      window.location.href = "https://github.com/Ghilbranalf/Brnsic/releases/download/latest-apk/Brnsic.apk";
     }
 
     if (deferredInstallPrompt) {
@@ -7268,50 +7265,6 @@ export default function BrnsicMusicPage() {
                     Setelah file <strong>Brnsic.apk</strong> selesai diunduh, klik notifikasi unduhan lalu pilih <strong>Pasang / Install</strong>.
                   </p>
                 </div>
-              </div>
-            )}
-
-            {/* STEP 3: IOS SAFARI INSTALL GUIDE (IPHONE / IPAD) */}
-            {installStep === "ios_guide" && (
-              <div className="w-full flex flex-col gap-4">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1ed760] bg-[#1ed760]/10 border border-[#1ed760]/30 px-3 py-1 rounded-full inline-block mb-2">
-                    Unduhan Paket Selesai 100%
-                  </span>
-                  <h2 className="text-xl font-black text-white">Langkah Pasang di iPhone</h2>
-                  <p className="text-xs text-[#b3b3b3] mt-1">
-                    Ikuti 2 langkah mudah berikut untuk menaruh Brnsic di Layar Utama HP Anda:
-                  </p>
-                </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-left flex flex-col gap-3 text-xs">
-                  <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#1ed760] text-black font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                      1
-                    </span>
-                    <div className="text-white/90">
-                      Ketuk tombol <strong>Bagikan (Share)</strong> di bilah bawah Safari.
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#1ed760] text-black font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                      2
-                    </span>
-                    <div className="text-white/90">
-                      Gulir ke bawah, lalu pilih <strong>&quot;Tambahkan ke Layar Utama&quot;</strong> (Add to Home Screen).
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setIsAppInstalled(true);
-                    setInstallStep("installed");
-                  }}
-                  className="w-full py-3 rounded-full bg-white text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow"
-                >
-                  Saya Mengerti &amp; Sudah Pasang
-                </button>
               </div>
             )}
 
