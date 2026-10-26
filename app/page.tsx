@@ -1224,7 +1224,15 @@ export default function BrnsicMusicPage() {
   // 2. PWA Install & Standalone Detection (Hides Install button when installed) + Update Checker
   useEffect(() => {
     const checkInstalled = () => {
+      const isCapacitorNative =
+        typeof window !== "undefined" &&
+        (Boolean((window as any).Capacitor?.isNativePlatform?.()) ||
+          Boolean((window as any).Capacitor) ||
+          navigator.userAgent.includes("wv") ||
+          navigator.userAgent.includes("Capacitor"));
+
       const isStandalone =
+        isCapacitorNative ||
         (typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches) ||
         (typeof window !== "undefined" && (window.navigator as any).standalone === true) ||
         localStorage.getItem("brnsic_is_installed") === "true";
@@ -1516,9 +1524,13 @@ export default function BrnsicMusicPage() {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         if (isPlayingRef.current) {
-          if (silentAudioRef.current && silentAudioRef.current.paused) {
-            silentAudioRef.current.volume = 0;
-            silentAudioRef.current.play().catch(() => {});
+          if (silentAudioRef.current) {
+            try {
+              silentAudioRef.current.volume = 1;
+              if (silentAudioRef.current.paused) {
+                silentAudioRef.current.play().catch(() => {});
+              }
+            } catch (e) {}
           }
           if (ytPlayerRef.current) {
             try {
@@ -1542,9 +1554,13 @@ export default function BrnsicMusicPage() {
   }, []);
 
   const startBackgroundKeepalive = () => {
-    if (silentAudioRef.current && isPlayingRef.current) {
-      silentAudioRef.current.volume = 0;
-      silentAudioRef.current.play().catch(() => {});
+    if (silentAudioRef.current) {
+      try {
+        silentAudioRef.current.volume = 1;
+        if (silentAudioRef.current.paused) {
+          silentAudioRef.current.play().catch(() => {});
+        }
+      } catch (e) {}
     }
     if (typeof window !== "undefined" && "wakeLock" in navigator) {
       try {
@@ -1555,7 +1571,9 @@ export default function BrnsicMusicPage() {
 
   const stopBackgroundKeepalive = () => {
     if (silentAudioRef.current) {
-      silentAudioRef.current.pause();
+      try {
+        silentAudioRef.current.pause();
+      } catch (e) {}
     }
   };
 
@@ -2371,14 +2389,20 @@ export default function BrnsicMusicPage() {
     if (typeof window === "undefined" || !("mediaSession" in navigator)) return;
 
     try {
+      const coverUrl = currentTrack.cover?.startsWith("http")
+        ? currentTrack.cover
+        : `https://brnsic.vercel.app${currentTrack.cover || "/app-icon.png"}`;
+
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist,
-        album: currentTrack.album || "Brnsic Liquid Audio",
+        album: currentTrack.album || "Brnsic",
         artwork: [
-          { src: currentTrack.cover || "/app-icon.png", sizes: "96x96", type: "image/png" },
-          { src: currentTrack.cover || "/app-icon.png", sizes: "192x192", type: "image/png" },
-          { src: currentTrack.cover || "/app-icon.png", sizes: "512x512", type: "image/png" }
+          { src: coverUrl, sizes: "96x96", type: "image/png" },
+          { src: coverUrl, sizes: "128x128", type: "image/png" },
+          { src: coverUrl, sizes: "192x192", type: "image/png" },
+          { src: coverUrl, sizes: "256x256", type: "image/png" },
+          { src: coverUrl, sizes: "512x512", type: "image/png" }
         ]
       });
 
@@ -2406,7 +2430,29 @@ export default function BrnsicMusicPage() {
         navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
       } catch (e) {}
     }
+    if (isPlaying) {
+      startBackgroundKeepalive();
+    } else {
+      stopBackgroundKeepalive();
+    }
   }, [isPlaying]);
+
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      "mediaSession" in navigator &&
+      "setPositionState" in navigator.mediaSession &&
+      currentTrack.duration > 0
+    ) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(1, currentTrack.duration),
+          playbackRate: isPlaying ? 1 : 0,
+          position: Math.min(currentTrack.duration, Math.max(0, currentTime))
+        });
+      } catch (e) {}
+    }
+  }, [currentTime, isPlaying, currentTrack.duration]);
 
   // Universal Player: Plays ANY song with Stale Race-Condition Guard & Taste Intelligence
   const playAnySong = async (
@@ -3166,7 +3212,7 @@ export default function BrnsicMusicPage() {
           ref={silentAudioRef}
           src="/audio/silence.wav"
           loop
-          preload="none"
+          preload="auto"
           playsInline
         />
       </div>
