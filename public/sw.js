@@ -1,9 +1,8 @@
-// Brnsic PWA Service Worker v2.4
+// Brnsic PWA Service Worker v2.6
 // Provides offline caching and background media support
 
-const CACHE_NAME = "brnsic-cache-v2.4";
+const CACHE_NAME = "brnsic-cache-v2.6";
 const STATIC_ASSETS = [
-  "/",
   "/manifest.json",
   "/favicon.png",
   "/app-icon.png",
@@ -47,29 +46,46 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-First for HTML navigation so updates in installed APK/PWA are INSTANT!
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cached) => cached || caches.match("/"));
+        })
+    );
+    return;
+  }
+
+  // Stale-While-Revalidate for static assets (images, fonts, bundles)
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        // Cache static image and font assets dynamically
-        if (
-          response &&
-          response.status === 200 &&
-          (event.request.url.endsWith(".png") ||
-            event.request.url.endsWith(".jpg") ||
-            event.request.url.endsWith(".woff") ||
-            event.request.url.endsWith(".woff2"))
-        ) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => {
-        // Fallback for offline navigation
-        if (event.request.mode === "navigate") {
-          return caches.match("/");
-        }
-      });
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (
+            networkResponse &&
+            networkResponse.status === 200 &&
+            (event.request.url.endsWith(".png") ||
+              event.request.url.endsWith(".jpg") ||
+              event.request.url.endsWith(".woff") ||
+              event.request.url.endsWith(".woff2") ||
+              event.request.url.includes("_next/static"))
+          ) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => cached);
+
+      return cached || fetchPromise;
     })
   );
 });

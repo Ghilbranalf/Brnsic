@@ -1039,7 +1039,12 @@ export default function BrnsicMusicPage() {
 
     // Register PWA Service Worker for Offline Cache & Background Audio Engine
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          reg.update().catch(() => {});
+        })
+        .catch(() => {});
     }
 
     const handler = (e: any) => {
@@ -1060,7 +1065,7 @@ export default function BrnsicMusicPage() {
     // Automatic Update Check via /api/version
     const checkAppVersion = async () => {
       try {
-        const res = await fetch("/api/version");
+        const res = await fetch(`/api/version?t=${Date.now()}`, { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           const storedVer = localStorage.getItem("brnsic_app_version");
@@ -1074,7 +1079,7 @@ export default function BrnsicMusicPage() {
       } catch (e) {}
     };
     checkAppVersion();
-    const updateInterval = setInterval(checkAppVersion, 90000);
+    const updateInterval = setInterval(checkAppVersion, 25000);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
@@ -5940,6 +5945,36 @@ export default function BrnsicMusicPage() {
                     Keluar dari Akun (Logout)
                   </button>
                 )}
+
+                <button
+                  onClick={async () => {
+                    showToast("Memperbarui & membersihkan cache...");
+                    try {
+                      if ("caches" in window) {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map((k) => caches.delete(k)));
+                      }
+                      if ("serviceWorker" in navigator) {
+                        const regs = await navigator.serviceWorker.getRegistrations();
+                        for (const reg of regs) {
+                          await reg.unregister();
+                        }
+                      }
+                      localStorage.removeItem("brnsic_app_version");
+                    } catch (e) {}
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 400);
+                  }}
+                  className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-semibold text-xs transition flex items-center justify-center gap-1.5"
+                  title="Bersihkan cache lokal & muat versi terbaru"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                  <span>Perbarui Aplikasi (Refresh Cache)</span>
+                </button>
               </div>
             </div>
 
@@ -6394,9 +6429,19 @@ export default function BrnsicMusicPage() {
 
             <div className="w-full flex flex-col gap-2.5 mt-2">
               <button
-                onClick={() => {
+                onClick={async () => {
                   try {
                     localStorage.setItem("brnsic_app_version", updateInfo.version);
+                    if ("caches" in window) {
+                      const keys = await caches.keys();
+                      await Promise.all(keys.map((k) => caches.delete(k)));
+                    }
+                    if ("serviceWorker" in navigator) {
+                      const regs = await navigator.serviceWorker.getRegistrations();
+                      for (const reg of regs) {
+                        await reg.update().catch(() => {});
+                      }
+                    }
                   } catch (e) {}
                   setIsUpdateModalOpen(false);
                   window.location.reload();
