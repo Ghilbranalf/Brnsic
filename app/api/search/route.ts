@@ -7,8 +7,8 @@ const POPULAR_SEARCH_INDEX = [
     artist: "Sal Priadi",
     album: "MARKERS AND SUCH PENS FLASHDISKS",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
-    duration: 234,
-    youtubeId: "gu6rT1Jelis",
+    duration: 210,
+    youtubeId: "kv2WIY8RLQQ",
     tags: ["bunga", "matahari", "gala", "matahri", "sal", "priadi", "markers"]
   },
   {

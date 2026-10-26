@@ -96,9 +96,9 @@ const DEFAULT_CATALOG: Track[] = [
     artist: "Sal Priadi",
     album: "MARKERS AND SUCH PENS FLASHDISKS",
     year: "2024",
-    duration: 234,
+    duration: 210,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
-    youtubeId: "gu6rT1Jelis",
+    youtubeId: "kv2WIY8RLQQ",
     plays: "290M+ Streams",
     lyrics: [
       { time: 0, text: "(Intro Piano)" },
@@ -319,8 +319,8 @@ const POPULAR_SEARCH_CATALOG = [
     artist: "Sal Priadi",
     album: "MARKERS AND SUCH PENS FLASHDISKS",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
-    duration: 234,
-    youtubeId: "gu6rT1Jelis",
+    duration: 210,
+    youtubeId: "kv2WIY8RLQQ",
     tags: ["bunga", "matahari", "gala", "matahri", "sal", "priadi", "markers"]
   },
   {
@@ -1128,6 +1128,8 @@ export default function BrnsicMusicPage() {
     | "album"
     | "custom-playlist"
     | "queue"
+    | "liked"
+    | "playlists"
   >("home");
   const [homeFilter, setHomeFilter] = useState<"all" | "top-indo" | "most-played" | "viral" | "global">("all");
 
@@ -1395,9 +1397,19 @@ export default function BrnsicMusicPage() {
     // Handle URL search params (Google Direct OAuth redirect)
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get("token");
+      if (urlToken) {
+        try {
+          localStorage.setItem("brnsic_auth_token", urlToken);
+        } catch (e) {}
+      }
+
       if (urlParams.get("login_success") === "true") {
         showToast("Login Google Berhasil! Selamat datang di Brnsic.");
         window.history.replaceState(null, "", window.location.pathname);
+        if (urlToken) {
+          checkAuthSession(urlToken);
+        }
       } else if (urlParams.get("auth_error")) {
         setAuthError(decodeURIComponent(urlParams.get("auth_error") || "Gagal masuk"));
         setIsAuthModalOpen(true);
@@ -1419,6 +1431,11 @@ export default function BrnsicMusicPage() {
           .then((d) => {
             if (d.user) {
               setCurrentUser(d.user);
+              if (d.token) {
+                try {
+                  localStorage.setItem("brnsic_auth_token", d.token);
+                } catch (e) {}
+              }
               if (d.user.taste) {
                 setUserTaste(d.user.taste);
                 const dbVector = buildUserTasteVector(
@@ -1438,13 +1455,25 @@ export default function BrnsicMusicPage() {
     }
 
     // Check Cloud Session (Supabase / Next.js Auth)
-    const checkAuthSession = async () => {
+    const checkAuthSession = async (explicitToken?: string) => {
       try {
-        const res = await fetch("/api/auth/me");
+        const token =
+          explicitToken ||
+          (typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null);
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const res = await fetch("/api/auth/me", {
+          headers,
+          cache: "no-store",
+          credentials: "include"
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.authenticated && data.user) {
             setCurrentUser(data.user);
+            setIsAuthModalOpen(false);
             if (data.user.taste) {
               setUserTaste(data.user.taste);
               const dbVector = buildUserTasteVector(
@@ -1464,15 +1493,6 @@ export default function BrnsicMusicPage() {
             }
             if (!data.user.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
               setIsOnboardingModalOpen(true);
-            }
-          } else {
-            // Unauthenticated: Prompt login once on entry so user knows they must log in to store data
-            const prompted = sessionStorage.getItem("brnsic_login_prompted");
-            if (!prompted) {
-              sessionStorage.setItem("brnsic_login_prompted", "true");
-              setTimeout(() => {
-                setIsAuthModalOpen(true);
-              }, 1200);
             }
           }
         }
@@ -1902,6 +1922,12 @@ export default function BrnsicMusicPage() {
       setIsAuthModalOpen(false);
       setGoogleEmail("");
 
+      if (data.token) {
+        try {
+          localStorage.setItem("brnsic_auth_token", data.token);
+        } catch (e) {}
+      }
+
       try {
         localStorage.setItem("brnsic_last_gmail", targetEmail);
       } catch (e) {}
@@ -1947,6 +1973,9 @@ export default function BrnsicMusicPage() {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {}
+    try {
+      localStorage.removeItem("brnsic_auth_token");
     } catch (e) {}
     setCurrentUser(null);
     setIsProfileDropdownOpen(false);
@@ -2150,7 +2179,7 @@ export default function BrnsicMusicPage() {
 
         ytPlayerRef.current = new window.YT.Player("master-yt-player", {
           host: "https://www.youtube-nocookie.com",
-          videoId: currentTrack.youtubeId || "gu6rT1Jelis",
+          videoId: currentTrack.youtubeId || "kv2WIY8RLQQ",
           playerVars: {
             autoplay: 0, // Starts PAUSED! No sudden blast of sound!
             controls: 0,
@@ -2467,11 +2496,11 @@ export default function BrnsicMusicPage() {
       )
         .then((r) => r.json())
         .then((d) => {
-          const vid = d.videoId || "gu6rT1Jelis";
+          const vid = d.videoId || "kv2WIY8RLQQ";
           startAudio(vid);
         })
         .catch(() => {
-          startAudio("gu6rT1Jelis");
+          startAudio("kv2WIY8RLQQ");
         });
     }
 
@@ -3827,7 +3856,7 @@ export default function BrnsicMusicPage() {
                 <div className="absolute top-0 right-0 w-96 h-96 bg-[#1ed760]/10 rounded-full blur-3xl pointer-events-none"></div>
                 <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl shadow-2xl bg-gradient-to-br from-[#1ed760] via-[#0f8b3c] to-[#053617] flex items-center justify-center text-black flex-shrink-0 relative z-10 shadow-[0_15px_40px_rgba(30,215,96,0.3)]">
                   <svg width="68" height="68" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1 text-center sm:text-left relative z-10">
@@ -3908,7 +3937,7 @@ export default function BrnsicMusicPage() {
                       <div className="text-center py-20 text-[#b3b3b3]">
                         <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 text-[#1ed760]">
                           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                            <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                           </svg>
                         </div>
                         <p className="text-base font-bold text-white mb-1">Belum ada lagu yang kamu sukai</p>
@@ -3959,7 +3988,7 @@ export default function BrnsicMusicPage() {
                             title="Hapus dari Lagu Disukai"
                           >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                              <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                             </svg>
                           </button>
                         </div>
@@ -3970,6 +3999,175 @@ export default function BrnsicMusicPage() {
               </div>
             </div>
           )}
+
+          {/* VIEW: MY PLAYLIST (KOLEKSI PLAYLIST PRIBADI) */}
+          {currentView === "playlists" && (
+            <div>
+              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#1ed760]/20 to-black md:to-[#121212] flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6 min-h-[220px] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#1ed760]/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 relative z-10 w-full sm:w-auto text-center sm:text-left">
+                  <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl shadow-2xl bg-gradient-to-br from-[#1ed760] via-[#0f8b3c] to-[#053617] flex items-center justify-center text-black flex-shrink-0 shadow-[0_15px_35px_rgba(30,215,96,0.3)]">
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 18V5l12-2v13" />
+                      <circle cx="6" cy="18" r="3" fill="currentColor" />
+                      <circle cx="18" cy="16" r="3" fill="currentColor" />
+                    </svg>
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#1ed760]">
+                      Koleksi Musik
+                    </span>
+                    <h1 className="text-3xl sm:text-5xl font-black text-white my-1.5 tracking-tight">
+                      My Playlist
+                    </h1>
+                    <p className="text-xs sm:text-sm text-white/70">
+                      {userPlaylists.length} Playlist • {currentUser ? currentUser.name : "Koleksi Kamu"}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsCreatePlaylistModalOpen(true)}
+                  className="bg-white hover:bg-neutral-100 text-black font-bold text-xs px-5 py-3 rounded-full hover:scale-105 active:scale-95 transition shadow flex items-center gap-2 relative z-10"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  <span>Buat Playlist Baru</span>
+                </button>
+              </div>
+
+              {/* Playlists Grid */}
+              <div className="p-4 sm:p-6 flex flex-col gap-6">
+                {userPlaylists.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                    <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 mb-2">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9 18V5l12-2v13" />
+                        <circle cx="6" cy="18" r="3" />
+                        <circle cx="18" cy="16" r="3" />
+                      </svg>
+                    </div>
+                    <div className="text-base font-bold text-white">Belum Ada Playlist Pribadi</div>
+                    <p className="text-xs text-[#b3b3b3] max-w-sm">
+                      Kumpulkan lagu-lagu favoritmu dalam playlist khusus untuk didengarkan kapan saja.
+                    </p>
+                    <button
+                      onClick={() => setIsCreatePlaylistModalOpen(true)}
+                      className="mt-2 bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs px-5 py-2.5 rounded-full hover:scale-105 active:scale-95 transition shadow-[0_0_15px_rgba(30,215,96,0.3)]"
+                    >
+                      + Buat Playlist Pertama
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {userPlaylists.map((pl) => (
+                      <div
+                        key={pl.id}
+                        onClick={() => openCustomPlaylist(pl)}
+                        className="group bg-[#181818] hover:bg-[#282828] p-3.5 rounded-2xl cursor-pointer transition-all duration-300 flex flex-col gap-3 relative border border-white/5 hover:border-white/10"
+                      >
+                        <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#242424] shadow-md">
+                          <img
+                            src={pl.cover || "/app-icon.png"}
+                            alt={pl.name}
+                            onError={handleImgError}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (pl.songs && pl.songs.length > 0) {
+                                handlePlayFromList(pl.songs[0], pl.songs, 0);
+                              } else {
+                                openCustomPlaylist(pl);
+                              }
+                            }}
+                            className="absolute bottom-2.5 right-2.5 w-10 h-10 rounded-full bg-[#1ed760] text-black flex items-center justify-center opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95 transition-all shadow-xl"
+                            title="Putar Playlist"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-white truncate group-hover:text-[#1ed760] transition-colors">
+                            {pl.name}
+                          </div>
+                          <div className="text-xs text-[#b3b3b3] mt-0.5 truncate">
+                            Playlist • {pl.songs?.length || 0} lagu
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Quick Access to System Playlists */}
+                <div className="mt-4 pt-6 border-t border-white/10">
+                  <h3 className="text-sm font-bold text-white mb-3">Koleksi Populer</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <button
+                      onClick={() => setCurrentView("liked")}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-left flex items-center gap-3 transition"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-[#1ed760]/20 text-[#1ed760] flex items-center justify-center flex-shrink-0">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate">Lagu yang Disukai</div>
+                        <div className="text-[10px] text-[#b3b3b3]">{likedSongIds.length} lagu</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => setCurrentView("top50-indo")}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-left flex items-center gap-3 transition"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-[#bc5900]/20 text-[#bc5900] flex items-center justify-center font-black text-xs flex-shrink-0">
+                        TOP
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate">Top 50 Indonesia</div>
+                        <div className="text-[10px] text-[#b3b3b3]">Chart harian</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => setCurrentView("most-played-indo")}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-left flex items-center gap-3 transition"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-[#006450]/20 text-[#006450] flex items-center justify-center font-black text-xs flex-shrink-0">
+                        HITS
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate">Sering Diputar</div>
+                        <div className="text-[10px] text-[#b3b3b3]">Bernadya, Hindia</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => setCurrentView("viral-indo")}
+                      className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-left flex items-center gap-3 transition"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-[#e8115b]/20 text-[#e8115b] flex items-center justify-center font-black text-xs flex-shrink-0">
+                        VIRAL
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate">Viral 50</div>
+                        <div className="text-[10px] text-[#b3b3b3]">TikTok &amp; Reels</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {(currentView === "top50-indo" ||
             currentView === "most-played-indo" ||
             currentView === "viral-indo" ||
@@ -5239,7 +5437,7 @@ export default function BrnsicMusicPage() {
               title={isCurrentTrackLiked ? "Hapus dari Favorit" : "Suka Lagu Ini"}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill={isCurrentTrackLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
               </svg>
             </button>
           </div>
@@ -5335,7 +5533,7 @@ export default function BrnsicMusicPage() {
                 title={isCurrentTrackLiked ? "Hapus dari Favorit" : "Suka Lagu Ini"}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill={isCurrentTrackLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                 </svg>
               </button>
               <button
@@ -5598,7 +5796,7 @@ export default function BrnsicMusicPage() {
                 title="Suka Lagu Ini"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill={isCurrentTrackLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                 </svg>
               </button>
               <button
@@ -5683,7 +5881,7 @@ export default function BrnsicMusicPage() {
                 title="Lagu yang Disukai"
               >
                 <svg width="22" height="22" viewBox="0 0 24 24" fill={currentView === "liked" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                 </svg>
               </button>
 
@@ -5706,33 +5904,24 @@ export default function BrnsicMusicPage() {
                 </svg>
               </button>
 
-              {/* Tab 4: Profile (Akun) */}
+              {/* Tab 4: My Playlist */}
               <button
                 onClick={() => {
-                  if (currentUser) {
-                    setIsProfileModalOpen(true);
-                  } else {
-                    setAuthError(null);
-                    setIsAuthModalOpen(true);
-                  }
+                  setMobileNavTab("library");
+                  setCurrentView("playlists");
                 }}
                 className={`relative flex items-center justify-center transition-all duration-300 ${
-                  isProfileModalOpen || isAuthModalOpen
+                  currentView === "playlists" || currentView === "custom-playlist"
                     ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
                     : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
                 }`}
-                title={currentUser ? `Profil: ${currentUser.name}` : "Masuk Akun"}
+                title="My Playlist"
               >
-                {currentUser ? (
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center ${isProfileModalOpen ? "bg-black text-[#1ed760]" : "bg-white text-black"} font-black text-xs select-none shadow-sm`}>
-                    {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                  </div>
-                ) : (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isProfileModalOpen || isAuthModalOpen ? "2.5" : "2"}>
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
-                )}
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={currentView === "playlists" || currentView === "custom-playlist" ? "2.5" : "2"}>
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" fill={currentView === "playlists" || currentView === "custom-playlist" ? "currentColor" : "none"} />
+                  <circle cx="18" cy="16" r="3" fill={currentView === "playlists" || currentView === "custom-playlist" ? "currentColor" : "none"} />
+                </svg>
               </button>
             </nav>
           </div>
@@ -6038,7 +6227,7 @@ export default function BrnsicMusicPage() {
                       title={isCurrentTrackLiked ? "Hapus dari Favorit" : "Suka Lagu Ini"}
                     >
                       <svg width="24" height="24" viewBox="0 0 24 24" fill={isCurrentTrackLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                       </svg>
                     </button>
                     <button
@@ -6242,7 +6431,7 @@ export default function BrnsicMusicPage() {
                   </div>
                   <button onClick={() => toggleLike(currentTrack.id)} className={`p-1.5 ${isCurrentTrackLiked ? "text-[#1ed760]" : "text-white/40"}`}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill={isCurrentTrackLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                      <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                     </svg>
                   </button>
                 </div>
@@ -6783,6 +6972,9 @@ export default function BrnsicMusicPage() {
                 />
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white">Masuk ke Brnsic</h2>
+              <p className="text-xs text-[#b3b3b3] max-w-[260px] leading-relaxed">
+                Simpan lagu favorit dan sinkronkan playlist musikmu.
+              </p>
             </div>
 
             {/* Error Banner */}
@@ -7166,29 +7358,29 @@ export default function BrnsicMusicPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm liquid-glass rounded-3xl p-6 flex flex-col items-center gap-4 border border-white/10 shadow-2xl relative text-center"
+            className="w-full max-w-xs liquid-glass rounded-3xl p-5 flex flex-col items-center gap-3 border border-white/10 shadow-2xl relative text-center"
           >
             {/* Ambient Logo Glow */}
             <div className="relative flex items-center justify-center my-1">
-              <div className="absolute inset-0 rounded-full bg-[#1ed760]/25 blur-2xl animate-pulse"></div>
+              <div className="absolute inset-0 rounded-full bg-[#1ed760]/20 blur-xl"></div>
               <img
                 src="/brnsic-loader-logo.png"
                 alt="Brnsic Logo"
-                className="w-16 h-16 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+                className="w-12 h-12 object-contain relative z-10"
               />
             </div>
 
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#1ed760] bg-[#1ed760]/10 border border-[#1ed760]/30 px-3 py-1 rounded-full inline-block mb-2">
-                Pembaruan Tersedia • v{updateInfo.version}
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#1ed760] bg-[#1ed760]/10 border border-[#1ed760]/25 px-2.5 py-0.5 rounded-full inline-block mb-1.5">
+                Pembaruan • v{updateInfo.version}
               </span>
-              <h2 className="text-xl font-black text-white">{updateInfo.title || "Versi Baru Siap Digunakan!"}</h2>
-              <p className="text-xs text-[#b3b3b3] mt-2 leading-relaxed">
-                {updateInfo.notes || "Versi terbaru Brnsic telah hadir dengan fitur dan perbaikan terkini."}
+              <h2 className="text-base font-bold text-white">{updateInfo.title || "Pembaruan Siap Digunakan"}</h2>
+              <p className="text-xs text-[#b3b3b3] mt-1 leading-snug">
+                {updateInfo.notes || "Pembaruan performa dan stabilitas sistem."}
               </p>
             </div>
 
-            <div className="w-full flex flex-col gap-2.5 mt-2">
+            <div className="w-full flex flex-col gap-2 mt-1">
               <button
                 onClick={async () => {
                   try {
@@ -7207,9 +7399,9 @@ export default function BrnsicMusicPage() {
                   setIsUpdateModalOpen(false);
                   window.location.reload();
                 }}
-                className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_20px_rgba(30,215,96,0.4)] flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_15px_rgba(30,215,96,0.3)] flex items-center justify-center gap-1.5"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="23 4 23 10 17 10"></polyline>
                   <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
                 </svg>
@@ -7218,9 +7410,9 @@ export default function BrnsicMusicPage() {
 
               <button
                 onClick={() => setIsUpdateModalOpen(false)}
-                className="w-full py-2.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-bold text-xs transition"
+                className="w-full py-1.5 rounded-full text-white/50 hover:text-white font-medium text-xs transition"
               >
-                Nanti Saja
+                Nanti
               </button>
             </div>
           </div>

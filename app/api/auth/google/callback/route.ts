@@ -80,7 +80,8 @@ export async function GET(req: NextRequest) {
     // 4. Create secure JWT session token
     const sessionToken = createSessionToken(user.id, user.email);
 
-    const redirectResponse = NextResponse.redirect(new URL("/?login_success=true", origin));
+    const redirectUrl = new URL(`/?login_success=true&token=${encodeURIComponent(sessionToken)}`, origin);
+    const redirectResponse = NextResponse.redirect(redirectUrl);
     redirectResponse.cookies.set("brnsic_session", sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

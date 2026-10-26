@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 // Curated verified YouTube Studio Master IDs (100% Official Audio, 0s movie/dialogue intro)
 const VERIFIED_MAP: Record<string, string> = {
   // Sal Priadi (100% Pure Label Studio Master)
-  "sal priadi gala bunga matahari": "gu6rT1Jelis",
-  "gala bunga matahari": "gu6rT1Jelis",
+  "sal priadi gala bunga matahari": "kv2WIY8RLQQ",
+  "gala bunga matahari": "kv2WIY8RLQQ",
   "sal priadi dari planet lain": "Xd-L2O4taPI",
   "dari planet lain": "Xd-L2O4taPI",
   "sal priadi mesra mesraannya kecil kecilan dulu": "cezEWo5WlIE",
