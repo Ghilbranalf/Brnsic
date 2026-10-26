@@ -139,10 +139,78 @@ const MOST_PLAYED_INDONESIA = [
   }
 ];
 
+const FALLBACK_COVER =
+  "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=600&auto=format&fit=crop";
+
+async function parseSpotifyKworb(url: string, limit = 50): Promise<any[]> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+      next: { revalidate: 900 }
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+    const rows = html.split("<tr");
+    const tracks: any[] = [];
+
+    for (const row of rows) {
+      if (!row.includes('<td class="text mp">')) continue;
+      const rankMatch = row.match(/<td class="np">(\d+)<\/td>/);
+      const rank = rankMatch ? parseInt(rankMatch[1], 10) : tracks.length + 1;
+      const trackMatch = row.match(/<td class="text mp"><div><a[^>]*>(.*?)<\/a>\s*-\s*<a[^>]*href="\.\.\/track\/([a-zA-Z0-9]+)\.html"[^>]*>(.*?)<\/a>/);
+      if (trackMatch) {
+        const artist = trackMatch[1].replace(/<[^>]+>/g, "").trim();
+        const spotifyId = trackMatch[2].trim();
+        const title = trackMatch[3].replace(/<[^>]+>/g, "").trim();
+        const streamsMatch = row.match(/<td>([0-9,]+)<\/td>/);
+        const streams = streamsMatch ? `${streamsMatch[1]} Streams` : "Spotify Daily Hit";
+
+        tracks.push({
+          id: `spotify-${spotifyId}`,
+          spotifyId,
+          title,
+          artist,
+          album: "Spotify Top 50",
+          duration: 215,
+          cover: FALLBACK_COVER,
+          plays: streams,
+          rank,
+          source: "spotify",
+          youtubeQuery: `${artist} - ${title} official audio`
+        });
+        if (tracks.length >= limit) break;
+      }
+    }
+
+    // Resolve high-resolution Spotify album covers in parallel for the top tracks
+    const coverPromises = tracks.slice(0, 30).map(async (t) => {
+      try {
+        const oembedRes = await fetch(
+          `https://open.spotify.com/oembed?url=https://open.spotify.com/track/${t.spotifyId}`,
+          { next: { revalidate: 86400 } }
+        );
+        if (oembedRes.ok) {
+          const d = await oembedRes.json();
+          if (d.thumbnail_url) {
+            t.cover = d.thumbnail_url.replace("1e02", "b273");
+          }
+        }
+      } catch (e) {}
+    });
+
+    await Promise.allSettled(coverPromises);
+    return tracks;
+  } catch (e) {
+    return [];
+  }
+}
+
 export async function GET() {
   try {
-    // Parallel fetch real-time charts without emoji or broken URLs
-    const [itunesIDRes, deezerGlobalRes, deezerArtistsRes] = await Promise.allSettled([
+    // Parallel fetch real-time Spotify daily charts with Apple Music & Deezer fallbacks
+    const [spotifyIndoRes, spotifyGlobalRes, itunesIDRes, deezerGlobalRes, deezerArtistsRes] = await Promise.allSettled([
+      parseSpotifyKworb("https://kworb.net/spotify/country/id_daily.html", 50),
+      parseSpotifyKworb("https://kworb.net/spotify/country/global_daily.html", 30),
       fetch("https://itunes.apple.com/id/rss/topsongs/limit=50/json", { next: { revalidate: 900 } }),
       fetch("https://api.deezer.com/chart/0/tracks?limit=30", { next: { revalidate: 900 } }),
       fetch("https://api.deezer.com/chart/0/artists?limit=18", { next: { revalidate: 900 } })
@@ -153,8 +221,11 @@ export async function GET() {
     let globalTrending: any[] = [];
     let popularArtists: any[] = [];
 
-    // Parse Live Official Indonesia Top 50
-    if (itunesIDRes.status === "fulfilled" && itunesIDRes.value.ok) {
+    // 1. Use real Spotify Top 50 Indonesia if available
+    if (spotifyIndoRes.status === "fulfilled" && spotifyIndoRes.value.length > 0) {
+      indonesiaTop50 = spotifyIndoRes.value;
+      viralIndonesia = indonesiaTop50.slice(0, 15);
+    } else if (itunesIDRes.status === "fulfilled" && itunesIDRes.value.ok) {
       const data = await itunesIDRes.value.json();
       const entries = data?.feed?.entry || [];
       indonesiaTop50 = entries.map((entry: any, i: number) => {
@@ -173,12 +244,13 @@ export async function GET() {
           youtubeQuery: `${entry["im:artist"]?.label} - ${entry["im:name"]?.label}`
         };
       });
-
       viralIndonesia = indonesiaTop50.slice(0, 15);
     }
 
-    // Parse Deezer Global Chart
-    if (deezerGlobalRes.status === "fulfilled" && deezerGlobalRes.value.ok) {
+    // 2. Use real Spotify Top 50 Global if available
+    if (spotifyGlobalRes.status === "fulfilled" && spotifyGlobalRes.value.length > 0) {
+      globalTrending = spotifyGlobalRes.value;
+    } else if (deezerGlobalRes.status === "fulfilled" && deezerGlobalRes.value.ok) {
       const data = await deezerGlobalRes.value.json();
       if (data && data.data) {
         globalTrending = data.data.map((t: any) => ({

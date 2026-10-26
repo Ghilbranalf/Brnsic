@@ -60,9 +60,6 @@ const VERIFIED_MAP: Record<string, string> = {
   // Denny Caknan & Koplo
   "denny caknan sigar": "s525A0Bc3z4",
   "sigar": "s525A0Bc3z4",
-  "6sentani only siji": "hQ1dTDQytjM",
-  "sentani only siji": "hQ1dTDQytjM",
-  "only siji": "hQ1dTDQytjM",
 
   // Rio Clappy
   "rio clappy bunga abadi": "fPMB2H450iI",

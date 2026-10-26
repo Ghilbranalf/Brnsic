@@ -147,15 +147,6 @@ const POPULAR_SEARCH_INDEX = [
     tags: ["komang", "raim", "laode"]
   },
   {
-    title: "6sentani Only Siji",
-    artist: "6sentani",
-    album: "Only Siji - Single",
-    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
-    duration: 260,
-    youtubeId: "hQ1dTDQytjM",
-    tags: ["6sentani", "sentani", "only", "siji", "koplo"]
-  },
-  {
     title: "Die With A Smile",
     artist: "Lady Gaga, Bruno Mars",
     album: "Die With A Smile - Single",
@@ -287,7 +278,7 @@ export async function GET(request: Request) {
       }
     } catch (e) {}
 
-    // Combine results: popular verified always on top, then iTunes, then YouTube
+    // Combine results and rank TITLE MATCHES first before artist matches
     const seen = new Set<string>();
     const combined: any[] = [];
 
@@ -303,6 +294,25 @@ export async function GET(request: Request) {
         combined.push(item);
       }
     }
+
+    // Rank TITLE matches first, then artist matches!
+    const getScore = (item: any) => {
+      const t = (item.trackName || "").toLowerCase().trim();
+      const a = (item.artistName || "").toLowerCase().trim();
+
+      if (t === queryClean) return 2000;
+      if (t.startsWith(queryClean)) return 1500;
+      if (t.includes(queryClean)) return 1000;
+
+      const matchedTokensInTitle = queryWords.filter((w) => t.includes(w));
+      if (matchedTokensInTitle.length > 0) return 500 + matchedTokensInTitle.length * 100;
+
+      if (a === queryClean) return 200;
+      if (a.includes(queryClean)) return 100;
+      return 10;
+    };
+
+    combined.sort((x, y) => getScore(y) - getScore(x));
 
     return NextResponse.json({ results: combined.slice(0, 30) });
   } catch (err: any) {

@@ -268,21 +268,6 @@ const DEFAULT_CATALOG: Track[] = [
     ]
   },
   {
-    id: "6sentani-only-siji",
-    title: "6sentani Only Siji",
-    artist: "6sentani",
-    album: "Only Siji - Single",
-    year: "2024",
-    duration: 260,
-    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
-    youtubeId: "hQ1dTDQytjM",
-    plays: "80M+ Streams",
-    lyrics: [
-      { time: 0, text: "(Intro Dangdut Koplo)" },
-      { time: 12.0, text: "Mung siji koe neng atiku" }
-    ]
-  },
-  {
     id: "rio-clappy-bunga-abadi",
     title: "Bunga Abadi",
     artist: "Rio Clappy",
@@ -428,15 +413,6 @@ const POPULAR_SEARCH_CATALOG = [
     tags: ["bunga", "abadi", "rio", "clappy"]
   },
   {
-    title: "6sentani Only Siji",
-    artist: "6sentani",
-    album: "Only Siji - Single",
-    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
-    duration: 260,
-    youtubeId: "hQ1dTDQytjM",
-    tags: ["6sentani", "sentani", "only", "siji", "koplo"]
-  },
-  {
     title: "Die With A Smile",
     artist: "Lady Gaga, Bruno Mars",
     album: "Die With A Smile - Single",
@@ -493,7 +469,7 @@ const derivePersona = (artistWeights: Record<string, number>): string => {
   if (top.includes("bernadya") || top.includes("mahalini") || top.includes("juicy")) {
     return "Spesialis Pop Galau & Kisah Cinta";
   }
-  if (top.includes("denny") || top.includes("sentani") || top.includes("siji")) {
+  if (top.includes("denny") || top.includes("caknan") || top.includes("koplo")) {
     return "Pecinta Dangdut Koplo Modern";
   }
   if (top.includes("sheila") || top.includes("dewa") || top.includes("andra")) {
@@ -510,7 +486,7 @@ const generateInitialTaste = (): TasteProfile => {
   const seedOptions: Array<{ name: string; weights: Record<string, number> }> = [
     { name: "indie-folk", weights: { "Sal Priadi": 3, "Hindia": 3, "Nadin Amizah": 2 } },
     { name: "pop-galau", weights: { "Bernadya": 3, "Mahalini": 2, "Juicy Luicy": 2 } },
-    { name: "koplo-modern", weights: { "Denny Caknan": 3, "6sentani": 3 } },
+    { name: "koplo-modern", weights: { "Denny Caknan": 3, "Happy Asmara": 2 } },
     { name: "nostalgia-band", weights: { "Sheila On 7": 3, "Dewa 19": 3 } },
     { name: "global-hits", weights: { "Lady Gaga, Bruno Mars": 3, "Billie Eilish": 2 } }
   ];
@@ -676,13 +652,18 @@ export default function BrnsicMusicPage() {
   const [draggedQueueIndex, setDraggedQueueIndex] = useState<number | null>(null);
   const [dragOverQueueIndex, setDragOverQueueIndex] = useState<number | null>(null);
 
-  // 11. PWA Install Modal with Real Progress Animation
+  // 11. PWA Install Modal & Installed State (Removes button once installed)
+  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
   const [installProgress, setInstallProgress] = useState<number>(0);
   const [installStatus, setInstallStatus] = useState<string>("Menyiapkan pengunduhan...");
   const [isInstallReady, setIsInstallReady] = useState<boolean>(false);
 
-  // 12. Dynamic User Taste Profile (Personalized Learning Engine)
+  // 12. Update Popup State
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
+  const [updateInfo, setUpdateInfo] = useState<{ version: string; title: string; notes: string } | null>(null);
+
+  // 13. Dynamic User Taste Profile (Personalized Learning Engine)
   const [userTaste, setUserTaste] = useState<TasteProfile>(generateInitialTaste());
 
   // References
@@ -709,14 +690,55 @@ export default function BrnsicMusicPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // 2. PWA Install Event Listener
+  // 2. PWA Install & Standalone Detection (Hides Install button when installed) + Update Checker
   useEffect(() => {
+    const checkInstalled = () => {
+      const isStandalone =
+        (typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches) ||
+        (typeof window !== "undefined" && (window.navigator as any).standalone === true) ||
+        localStorage.getItem("brnsic_is_installed") === "true";
+      setIsAppInstalled(Boolean(isStandalone));
+    };
+    checkInstalled();
+
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredInstallPrompt(e);
     };
     window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+
+    const onAppInstalled = () => {
+      setIsAppInstalled(true);
+      try {
+        localStorage.setItem("brnsic_is_installed", "true");
+      } catch (e) {}
+    };
+    window.addEventListener("appinstalled", onAppInstalled);
+
+    // Automatic Update Check via /api/version
+    const checkAppVersion = async () => {
+      try {
+        const res = await fetch("/api/version");
+        if (res.ok) {
+          const data = await res.json();
+          const storedVer = localStorage.getItem("brnsic_app_version");
+          if (!storedVer) {
+            localStorage.setItem("brnsic_app_version", data.version);
+          } else if (storedVer !== data.version) {
+            setUpdateInfo(data);
+            setIsUpdateModalOpen(true);
+          }
+        }
+      } catch (e) {}
+    };
+    checkAppVersion();
+    const updateInterval = setInterval(checkAppVersion, 90000);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", onAppInstalled);
+      clearInterval(updateInterval);
+    };
   }, []);
 
   const handleInstallClick = () => {
@@ -1453,6 +1475,24 @@ export default function BrnsicMusicPage() {
       source: "instant-popular"
     }));
 
+    // Title-First Relevance Scorer: ALWAYS ranks Song Title matches before Artist matches
+    const scoreTitleFirst = (item: any, qStr: string, tokens: string[]) => {
+      const t = (item.trackName || item.title || "").toLowerCase().trim();
+      const a = (item.artistName || item.artist || "").toLowerCase().trim();
+
+      if (t === qStr) return 2000;
+      if (t.startsWith(qStr)) return 1500;
+      if (t.includes(qStr)) return 1000;
+
+      const matchedTokensInTitle = tokens.filter((w) => t.includes(w));
+      if (matchedTokensInTitle.length > 0) return 500 + matchedTokensInTitle.length * 100;
+
+      if (a === qStr) return 250;
+      if (a.includes(qStr)) return 150;
+
+      return 20;
+    };
+
     // Deduplicate instant matches
     const seen = new Set<string>();
     const uniqueInstant: any[] = [];
@@ -1463,6 +1503,8 @@ export default function BrnsicMusicPage() {
         uniqueInstant.push(m);
       }
     }
+
+    uniqueInstant.sort((x, y) => scoreTitleFirst(y, cleanQ, qTokens) - scoreTitleFirst(x, cleanQ, qTokens));
 
     setSearchResults(uniqueInstant);
     setIsSearching(true);
@@ -1497,6 +1539,25 @@ export default function BrnsicMusicPage() {
             merged.push(item);
           }
         }
+
+        const qClean = q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+        const qWords = qClean.split(" ").filter(Boolean);
+
+        const scoreTitle = (item: any) => {
+          const t = (item.trackName || item.title || "").toLowerCase().trim();
+          const a = (item.artistName || item.artist || "").toLowerCase().trim();
+          if (t === qClean) return 2000;
+          if (t.startsWith(qClean)) return 1500;
+          if (t.includes(qClean)) return 1000;
+          const matched = qWords.filter((w) => t.includes(w));
+          if (matched.length > 0) return 500 + matched.length * 100;
+          if (a === qClean) return 250;
+          if (a.includes(qClean)) return 150;
+          return 20;
+        };
+
+        merged.sort((x, y) => scoreTitle(y) - scoreTitle(x));
+
         setSearchResults(merged.length > 0 ? merged : existingInstant);
       }
     } catch (err) {
@@ -1704,7 +1765,7 @@ export default function BrnsicMusicPage() {
             </svg>
             <input
               type="text"
-              placeholder="Cari lagu apa saja (misal: Only Siji 6sentani, Hindia, Bernadya)..."
+              placeholder="Cari lagu apa saja (misal: Bernadya, Hindia, Sal Priadi)..."
               value={searchQuery}
               onFocus={() => {
                 if (currentView !== "search") setCurrentView("search");
@@ -1741,14 +1802,16 @@ export default function BrnsicMusicPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760]"></span>
             <span>Update: {lastChartUpdated}</span>
           </button>
-          <button
-            onClick={handleInstallClick}
-            className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-full transition border border-white/10"
-            title="Download / Install Brnsic"
-          >
-            <img src="/app-icon.png" alt="icon" className="w-4 h-4 rounded object-contain" />
-            <span>Install App</span>
-          </button>
+          {!isAppInstalled && (
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-full transition border border-white/10"
+              title="Download / Install Brnsic"
+            >
+              <img src="/app-icon.png" alt="icon" className="w-4 h-4 rounded object-contain" />
+              <span>Install App</span>
+            </button>
+          )}
           <button
             onClick={() => setIsCreatePlaylistModalOpen(true)}
             className="bg-white text-black font-bold text-xs px-4 py-2 rounded-full hover:scale-105 transition flex items-center gap-1.5 shadow"
@@ -1933,12 +1996,14 @@ export default function BrnsicMusicPage() {
                 <span className="font-black text-lg text-white">Brnsic</span>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleInstallClick}
-                  className="text-[10px] font-bold bg-white text-black px-2.5 py-1 rounded-full shadow"
-                >
-                  Install
-                </button>
+                {!isAppInstalled && (
+                  <button
+                    onClick={handleInstallClick}
+                    className="text-[10px] font-bold bg-white text-black px-2.5 py-1 rounded-full shadow"
+                  >
+                    Install
+                  </button>
+                )}
                 <button
                   onClick={() => setIsProfileModalOpen(true)}
                   className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/80 active:scale-95 transition shadow-md"
@@ -2797,7 +2862,7 @@ export default function BrnsicMusicPage() {
                   <input
                     type="search"
                     enterKeyHint="search"
-                    placeholder="Cari lagu apa saja (misal: Hindia, Bernadya, Only Siji)..."
+                    placeholder="Cari lagu apa saja (misal: Bernadya, Hindia, Sal Priadi)..."
                     value={searchQuery}
                     onChange={(e) => handleSearchInput(e.target.value)}
                     className="w-full h-12 rounded-full bg-[#242424] pl-11 pr-10 text-sm text-white placeholder-[#b3b3b3] outline-none border border-transparent focus:border-white transition"
@@ -3020,7 +3085,7 @@ export default function BrnsicMusicPage() {
                         "Dan...",
                         "Sialan",
                         "Mati-Matian",
-                        "6sentani Only Siji",
+                        "Untungnya, Hidup Harus Tetap Berjalan",
                         "Bunga Abadi",
                         "Kangen"
                       ].map((chip, idx) => (
@@ -4744,11 +4809,20 @@ export default function BrnsicMusicPage() {
                       if (outcome === "accepted") {
                         setDeferredInstallPrompt(null);
                         setIsInstallModalOpen(false);
+                        setIsAppInstalled(true);
+                        try {
+                          localStorage.setItem("brnsic_is_installed", "true");
+                        } catch (e) {}
                       }
                     } else {
+                      setIsAppInstalled(true);
+                      try {
+                        localStorage.setItem("brnsic_is_installed", "true");
+                      } catch (e) {}
                       alert(
                         "Jika konfirmasi tidak otomatis muncul: Ketuk menu browser di pojok kanan atas, lalu pilih 'Tambahkan ke Layar Utama' (Add to Home screen) atau 'Install App'."
                       );
+                      setIsInstallModalOpen(false);
                     }
                   }}
                   className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-105 active:scale-95 transition shadow-[0_0_20px_rgba(30,215,96,0.4)] flex items-center justify-center gap-2"
@@ -4762,6 +4836,67 @@ export default function BrnsicMusicPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          11. MODAL: NOTIFIKASI UPDATE / PEMBARUAN APLIKASI (USER REQUEST)
+          ==================================================================== */}
+      {isUpdateModalOpen && updateInfo && (
+        <div
+          onClick={() => setIsUpdateModalOpen(false)}
+          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm liquid-glass rounded-3xl p-6 flex flex-col items-center gap-4 border border-white/10 shadow-2xl relative text-center"
+          >
+            {/* Ambient Logo Glow */}
+            <div className="relative flex items-center justify-center my-1">
+              <div className="absolute inset-0 rounded-full bg-[#1ed760]/25 blur-2xl animate-pulse"></div>
+              <img
+                src="/brnsic-loader-logo.png"
+                alt="Brnsic Logo"
+                className="w-16 h-16 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+              />
+            </div>
+
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#1ed760] bg-[#1ed760]/10 border border-[#1ed760]/30 px-3 py-1 rounded-full inline-block mb-2">
+                Pembaruan Tersedia • v{updateInfo.version}
+              </span>
+              <h2 className="text-xl font-black text-white">{updateInfo.title || "Versi Baru Siap Digunakan!"}</h2>
+              <p className="text-xs text-[#b3b3b3] mt-2 leading-relaxed">
+                {updateInfo.notes || "Versi terbaru Brnsic telah hadir dengan fitur dan perbaikan terkini."}
+              </p>
+            </div>
+
+            <div className="w-full flex flex-col gap-2.5 mt-2">
+              <button
+                onClick={() => {
+                  try {
+                    localStorage.setItem("brnsic_app_version", updateInfo.version);
+                  } catch (e) {}
+                  setIsUpdateModalOpen(false);
+                  window.location.reload();
+                }}
+                className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_20px_rgba(30,215,96,0.4)] flex items-center justify-center gap-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+                <span>Perbarui Sekarang</span>
+              </button>
+
+              <button
+                onClick={() => setIsUpdateModalOpen(false)}
+                className="w-full py-2.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-bold text-xs transition"
+              >
+                Nanti Saja
+              </button>
+            </div>
           </div>
         </div>
       )}
