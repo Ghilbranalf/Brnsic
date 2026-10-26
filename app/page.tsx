@@ -1392,6 +1392,19 @@ export default function BrnsicMusicPage() {
     window.addEventListener("touchstart", unlockAudio, { once: true, passive: true });
     window.addEventListener("click", unlockAudio, { once: true });
 
+    // Handle URL search params (Google Direct OAuth redirect)
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("login_success") === "true") {
+        showToast("Login Google Berhasil! Selamat datang di Brnsic.");
+        window.history.replaceState(null, "", window.location.pathname);
+      } else if (urlParams.get("auth_error")) {
+        setAuthError(decodeURIComponent(urlParams.get("auth_error") || "Gagal masuk"));
+        setIsAuthModalOpen(true);
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+
     // Handle Supabase OAuth return hash (#access_token=...)
     if (typeof window !== "undefined" && window.location.hash && window.location.hash.includes("access_token=")) {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -6864,28 +6877,11 @@ export default function BrnsicMusicPage() {
               </div>
             )}
 
-            {/* Google Authentication Form (Email-only, No password required) */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleGoogleSignIn(googleEmail);
-              }}
-              className="flex flex-col gap-3 my-2 text-left"
-            >
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-white/80">Masukkan Akun Gmail Kamu</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="nama.kamu@gmail.com"
-                  value={googleEmail}
-                  onChange={(e) => setGoogleEmail(e.target.value)}
-                  className="w-full px-4 py-3.5 rounded-2xl bg-white/5 border border-white/15 text-white text-xs placeholder-white/30 focus:border-[#1ed760] focus:bg-white/10 outline-none transition"
-                />
-              </div>
-
+            {/* Official Google Cloud 1-Click SSO Action */}
+            <div className="flex flex-col gap-3 my-2">
               <button
-                type="submit"
+                type="button"
+                onClick={() => handleGoogleSignIn()}
                 disabled={isAuthSubmitting}
                 className="w-full py-4 px-6 rounded-full bg-white hover:bg-neutral-100 text-neutral-900 font-black text-sm flex items-center justify-center gap-3 transition shadow-[0_0_25px_rgba(255,255,255,0.25)] hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
               >
@@ -6895,9 +6891,9 @@ export default function BrnsicMusicPage() {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                 </svg>
-                <span>{isAuthSubmitting ? "Menghubungkan Akun Google..." : "Lanjutkan dengan Google"}</span>
+                <span>{isAuthSubmitting ? "Membuka Akun Google..." : "Lanjutkan dengan Google"}</span>
               </button>
-            </form>
+            </div>
 
             <div className="text-center pt-1">
               <span className="text-[10px] text-white/40">
