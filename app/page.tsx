@@ -3287,16 +3287,18 @@ export default function BrnsicMusicPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760]"></span>
             <span>Update: {lastChartUpdated}</span>
           </button>
-          {!isAppInstalled && (
-            <button
-              onClick={handleInstallClick}
-              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-3.5 py-2 rounded-full transition border border-white/10"
-              title="Download APK Resmi Brnsic (Android)"
-            >
-              <img src="/app-icon.png" alt="icon" className="w-4 h-4 rounded object-contain" />
-              <span>Download APK</span>
-            </button>
-          )}
+          <button
+            onClick={handleInstallClick}
+            className="flex items-center gap-1.5 bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs px-3.5 py-2 rounded-full transition shadow-[0_0_15px_rgba(30,215,96,0.3)] hover:scale-105 active:scale-95 cursor-pointer"
+            title="Download APK Resmi Brnsic (Android)"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Download APK</span>
+          </button>
           <button
             onClick={() => setIsCreatePlaylistModalOpen(true)}
             className="bg-white text-black font-bold text-xs px-4 py-2 rounded-full hover:scale-105 transition flex items-center gap-1.5 shadow"
@@ -3528,14 +3530,17 @@ export default function BrnsicMusicPage() {
                 <span className="font-black text-lg text-white">Brnsic</span>
               </div>
               <div className="flex items-center gap-2">
-                {!isAppInstalled && (
-                  <button
-                    onClick={handleInstallClick}
-                    className="text-[10px] font-bold bg-[#1ed760] text-black px-2.5 py-1 rounded-full shadow hover:scale-105 active:scale-95 transition"
-                  >
-                    Download APK
-                  </button>
-                )}
+                <button
+                  onClick={handleInstallClick}
+                  className="text-[11px] font-black bg-[#1ed760] text-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(30,215,96,0.4)] hover:scale-105 active:scale-95 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Download APK</span>
+                </button>
                 {currentUser ? (
                   <button
                     onClick={() => setIsProfileModalOpen(true)}
@@ -6894,6 +6899,20 @@ export default function BrnsicMusicPage() {
 
             {/* Section: Pengaturan Akun */}
             <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+              <button
+                onClick={() => {
+                  setIsProfileModalOpen(false);
+                  handleInstallClick();
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-[#1ed760]/10 hover:bg-[#1ed760]/20 text-[#1ed760] font-bold text-xs transition flex items-center justify-between cursor-pointer"
+              >
+                <span>Download APK Android Resmi</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
 
               <button
                 onClick={async () => {
