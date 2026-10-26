@@ -2,6 +2,12 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import type { SafeUser } from "@/lib/auth";
+import {
+  buildUserTasteVector,
+  trainUserVectorOnInteraction,
+  rankTracksByDeepLearning,
+  type FeatureVector
+} from "@/lib/recommendation";
 
 // --- Types ---
 interface LyricLine {
@@ -85,59 +91,6 @@ const handleImgError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
 // Rich Master Catalog (Diverse hits so playback never feels empty or repetitive)
 const DEFAULT_CATALOG: Track[] = [
   {
-    id: "bernadya-satu-bulan",
-    title: "Satu Bulan",
-    artist: "Bernadya",
-    album: "Sialnya, Hidup Harus Tetap Berjalan",
-    year: "2024",
-    duration: 194,
-    cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
-    collectionId: 1749876880,
-    youtubeId: "7Jm2Il2U-c0",
-    plays: "320M+ Streams",
-    lyrics: [
-      { time: 0, text: "(Intro Acoustic Guitar)" },
-      { time: 7.8, text: "Belum ada satu bulan" },
-      { time: 12.91, text: "Ku yakin masih ada sisa wangiku di bajumu" },
-      { time: 18.96, text: "Namun kau tampak baik saja" },
-      { time: 23.04, text: "Bahkan senyummu lebih lepas" },
-      { time: 25.77, text: "Sedang aku di sini hampir gila" },
-      { time: 31.62, text: "Kita tak temukan jalan" },
-      { time: 37.16, text: "Sepakat akhiri setelah beribu debat panjang" },
-      { time: 43.46, text: "Namun kau tampak baik saja" },
-      { time: 48.08, text: "Bahkan senyummu lebih lepas" },
-      { time: 50.37, text: "Sedang aku di sini belum terima" },
-      { time: 56.16, text: "Bohong kah tangismu sore itu di pelukku?" },
-      { time: 62.08, text: "Nyatanya pergi ku pun tak lagi mengganggumu" },
-      { time: 67.17, text: "Apa sudah ada kabar lain yang kau tunggu?" },
-      { time: 72.42, text: "Sudah adakah yang gantikanku?" },
-      { time: 77.72, text: "Yang khawatirkanmu setiap waktu?" }
-    ]
-  },
-  {
-    id: "hindia-evaluasi",
-    title: "Evaluasi",
-    artist: "Hindia",
-    album: "Menari Dengan Bayangan",
-    year: "2019",
-    duration: 215,
-    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
-    collectionId: 1481804269,
-    youtubeId: "saXhrw-7rQI",
-    plays: "310M+ Streams",
-    lyrics: [
-      { time: 0, text: "(Intro Music)" },
-      { time: 12.0, text: "Yang tak bisa terobati" },
-      { time: 15.5, text: "Biar mengering sendiri" },
-      { time: 19.0, text: "Mengupayakan yang kau bisa" },
-      { time: 24.0, text: "Biar reda gelisahmu" },
-      { time: 28.0, text: "Kukira kita akan bersama" },
-      { time: 34.0, text: "Begitu banyak yang sama" },
-      { time: 40.0, text: "Masalah yang mengeruh" },
-      { time: 45.0, text: "Semoga lekas membaik" }
-    ]
-  },
-  {
     id: "sal-priadi-gala-bunga-matahari",
     title: "Gala Bunga Matahari",
     artist: "Sal Priadi",
@@ -156,6 +109,42 @@ const DEFAULT_CATALOG: Track[] = [
     ]
   },
   {
+    id: "juicy-luicy-tampar",
+    title: "Tampar",
+    artist: "Juicy Luicy",
+    album: "Tampar - Single",
+    year: "2022",
+    duration: 228,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/c1/97/e2/c197e2d2-a9f4-fd0f-f670-de2f88f96879/192641986017_Cover.jpg/600x600bb.jpg",
+    youtubeId: "DqJN5Pg3As4",
+    plays: "260M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro)" },
+      { time: 12.0, text: "Hujan samarkan derasnya" },
+      { time: 16.0, text: "Tutup air mata" }
+    ]
+  },
+  {
+    id: "bernadya-satu-bulan",
+    title: "Satu Bulan",
+    artist: "Bernadya",
+    album: "Sialnya, Hidup Harus Tetap Berjalan",
+    year: "2024",
+    duration: 194,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
+    collectionId: 1749876880,
+    youtubeId: "z-XHpftdXEE",
+    plays: "320M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro Acoustic Guitar)" },
+      { time: 7.8, text: "Belum ada satu bulan" },
+      { time: 12.91, text: "Ku yakin masih ada sisa wangiku di bajumu" },
+      { time: 18.96, text: "Namun kau tampak baik saja" },
+      { time: 23.04, text: "Bahkan senyummu lebih lepas" },
+      { time: 25.77, text: "Sedang aku di sini hampir gila" }
+    ]
+  },
+  {
     id: "sal-priadi-dari-planet-lain",
     title: "Dari Planet Lain",
     artist: "Sal Priadi",
@@ -168,9 +157,25 @@ const DEFAULT_CATALOG: Track[] = [
     lyrics: [
       { time: 0, text: "(Intro)" },
       { time: 8.0, text: "Sepertinya kau memang dari planet yang lain" },
-      { time: 15.0, text: "Dikirim ke bumi untuk orang-orang sepertiku" },
-      { time: 23.0, text: "Sepertinya kau memang dari planet yang jauh" },
-      { time: 30.0, text: "Dikirim ke bumi untuk membuatku tersenyum" }
+      { time: 15.0, text: "Dikirim ke bumi untuk orang-orang sepertiku" }
+    ]
+  },
+  {
+    id: "hindia-evaluasi",
+    title: "Evaluasi",
+    artist: "Hindia",
+    album: "Menari Dengan Bayangan",
+    year: "2019",
+    duration: 215,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
+    collectionId: 1481804269,
+    youtubeId: "cWrSjCZ5AeE",
+    plays: "310M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro Music)" },
+      { time: 12.0, text: "Yang tak bisa terobati" },
+      { time: 15.5, text: "Biar mengering sendiri" },
+      { time: 19.0, text: "Mengupayakan yang kau bisa" }
     ]
   },
   {
@@ -739,6 +744,96 @@ const ONBOARDING_ARTISTS = [
     name: "Sabrina Carpenter",
     sub: "Pop Dance",
     img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/ae/c6/58/aec6589c-f5cf-0d81-2727-bc8775e34049/25UMGIM76990.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Kunto Aji",
+    sub: "Indie Folk",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/10/7c/be/107cbe02-4735-e1fc-7aa7-0bc45781a719/197189196558.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Yura Yunita",
+    sub: "Pop Soul",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/80/7e/15/807e15bf-73c1-073c-747d-5a822003c2be/196292395689.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Adrian Khalif",
+    sub: "R&B Indonesia",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/a8/18/16a81850-ca96-0927-a46d-0d9af767006c/196922358449_Cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Fabio Asher",
+    sub: "Pop Ballad",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/05/cf/a5/05cfa5e6-7eb6-e554-d897-4279fc93b668/196626601423.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Ziva Magnolya",
+    sub: "Pop Indonesia",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/c2/f7/6d/c2f76d49-436f-e3c7-4592-3a525b74100b/22UMGIM86175.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Rizky Febian",
+    sub: "Pop R&B",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/33/c4/62/33c4627b-2e90-c637-25e1-512c0199e4c1/cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Keisya Levronka",
+    sub: "Pop Ballad",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/32/c7/2b/32c72b53-48ee-8951-fc62-ba92239f1042/22UMGIM47854.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Anggi Marito",
+    sub: "Pop Ballad",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/4a/01/fa/4a01fa42-c515-d41d-2826-ebf99480bc40/23UMGIM26760.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Idgitaf",
+    sub: "Indie Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/21/e4/20/21e420b9-502a-3eb3-c6ae-3fc8c03567e9/cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Barasuara",
+    sub: "Indie Rock",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/cb/aa/34/cbaa348a-6945-fc42-7a54-61019d0a1b63/198704257131_Cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Padi",
+    sub: "Rock Indonesia",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/bf/16/ef/bf16ef80-60b7-c6fb-320e-c2c62c2f6d0f/886447814880.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Noah",
+    sub: "Pop Rock",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/f1/a0/0a/f1a00a12-fc29-37ea-8316-248434547948/cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Ari Lasso",
+    sub: "Pop Rock",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/b2/ae/30/b2ae306a-ff55-cf6e-cb4b-fc03ef06ce12/00602547072535.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Gilga Sahid",
+    sub: "Dangdut Koplo",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/e5/ee/48/e5ee48ce-8f0a-3ce8-a28d-1ee90432130e/cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Ndarboy Genk",
+    sub: "Koplo Jawa",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/b6/4a/1b/b64a1b0d-b4f7-3474-c36b-cb8cf79a3770/cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Woro Widowati",
+    sub: "Koplo Akustik",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/cf/ae/08/cfae08f5-4e78-958f-b98a-77e8a93aa40e/cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Kendrick Lamar",
+    sub: "Hip Hop Global",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/65/c6/3d/65c63d59-3d12-1f48-a003-883a66fbc0e9/22UMGIM47842.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Dua Lipa",
+    sub: "Disco Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/1e/8c/74/1e8c7407-21fb-cae9-fce2-598e3b5dfd46/190295286101.jpg/600x600bb.jpg"
   }
 ];
 
@@ -922,7 +1017,7 @@ const balancedShuffle = (tracks: any[], playedTitles: Set<string>): any[] => {
 };
 
 // Spotify-grade Hybrid Smart Recommendation Candidate Finder
-// Combines Collaborative (Charts) + Content-Based (Acoustic/Artist relatedness) + User Selected Onboarding Genres & Artists
+// Spotify Deep Learning Latent Factor & Multi-Armed Bandit Smart Shuffle Engine
 const getSmartShuffleCandidates = (
   currentSeed: any,
   existingQueue: any[],
@@ -930,7 +1025,8 @@ const getSmartShuffleCandidates = (
   taste: TasteProfile,
   catalogs: { related: any[]; topIndo: any[]; mostPlayed: any[]; defaultCat: any[] },
   countNeeded: number,
-  dislikedTitles: string[] = []
+  dislikedTitles: string[] = [],
+  userVector?: FeatureVector
 ): any[] => {
   const existingSet = new Set(
     existingQueue.map((s) => ((s.title || s.trackName || "") as string).toLowerCase().trim())
@@ -943,92 +1039,28 @@ const getSmartShuffleCandidates = (
     ...catalogs.defaultCat
   ];
 
-  const seen = new Set<string>();
-  const scored: Array<{ track: any; score: number }> = [];
+  const activeVector =
+    userVector ||
+    buildUserTasteVector(taste.likedArtists || [], taste.selectedGenres || []);
 
-  for (const item of rawPool) {
-    const cleanT = ((item.title || item.trackName || "") as string).toLowerCase().trim();
-    const itemID = ((item.id || item.trackId || "") as string).toString().trim();
-    if (
-      !cleanT ||
-      existingSet.has(cleanT) ||
-      playedTitles.has(cleanT) ||
-      seen.has(cleanT) ||
-      dislikedTitles.includes(cleanT) ||
-      dislikedTitles.includes(itemID)
-    ) {
-      continue;
-    }
-    seen.add(cleanT);
+  const cooldownList = Array.from(playedTitles);
+  const candidates = rawPool.filter((t) => {
+    const cleanT = ((t.title || t.trackName || "") as string).toLowerCase().trim();
+    return cleanT && !existingSet.has(cleanT);
+  });
 
-    // Hybrid Scoring:
-    // 1. Content-based similarity: Artist match or proximity
-    let score = 0;
-    const itemArtist = (item.artist || item.artistName || "").toLowerCase().trim();
-    const seedArtist = (currentSeed.artist || "").toLowerCase().trim();
-    if (itemArtist === seedArtist) score += 35;
+  const ranked = rankTracksByDeepLearning(
+    activeVector,
+    candidates,
+    cooldownList,
+    dislikedTitles,
+    countNeeded
+  );
 
-    // 2. Behavioral profile: user affinity weights
-    const userWeight = taste.artistWeights[item.artist] || 0;
-    score += userWeight * 8;
-
-    // 3. User Selected Genre & Taste Affinity Bonus from Onboarding
-    if (taste.selectedGenres && taste.selectedGenres.length > 0) {
-      for (const g of taste.selectedGenres) {
-        const normG = g.toLowerCase();
-        if (
-          normG.includes("pop") &&
-          (itemArtist.includes("sal") ||
-            itemArtist.includes("bernadya") ||
-            itemArtist.includes("mahalini") ||
-            itemArtist.includes("juicy") ||
-            itemArtist.includes("tulus"))
-        ) {
-          score += 25;
-        } else if (
-          normG.includes("indie") &&
-          (itemArtist.includes("sal") ||
-            itemArtist.includes("hindia") ||
-            itemArtist.includes("nadin") ||
-            itemArtist.includes("rio") ||
-            itemArtist.includes("nadhif"))
-        ) {
-          score += 25;
-        } else if (
-          normG.includes("koplo") &&
-          (itemArtist.includes("denny") || itemArtist.includes("happy") || itemArtist.includes("caknan"))
-        ) {
-          score += 30;
-        } else if (
-          normG.includes("rock") &&
-          (itemArtist.includes("sheila") || itemArtist.includes("dewa") || itemArtist.includes("andra"))
-        ) {
-          score += 25;
-        } else if (
-          normG.includes("global") &&
-          (itemArtist.includes("bruno") || itemArtist.includes("billie") || itemArtist.includes("gaga") || itemArtist.includes("niki"))
-        ) {
-          score += 25;
-        }
-      }
-    }
-
-    // Liked artists direct boost
-    if (taste.likedArtists && taste.likedArtists.some((a) => a.toLowerCase() === itemArtist)) {
-      score += 35;
-    }
-
-    // 4. Collaborative / chart popularity bonus
-    if (item.rank && item.rank <= 25) score += 15;
-
-    scored.push({
-      track: { ...normalizeSong(item), isSmartRecommendation: true },
-      score
-    });
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, countNeeded).map((s) => s.track);
+  return ranked.map((t) => ({
+    ...normalizeSong(t),
+    isSmartRecommendation: true
+  }));
 };
 
 declare global {
@@ -1130,6 +1162,9 @@ export default function BrnsicMusicPage() {
 
   // 13. Dynamic User Taste Profile (Personalized Learning Engine)
   const [userTaste, setUserTaste] = useState<TasteProfile>(DEFAULT_INITIAL_TASTE);
+  const [userTasteVector, setUserTasteVector] = useState<FeatureVector>(() =>
+    buildUserTasteVector(DEFAULT_INITIAL_TASTE.likedArtists || [], DEFAULT_INITIAL_TASTE.selectedGenres || [])
+  );
 
   // 14. Spotify Shuffle Tri-State: "off" | "standard" (balanced fewer repeats) | "smart" (hybrid recommendation)
   const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("off");
@@ -1495,6 +1530,15 @@ export default function BrnsicMusicPage() {
       return updated;
     });
 
+    // Deep Learning Online Weight Gradient Update
+    setUserTasteVector((prevVec) =>
+      trainUserVectorOnInteraction(
+        prevVec,
+        song,
+        action === "replay" ? "complete" : (action as any)
+      )
+    );
+
     // Also persist interaction to Supabase / Backend Activity Log
     try {
       fetch("/api/user/activity", {
@@ -1570,6 +1614,11 @@ export default function BrnsicMusicPage() {
         return { ...prev, artistWeights: nextWeights };
       });
 
+      // Train User Taste Vector with harsh negative reinforcement
+      setUserTasteVector((prevVec) =>
+        trainUserVectorOnInteraction(prevVec, song, "dislike")
+      );
+
       // Remove from upcoming queue immediately
       setActiveQueue((prev) =>
         prev.filter((t) => {
@@ -1579,7 +1628,7 @@ export default function BrnsicMusicPage() {
         })
       );
 
-      showToast(`Lagu disembunyikan: Brnsic tidak akan memutar lagu ini lagi 🚫`);
+      showToast(`Lagu disembunyikan: Brnsic tidak akan memutar lagu ini lagi`);
 
       // If currently playing this song, skip immediately!
       if (currentTrack.id === song.id || (currentTrack.title || "").toLowerCase().trim() === cleanTitle) {
@@ -1659,7 +1708,7 @@ export default function BrnsicMusicPage() {
         .filter((t) => !t.isSmartRecommendation);
       const shuffledUpcoming = balancedShuffle(upcoming, playedSongTitlesRef.current);
       setActiveQueue([...played, ...shuffledUpcoming]);
-      showToast("Standard Shuffle: Mengacak playlist via Mersenne Twister & Fewer Repeats 🔀");
+      showToast("Standard Shuffle: Mengacak playlist via Mersenne Twister & Fewer Repeats");
     } else if (nextMode === "smart") {
       if (originalQueueRef.current.length === 0) {
         originalQueueRef.current = [...activeQueue];
@@ -1682,7 +1731,8 @@ export default function BrnsicMusicPage() {
           defaultCat: DEFAULT_CATALOG
         },
         Math.max(3, Math.ceil(shuffledUpcoming.length / 2)),
-        dislikedSongIds
+        dislikedSongIds,
+        userTasteVector
       );
 
       const woven: any[] = [];
@@ -1698,7 +1748,7 @@ export default function BrnsicMusicPage() {
       }
 
       setActiveQueue([...played, ...woven]);
-      showToast("Smart Shuffle aktif ✨: Mengacak + menyisipkan lagu sesuai genre & selera!");
+      showToast("Smart Shuffle aktif: Mengacak dan menyisipkan rekomendasi sesuai selera!");
     } else {
       // Off: Restore original queue
       if (originalQueueRef.current.length > 0) {
@@ -1793,7 +1843,7 @@ export default function BrnsicMusicPage() {
         });
       } catch (e) {}
 
-      showToast(`Selamat datang, ${data.user.name}! Akun Google terhubung ☁️`);
+      showToast(`Selamat datang, ${data.user.name}! Akun Google terhubung`);
 
       if (!data.user?.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
         setIsOnboardingModalOpen(true);
@@ -1845,6 +1895,12 @@ export default function BrnsicMusicPage() {
       };
 
       setUserTaste(updatedTaste);
+      const nextVector = buildUserTasteVector(
+        Array.from(new Set([...userTaste.likedArtists, ...selectedOnboardingArtists])),
+        selectedOnboardingGenres
+      );
+      setUserTasteVector(nextVector);
+
       localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(updatedTaste));
       localStorage.setItem("brnsic_onboarding_done", "true");
 
@@ -1860,23 +1916,23 @@ export default function BrnsicMusicPage() {
       }
 
       setIsOnboardingModalOpen(false);
-      showToast(`Preferensi tersimpan! Selera: ${persona} ✨`);
+      showToast(`Preferensi tersimpan! Selera: ${persona}`);
 
-      // Re-order queue so current session immediately features their chosen music!
+      // Re-order queue with Deep Learning Latent Factor scoring so current session immediately matches their taste!
       setActiveQueue((prev) => {
         if (prev.length <= 1) return prev;
         const current = prev[activeQueueIndex] || prev[0];
         const rest = prev.filter((_, idx) => idx !== activeQueueIndex);
 
-        rest.sort((a, b) => {
-          const aArtist = (a.artist || a.artistName || "").trim();
-          const bArtist = (b.artist || b.artistName || "").trim();
-          const aScore = updatedTaste.artistWeights[aArtist] || 0;
-          const bScore = updatedTaste.artistWeights[bArtist] || 0;
-          return bScore - aScore;
-        });
+        const ranked = rankTracksByDeepLearning(
+          nextVector,
+          rest,
+          recentHistoryRef.current,
+          dislikedSongIds,
+          rest.length
+        );
 
-        return [current, ...rest];
+        return [current, ...ranked];
       });
     } catch (e) {
       localStorage.setItem("brnsic_onboarding_done", "true");
@@ -2272,57 +2328,15 @@ export default function BrnsicMusicPage() {
       })
       .catch(() => {});
 
-    const promises: [Promise<string | null>, Promise<LyricLine[]>] = [
-      song.youtubeId
-        ? Promise.resolve(song.youtubeId)
-        : fetch(`/api/youtube?q=${encodeURIComponent(`${song.artist} ${song.title}`)}`)
-            .then(async (r) => {
-              if (!r.ok) return null;
-              const d = await r.json();
-              return d.videoId || null;
-            })
-            .catch(() => null),
-
-      song.lyrics && song.lyrics.length > 3
-        ? Promise.resolve(song.lyrics)
-        : fetch(`/api/lyrics?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
-            .then((r) => r.json())
-            .then((d) => d.lyrics || [])
-            .catch(() => [])
-    ];
-
-    try {
-      const [resolvedVid, resolvedLyrics] = await Promise.all(promises);
-
-      // CRITICAL RACE-CONDITION GUARD: If user clicked Next or changed song while fetching, DISCARD immediately!
-      if (currentRequestId !== playRequestIdRef.current) {
-        return;
-      }
-
-      const finalLyrics =
-        resolvedLyrics && resolvedLyrics.length > 0
-          ? resolvedLyrics
-          : [
-              { time: 0, text: song.title },
-              { time: 6, text: song.artist },
-              { time: 12, text: "Lirik instrumental atau sinkronisasi..." }
-            ];
-
-      // Safe verified video ID - Matches title & artist accurately
-      const finalVid = resolvedVid || song.youtubeId || getVerifiedVideoId(song.title, song.artist) || "m8cPU4tzGa4";
-
-      const finalizedTrack: Track = {
-        ...optimisticTrack,
-        youtubeId: finalVid,
-        lyrics: finalLyrics
-      };
-
-      setCurrentTrack(finalizedTrack);
-
+    // Instant Audio Playback: Never wait for lyrics over network!
+    const directVid = song.youtubeId || getVerifiedVideoId(song.title, song.artist);
+    const startAudio = (vid: string) => {
+      if (currentRequestId !== playRequestIdRef.current) return;
+      setCurrentTrack((prev) => ({ ...prev, youtubeId: vid }));
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
         try {
           ytPlayerRef.current.loadVideoById({
-            videoId: finalVid,
+            videoId: vid,
             startSeconds: 0
           });
           ytPlayerRef.current.unMute();
@@ -2332,17 +2346,40 @@ export default function BrnsicMusicPage() {
           isPlayingRef.current = true;
           startBackgroundKeepalive();
         } catch (e) {
-          console.error("Player load error", e);
+          console.error("Audio playback error", e);
         }
       } else {
-        pendingVideoIdRef.current = finalVid;
+        pendingVideoIdRef.current = vid;
       }
-    } catch (err) {
-      console.error("Error loading track", err);
-    } finally {
-      if (currentRequestId === playRequestIdRef.current) {
-        setIsLoadingSong(false);
-      }
+    };
+
+    if (directVid) {
+      startAudio(directVid);
+    } else {
+      fetch(`/api/youtube?q=${encodeURIComponent(`${song.artist} ${song.title}`)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const vid = d.videoId || "lABZ_-uhC0E";
+          startAudio(vid);
+        })
+        .catch(() => {
+          startAudio("lABZ_-uhC0E");
+        });
+    }
+
+    // Fetch lyrics asynchronously in the background
+    if (song.lyrics && song.lyrics.length > 3) {
+      setCurrentTrack((prev) => ({ ...prev, lyrics: song.lyrics }));
+    } else {
+      fetch(`/api/lyrics?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (currentRequestId !== playRequestIdRef.current) return;
+          if (d.lyrics && d.lyrics.length > 0) {
+            setCurrentTrack((prev) => ({ ...prev, lyrics: d.lyrics }));
+          }
+        })
+        .catch(() => {});
     }
   };
 
@@ -2419,15 +2456,26 @@ export default function BrnsicMusicPage() {
       );
       if (res.ok) {
         const data = await res.json();
-        if (data.related && data.related.length > 0) {
-          const freshRelated = data.related.filter(
-            (item: any) => !playedSongTitlesRef.current.has(item.title.toLowerCase().trim())
-          );
-          setRelatedQueue(freshRelated.length > 0 ? freshRelated : data.related);
-          // Combine: Current song + Related songs + Top 50 tracks for infinite uninterrupted variety!
-          const combinedQueue = [song, ...(freshRelated.length > 0 ? freshRelated : data.related), ...(indonesiaTop50 || []).slice(0, 25)];
-          setActiveQueue(combinedQueue);
-        }
+        const incomingRelated = Array.isArray(data.related) ? data.related : [];
+        setRelatedQueue(incomingRelated);
+
+        const candidatePool = [
+          ...incomingRelated,
+          ...(indonesiaTop50 || []),
+          ...(mostPlayedIndonesia || []),
+          ...DEFAULT_CATALOG
+        ];
+
+        const cleanSongTitle = (song.title || song.trackName || "").toLowerCase().trim();
+        const rankedDiscovery = rankTracksByDeepLearning(
+          userTasteVector,
+          candidatePool,
+          [cleanSongTitle, ...recentHistoryRef.current],
+          dislikedSongIds,
+          30
+        );
+
+        setActiveQueue([song, ...rankedDiscovery]);
       }
     } catch (e) {}
   };
@@ -2565,32 +2613,7 @@ export default function BrnsicMusicPage() {
       }
     }
 
-    // 3. Repeat is OFF: Continue seamlessly to a BRAND NEW, UNPLAYED song weighted by learned taste!
-    const isAllowed = (t: any) => {
-      if (!t) return false;
-      const cleanTitle = (t.title || t.trackName || t.name || "").toString().toLowerCase().trim();
-      const sId = (t.id || "").toString();
-      if (!cleanTitle) return false;
-      // Filter out disliked songs
-      if (dislikedSongIds.includes(cleanTitle) || dislikedSongIds.includes(sId)) {
-        return false;
-      }
-      // Filter out songs already played in current session or recent 40-track memory ring
-      if (playedSongTitlesRef.current.has(cleanTitle)) return false;
-      if (recentHistoryRef.current.includes(cleanTitle)) return false;
-      return true;
-    };
-
-    const getTasteScore = (t: any) => {
-      const art = (t.artist || t.artistName || "").toLowerCase().trim();
-      let score = userTaste.artistWeights[t.artist] || 0;
-      if (userTaste.likedArtists.some((a) => a.toLowerCase().trim() === art)) {
-        score += 8;
-      }
-      // Bonus randomness jitter so the algorithm never locks into one single artist
-      return score + Math.random() * 4;
-    };
-
+    // 3. Repeat is OFF: Continue seamlessly to a BRAND NEW, UNPLAYED song weighted by Deep Learning vector taste!
     const markPlayed = (track: any) => {
       const title = (track.title || track.trackName || "").toLowerCase().trim();
       if (title) {
@@ -2601,32 +2624,27 @@ export default function BrnsicMusicPage() {
       }
     };
 
-    // A. Pick next unplayed from related recommendations (sorted by user taste score)
-    const sortedRelated = [...relatedQueue].filter(isAllowed).sort((a, b) => getTasteScore(b) - getTasteScore(a));
-    if (sortedRelated.length > 0) {
-      const candidates = sortedRelated.slice(0, 4);
-      const nextRelated = candidates[Math.floor(Math.random() * candidates.length)];
-      setRelatedQueue((prev) =>
-        prev.filter((item) => item.title.toLowerCase().trim() !== nextRelated.title.toLowerCase().trim())
-      );
-      markPlayed(nextRelated);
-      setActiveQueue((prev) => [...prev, nextRelated]);
-      setActiveQueueIndex(activeQueue.length);
-      playAnySong(nextRelated, userTriggered);
-      return;
-    }
-
-    // B. Pick next unplayed from Catalog & Charts pool (sorted by user taste score)
-    const pool = [
+    // A. Pick next unplayed from related recommendations & candidate pool via Deep Learning UCB1
+    const candidatePool = [
+      ...relatedQueue,
       ...indonesiaTop50,
       ...mostPlayedIndonesia,
       ...viralIndonesia,
       ...DEFAULT_CATALOG
     ];
-    const sortedPool = pool.filter(isAllowed).sort((a, b) => getTasteScore(b) - getTasteScore(a));
-    if (sortedPool.length > 0) {
-      const candidates = sortedPool.slice(0, Math.min(6, sortedPool.length));
-      const nextSong = candidates[Math.floor(Math.random() * candidates.length)];
+
+    const rankedCandidates = rankTracksByDeepLearning(
+      userTasteVector,
+      candidatePool,
+      [currentTrack.title.toLowerCase().trim(), ...recentHistoryRef.current],
+      dislikedSongIds,
+      12
+    );
+
+    if (rankedCandidates.length > 0) {
+      // Pick with slight stochastic top-choice sampling (top 3) to prevent determinism
+      const topChoices = rankedCandidates.slice(0, Math.min(3, rankedCandidates.length));
+      const nextSong = topChoices[Math.floor(Math.random() * topChoices.length)];
       markPlayed(nextSong);
       setActiveQueue((prev) => [...prev, nextSong]);
       setActiveQueueIndex(activeQueue.length);
@@ -2634,7 +2652,7 @@ export default function BrnsicMusicPage() {
       return;
     }
 
-    // C. If all tracks played, reset session history and pick a track different from current
+    // B. If all tracks played, reset session history and pick a track different from current
     playedSongTitlesRef.current = new Set([currentTrack.title.toLowerCase().trim()]);
     const fallbackList = (indonesiaTop50.length > 0 ? indonesiaTop50 : DEFAULT_CATALOG).filter(
       (t) => !dislikedSongIds.includes(t.id) && !dislikedSongIds.includes((t.title || "").toLowerCase().trim())
@@ -3153,7 +3171,8 @@ export default function BrnsicMusicPage() {
                     <div className="text-xs font-black text-white truncate">{currentUser.name}</div>
                     <div className="text-[10px] text-[#b3b3b3] truncate">{currentUser.email}</div>
                     <div className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold text-[#1ed760] bg-[#1ed760]/10 px-2 py-0.5 rounded-full">
-                      <span>☁️ Supabase Cloud Sync</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760]"></span>
+                      <span>Supabase Cloud Sync</span>
                     </div>
                   </div>
                   <button
@@ -3915,7 +3934,7 @@ export default function BrnsicMusicPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
-                    {relatedQueue.slice(0, 6).map((item, i) => (
+                    {relatedQueue.slice(0, 18).map((item, i) => (
                       <div
                         key={item.id || i}
                         onClick={() => handlePlaySingleSongWithRadio(item)}
@@ -4023,7 +4042,13 @@ export default function BrnsicMusicPage() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                   {(() => {
-                    const rawPool = [...DEFAULT_CATALOG, ...mostPlayedIndonesia, ...indonesiaTop50];
+                    const rawPool = [
+                      ...DEFAULT_CATALOG,
+                      ...mostPlayedIndonesia,
+                      ...indonesiaTop50,
+                      ...viralIndonesia,
+                      ...relatedQueue
+                    ];
                     const seenTitles = new Set<string>();
                     const uniquePool: any[] = [];
                     for (const s of rawPool) {
@@ -4033,17 +4058,17 @@ export default function BrnsicMusicPage() {
                         uniquePool.push(s);
                       }
                     }
-                    const sorted = uniquePool
-                      .sort((a, b) => {
-                        const scoreA = (userTaste.artistWeights[a.artist] || 0) + (likedSongIds.includes(a.id) ? 10 : 0);
-                        const scoreB = (userTaste.artistWeights[b.artist] || 0) + (likedSongIds.includes(b.id) ? 10 : 0);
-                        return scoreB - scoreA;
-                      })
-                      .slice(0, 6);
-                    return sorted.map((t: any, i) => (
+                    const mlRanked = rankTracksByDeepLearning(
+                      userTasteVector,
+                      uniquePool,
+                      recentHistoryRef.current,
+                      dislikedSongIds,
+                      24
+                    );
+                    return mlRanked.map((t: any, i) => (
                       <div
                         key={t.id || `${t.title}-${i}`}
-                        onClick={() => handlePlayFromList(t, sorted, i)}
+                        onClick={() => handlePlayFromList(t, mlRanked, i)}
                         className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10"
                       >
                         <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-3 shadow-md">
@@ -4696,7 +4721,7 @@ export default function BrnsicMusicPage() {
                                 </div>
                                 {song.isSmartRecommendation && (
                                   <span className="flex-shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#1ed760]/20 text-[#1ed760] border border-[#1ed760]/40 flex items-center gap-1 shadow-sm">
-                                    <span className="text-[10px]">✨</span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760]"></span>
                                     <span>Smart Shuffle</span>
                                   </span>
                                 )}
@@ -4962,7 +4987,7 @@ export default function BrnsicMusicPage() {
               <button
                 onClick={() => toggleDislike(currentTrack)}
                 className="p-1.5 transition text-[#b3b3b3] hover:text-red-400"
-                title="Tidak Suka / Sembunyikan Lagu Ini (Dislike 🚫)"
+                title="Tidak Suka / Sembunyikan Lagu Ini (Dislike)"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10"></circle>
@@ -4995,8 +5020,8 @@ export default function BrnsicMusicPage() {
                 shuffleMode === "off"
                   ? "Aktifkan Shuffle (Acak lagu)"
                   : shuffleMode === "standard"
-                  ? "Shuffle Biasa Aktif: Mengacak seimbang & Fewer Repeats (Klik untuk Smart Shuffle ✨)"
-                  : "Smart Shuffle Aktif ✨: Rekomendasi lagu disisipkan otomatis sesuai seleramu (Klik untuk Matikan)"
+                  ? "Shuffle Biasa Aktif: Mengacak seimbang & Fewer Repeats (Klik untuk Smart Shuffle)"
+                  : "Smart Shuffle Aktif: Rekomendasi lagu disisipkan otomatis sesuai seleramu (Klik untuk Matikan)"
               }
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -5010,8 +5035,10 @@ export default function BrnsicMusicPage() {
                 <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#1ed760] rounded-full"></span>
               )}
               {shuffleMode === "smart" && (
-                <span className="absolute -top-1 -right-1 text-[10px] leading-none drop-shadow-[0_0_6px_rgba(30,215,96,0.8)]">
-                  ✨
+                <span className="absolute -top-1 -right-1 leading-none text-[#1ed760]">
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+                  </svg>
                 </span>
               )}
             </button>
@@ -5226,7 +5253,7 @@ export default function BrnsicMusicPage() {
                   toggleDislike(currentTrack);
                 }}
                 className="p-1 text-[#b3b3b3] hover:text-red-400 active:scale-90 transition"
-                title="Sembunyikan / Tidak Suka Lagu Ini (Dislike 🚫)"
+                title="Sembunyikan / Tidak Suka Lagu Ini (Dislike)"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10"></circle>
@@ -5513,8 +5540,8 @@ export default function BrnsicMusicPage() {
                               <div className="flex items-center gap-1.5">
                                 <div className="text-xs font-bold text-white truncate">{song.title || song.trackName}</div>
                                 {song.isSmartRecommendation && (
-                                  <span className="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#1ed760]/20 text-[#1ed760] border border-[#1ed760]/40 flex items-center gap-0.5 shadow-sm">
-                                    <span>✨</span>
+                                  <span className="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#1ed760]/20 text-[#1ed760] border border-[#1ed760]/40 flex items-center gap-1 shadow-sm">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760]"></span>
                                     <span>Smart</span>
                                   </span>
                                 )}
@@ -5626,7 +5653,7 @@ export default function BrnsicMusicPage() {
                     <button
                       onClick={() => toggleDislike(currentTrack)}
                       className="p-2 transition text-white/50 hover:text-red-400 active:scale-95"
-                      title="Sembunyikan / Tidak Suka Lagu Ini (Dislike 🚫)"
+                      title="Sembunyikan / Tidak Suka Lagu Ini (Dislike)"
                     >
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10"></circle>
@@ -5673,8 +5700,8 @@ export default function BrnsicMusicPage() {
                       shuffleMode === "off"
                         ? "Aktifkan Shuffle (Acak)"
                         : shuffleMode === "standard"
-                        ? "Shuffle Biasa Aktif: Fewer Repeats (Klik untuk Smart Shuffle ✨)"
-                        : "Smart Shuffle Aktif ✨: Rekomendasi otomatis sesuai selera (Klik untuk Matikan)"
+                        ? "Shuffle Biasa Aktif: Fewer Repeats (Klik untuk Smart Shuffle)"
+                        : "Smart Shuffle Aktif: Rekomendasi otomatis sesuai selera (Klik untuk Matikan)"
                     }
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -5688,8 +5715,10 @@ export default function BrnsicMusicPage() {
                       <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#1ed760] rounded-full"></span>
                     )}
                     {shuffleMode === "smart" && (
-                      <span className="absolute -top-1 -right-1 text-[10px] leading-none drop-shadow-[0_0_6px_rgba(30,215,96,0.8)]">
-                        ✨
+                      <span className="absolute -top-1 -right-1 leading-none text-[#1ed760]">
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+                        </svg>
                       </span>
                     )}
                   </button>
@@ -6167,181 +6196,177 @@ export default function BrnsicMusicPage() {
       )}
 
       {/* ====================================================================
-          9. MODAL: PROFIL PENGGUNA & PREFERENSI DATABASE (SUPABASE INTEGRATED)
+          9. MODAL: PROFIL PENGGUNA RESMI (SPOTIFY DESIGN)
           ==================================================================== */}
       {isProfileModalOpen && (
         <div
           onClick={() => setIsProfileModalOpen(false)}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm liquid-glass rounded-3xl p-6 flex flex-col items-center gap-5 border border-white/10 shadow-2xl relative"
+            className="w-full max-w-md bg-[#121212] rounded-3xl p-6 border border-white/10 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col gap-5"
           >
             <button
               onClick={() => setIsProfileModalOpen(false)}
-              className="absolute top-4 right-4 text-white/60 hover:text-white text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition"
+              className="absolute top-4 right-4 text-white/50 hover:text-white text-xl font-bold w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition z-10"
+              title="Tutup"
             >
               &times;
             </button>
 
-            {/* Avatar Circle */}
-            <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-white/10 to-white/20 border border-white/20 flex items-center justify-center text-white shadow-xl overflow-hidden">
-                {currentUser?.avatar ? (
+            {/* Spotify Hero Header */}
+            <div className="flex items-center gap-4 pt-1">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-[#282828] to-[#181818] border-2 border-white/10 shadow-2xl flex items-center justify-center text-white overflow-hidden flex-shrink-0">
+                {currentUser?.avatar && !currentUser.avatar.includes("identicon") ? (
                   <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
+                  <span className="text-2xl sm:text-3xl font-black text-[#1ed760]">
+                    {(currentUser?.name?.[0] || "P").toUpperCase()}
+                  </span>
                 )}
               </div>
-              <span className="absolute bottom-1 right-1 w-4 h-4 bg-[#1ed760] rounded-full border-2 border-black" title="Aktif"></span>
-            </div>
 
-            {/* Profile Info */}
-            <div className="text-center">
-              <h2 className="text-lg font-black text-white">{currentUser?.name || "Mode Tamu (Guest)"}</h2>
-              {currentUser?.email ? (
-                <p className="text-xs text-[#b3b3b3] mt-0.5">{currentUser.email}</p>
-              ) : (
-                <p className="text-[11px] text-[#b3b3b3] mt-0.5">Daftar/Masuk untuk sinkronisasi ke Supabase</p>
-              )}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760] animate-pulse"></span>
-                <span className="text-xs font-bold text-[#1ed760]">{userTaste.persona}</span>
-              </div>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="w-full grid grid-cols-3 gap-2">
-              <div className="bg-white/5 border border-white/5 rounded-2xl p-2.5 text-center">
-                <div className="text-lg font-black text-[#1ed760]">{userTaste.totalPlays}</div>
-                <div className="text-[10px] font-semibold text-[#b3b3b3] mt-0.5">Diputar</div>
-              </div>
-              <div className="bg-white/5 border border-white/5 rounded-2xl p-2.5 text-center">
-                <div className="text-lg font-black text-white">{likedSongIds.length}</div>
-                <div className="text-[10px] font-semibold text-[#b3b3b3] mt-0.5">Disukai</div>
-              </div>
-              <div className="bg-white/5 border border-white/5 rounded-2xl p-2.5 text-center">
-                <div className="text-lg font-black text-white">{userPlaylists.length}</div>
-                <div className="text-[10px] font-semibold text-[#b3b3b3] mt-0.5">Playlist</div>
-              </div>
-            </div>
-
-            {/* Top Favorite Artists */}
-            {Object.keys(userTaste.artistWeights).length > 0 && (
-              <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 text-left">
-                <span className="text-[10px] font-black uppercase tracking-wider text-white/50">
-                  Artis Yang Sering Kamu Dengarkan
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/50 block">
+                  PROFIL
                 </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.entries(userTaste.artistWeights)
+                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate mt-0.5">
+                  {currentUser?.name || "Pengguna Brnsic"}
+                </h1>
+                <p className="text-xs text-[#b3b3b3] truncate mt-0.5">
+                  {currentUser?.email || "Mode Tamu"}
+                </p>
+                <div className="flex items-center gap-2 text-[11px] text-[#b3b3b3] mt-2 font-medium">
+                  <span>{userPlaylists.length} Playlist</span>
+                  <span>•</span>
+                  <span>{likedSongIds.length} Disukai</span>
+                  <span>•</span>
+                  <span>{userTaste.totalPlays} Diputar</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Section: Artis Teratas */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-white">Artis Teratas</h3>
+                <span className="text-[11px] text-white/40">Bulan ini</span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {(() => {
+                  const sorted = Object.entries(userTaste.artistWeights)
                     .sort((a, b) => b[1] - a[1])
-                    .slice(0, 4)
-                    .map(([artist, weight], idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs bg-white/10 text-white font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5"
-                      >
-                        <span>{artist}</span>
-                        <span className="text-[10px] text-[#1ed760] font-black">+{weight}</span>
-                      </span>
-                    ))}
-                </div>
-              </div>
-            )}
+                    .slice(0, 4);
+                  const displayArtists =
+                    sorted.length > 0
+                      ? sorted.map(([name]) => name)
+                      : ["Sal Priadi", "Bernadya", "Hindia", "Sheila On 7"];
 
-            {/* Database & Cloud Sync Status */}
-            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 text-left">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-white text-xs font-bold">
-                  <span className="w-2 h-2 rounded-full bg-[#1ed760]"></span>
-                  <span>Database Cloud Supabase</span>
-                </div>
-                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#1ed760]/20 text-[#1ed760]">
-                  {currentUser ? "Tersinkron" : "Lokal"}
-                </span>
-              </div>
-              <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
-                {currentUser
-                  ? "Selera musik, riwayat putar, dan playlist kamu tersimpan rapi di Supabase PostgreSQL & siap diakses dari perangkat lain."
-                  : "Kamu saat ini dalam mode tamu. Masuk atau daftar akun untuk menyimpan data ke database cloud Supabase."}
-              </p>
+                  return displayArtists.map((artistName) => {
+                    const match = ONBOARDING_ARTISTS.find(
+                      (a) => a.name.toLowerCase() === artistName.toLowerCase()
+                    );
+                    const photo =
+                      match?.img ||
+                      `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(artistName)}`;
 
-              <div className="flex flex-col gap-1.5 mt-1">
+                    return (
+                      <div key={artistName} className="flex flex-col items-center text-center">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden shadow-lg border border-white/10 mb-1.5">
+                          <img
+                            src={photo}
+                            alt={artistName}
+                            onError={handleImgError}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-[11px] font-bold text-white/90 truncate max-w-[70px]">
+                          {artistName}
+                        </span>
+                        <span className="text-[9px] text-white/40">Artis</span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Section: Pengaturan Akun */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+              <button
+                onClick={() => {
+                  setIsProfileModalOpen(false);
+                  setIsOnboardingModalOpen(true);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between"
+              >
+                <span>Atur Preferensi Artis dan Genre</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+
+              <button
+                onClick={async () => {
+                  showToast("Memperbarui dan membersihkan cache");
+                  try {
+                    if ("caches" in window) {
+                      const keys = await caches.keys();
+                      await Promise.all(keys.map((k) => caches.delete(k)));
+                    }
+                    if ("serviceWorker" in navigator) {
+                      const regs = await navigator.serviceWorker.getRegistrations();
+                      for (const reg of regs) {
+                        await reg.unregister();
+                      }
+                    }
+                    localStorage.removeItem("brnsic_app_version");
+                  } catch (e) {}
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 400);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between"
+              >
+                <span>Perbarui Versi Aplikasi</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+              </button>
+
+              {!currentUser ? (
                 <button
                   onClick={() => {
                     setIsProfileModalOpen(false);
-                    setIsOnboardingModalOpen(true);
+                    setAuthError(null);
+                    setIsAuthModalOpen(true);
                   }}
-                  className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-neutral-100 text-black font-extrabold text-xs transition flex items-center justify-center gap-2 mt-1"
                 >
-                  <span>✨ Atur Artis &amp; Genre Favorit</span>
-                </button>
-
-                {!currentUser ? (
-                  <button
-                    onClick={() => {
-                      setIsProfileModalOpen(false);
-                      setAuthError(null);
-                      setIsAuthModalOpen(true);
-                    }}
-                    className="w-full py-2.5 rounded-xl bg-white hover:bg-neutral-100 text-black font-black text-xs transition flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                    </svg>
-                    <span>Masuk dengan Akun Google</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleLogout}
-                    className="w-full py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-xs transition"
-                  >
-                    Keluar dari Akun (Logout)
-                  </button>
-                )}
-
-                <button
-                  onClick={async () => {
-                    showToast("Memperbarui & membersihkan cache...");
-                    try {
-                      if ("caches" in window) {
-                        const keys = await caches.keys();
-                        await Promise.all(keys.map((k) => caches.delete(k)));
-                      }
-                      if ("serviceWorker" in navigator) {
-                        const regs = await navigator.serviceWorker.getRegistrations();
-                        for (const reg of regs) {
-                          await reg.unregister();
-                        }
-                      }
-                      localStorage.removeItem("brnsic_app_version");
-                    } catch (e) {}
-                    setTimeout(() => {
-                      window.location.reload();
-                    }, 400);
-                  }}
-                  className="w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-semibold text-xs transition flex items-center justify-center gap-1.5"
-                  title="Bersihkan cache lokal & muat versi terbaru"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <polyline points="23 4 23 10 17 10"></polyline>
-                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                   </svg>
-                  <span>Perbarui Aplikasi (Refresh Cache)</span>
+                  <span>Masuk dengan Akun Google</span>
                 </button>
-              </div>
+              ) : (
+                <button
+                  onClick={handleLogout}
+                  className="w-full py-2.5 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-xs transition text-center mt-1"
+                >
+                  Keluar dari Akun (Logout)
+                </button>
+              )}
             </div>
 
             <button
               onClick={() => setIsProfileModalOpen(false)}
-              className="w-full py-2.5 rounded-full bg-white text-black font-extrabold text-xs hover:scale-105 active:scale-95 transition shadow-lg"
+              className="w-full py-3 rounded-full bg-white text-black font-extrabold text-xs hover:scale-105 active:scale-95 transition shadow-lg"
             >
               Tutup
             </button>
@@ -6479,9 +6504,6 @@ export default function BrnsicMusicPage() {
               <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 Artis apa saja yang kamu sukai?
               </h2>
-              <p className="text-xs sm:text-sm text-[#b3b3b3]">
-                Pilih minimal 3 artis untuk menyesuaikan rekomendasi dan Smart Shuffle pribadimu.
-              </p>
 
               {/* Spotify Live Artist Search Bar */}
               <div className="relative mt-2">
@@ -6595,34 +6617,17 @@ export default function BrnsicMusicPage() {
               </div>
             </div>
 
-            {/* Actions & Sticky Bottom Bar */}
-            <div className="flex items-center justify-between pt-3 border-t border-white/10 flex-shrink-0 gap-3">
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-white/60">
-                  Dipilih:{" "}
-                  <strong className="text-white text-sm">
-                    {selectedOnboardingArtists.length + selectedOnboardingGenres.length}
-                  </strong>{" "}
-                  (Minimal 3)
-                </span>
-                {selectedOnboardingArtists.length + selectedOnboardingGenres.length >= 3 && (
-                  <span className="text-[11px] text-[#1ed760] font-black">Siap Melanjutkan! ✓</span>
-                )}
-              </div>
-
+            {/* Actions & Sticky Bottom Bar (Spotify Clean Pill Button) */}
+            <div className="flex items-center justify-center pt-3 border-t border-white/10 flex-shrink-0">
               <button
                 onClick={handleOnboardingSubmit}
                 disabled={
                   isOnboardingSubmitting ||
                   selectedOnboardingArtists.length + selectedOnboardingGenres.length < 3
                 }
-                className="py-3 px-8 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] disabled:opacity-30 disabled:pointer-events-none text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_25px_rgba(30,215,96,0.4)] flex items-center justify-center gap-2"
+                className="py-3 px-12 rounded-full bg-white hover:bg-neutral-100 disabled:opacity-25 disabled:pointer-events-none text-black font-extrabold text-sm hover:scale-105 active:scale-95 transition shadow-2xl"
               >
-                {isOnboardingSubmitting ? (
-                  <span>Menyimpan ke Cloud...</span>
-                ) : (
-                  <span>Mulai Mendengarkan Musik ✨</span>
-                )}
+                {isOnboardingSubmitting ? "Menyimpan..." : "Lanjutkan"}
               </button>
             </div>
           </div>
@@ -6750,8 +6755,7 @@ export default function BrnsicMusicPage() {
                       1
                     </span>
                     <div className="text-white/90">
-                      Ketuk tombol <strong>Bagikan (Share)</strong>{" "}
-                      <span className="inline-block px-1.5 py-0.5 bg-white/10 rounded text-[11px]">⬆️</span> di bilah bawah Safari.
+                      Ketuk tombol <strong>Bagikan (Share)</strong> di bilah bawah Safari.
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -6759,7 +6763,7 @@ export default function BrnsicMusicPage() {
                       2
                     </span>
                     <div className="text-white/90">
-                      Gulir ke bawah, lalu pilih <strong>&quot;Tambahkan ke Layar Utama&quot;</strong> (Add to Home Screen ➕).
+                      Gulir ke bawah, lalu pilih <strong>&quot;Tambahkan ke Layar Utama&quot;</strong> (Add to Home Screen).
                     </div>
                   </div>
                 </div>
@@ -6783,7 +6787,7 @@ export default function BrnsicMusicPage() {
                   ✓
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-white">Aplikasi Berhasil Dipasang! 🎉</h2>
+                  <h2 className="text-xl font-black text-white">Aplikasi Berhasil Dipasang!</h2>
                   <p className="text-xs text-[#b3b3b3] mt-1.5 leading-relaxed">
                     Ikon Brnsic sudah aktif di Layar Utama HP / Desktop kamu. Musik akan terus berputar di latar belakang saat kamu membuka aplikasi lain atau mematikan layar!
                   </p>

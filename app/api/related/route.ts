@@ -61,28 +61,29 @@ export async function GET(request: Request) {
 
     if (sameRes.status === "fulfilled" && sameRes.value.ok) {
       const data = await sameRes.value.json();
-      (data.results || []).forEach((t: any) => {
-        const tLower = t.trackName.toLowerCase();
-        if (!seenTitles.has(tLower)) {
-          seenTitles.add(tLower);
-          collectedTracks.push({
-            id: `itunes-${t.trackId}`,
-            title: t.trackName,
-            artist: t.artistName,
-            album: t.collectionName || "Single",
-            duration: Math.round((t.trackTimeMillis || 210000) / 1000),
-            cover: (t.artworkUrl100 || "").replace("100x100bb", "600x600bb"),
-            collectionId: t.collectionId,
-            reason: `Lagu lain dari ${artist}`
-          });
-        }
+      const sameList = (data.results || []).filter(
+        (t: any) => !seenTitles.has(t.trackName.toLowerCase().trim())
+      );
+      // Pick up to 2 songs from same artist
+      sameList.slice(0, 2).forEach((t: any) => {
+        seenTitles.add(t.trackName.toLowerCase().trim());
+        collectedTracks.push({
+          id: `itunes-${t.trackId}`,
+          title: t.trackName,
+          artist: t.artistName,
+          album: t.collectionName || "Single",
+          duration: Math.round((t.trackTimeMillis || 210000) / 1000),
+          cover: (t.artworkUrl100 || "").replace("100x100bb", "600x600bb"),
+          collectionId: t.collectionId,
+          reason: `Lagu lain dari ${artist}`
+        });
       });
     }
 
     if (relatedRes.status === "fulfilled" && relatedRes.value.ok) {
       const data = await relatedRes.value.json();
       (data.results || []).forEach((t: any) => {
-        const tLower = t.trackName.toLowerCase();
+        const tLower = t.trackName.toLowerCase().trim();
         if (!seenTitles.has(tLower)) {
           seenTitles.add(tLower);
           collectedTracks.push({
@@ -99,8 +100,11 @@ export async function GET(request: Request) {
       });
     }
 
+    // Shuffle collected recommendations so the same track is never locked at index 0
+    const randomized = [...collectedTracks].sort(() => Math.random() - 0.5);
+
     return NextResponse.json({
-      related: collectedTracks,
+      related: randomized,
       artistNetwork: relatedArtists
     });
   } catch (err: any) {
