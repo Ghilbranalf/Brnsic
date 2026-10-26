@@ -1392,6 +1392,38 @@ export default function BrnsicMusicPage() {
     window.addEventListener("touchstart", unlockAudio, { once: true, passive: true });
     window.addEventListener("click", unlockAudio, { once: true });
 
+    // Handle Supabase OAuth return hash (#access_token=...)
+    if (typeof window !== "undefined" && window.location.hash && window.location.hash.includes("access_token=")) {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const accessToken = hashParams.get("access_token");
+      if (accessToken) {
+        fetch("/api/auth/callback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accessToken })
+        })
+          .then((res) => res.json())
+          .then((d) => {
+            if (d.user) {
+              setCurrentUser(d.user);
+              if (d.user.taste) {
+                setUserTaste(d.user.taste);
+                const dbVector = buildUserTasteVector(
+                  d.user.taste.likedArtists || [],
+                  d.user.selectedGenres || Object.keys(d.user.taste.genreWeights || {})
+                );
+                setUserTasteVector(dbVector);
+              }
+              showToast(`Selamat datang, ${d.user.name}! Akun Google terhubung`);
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            window.history.replaceState(null, "", window.location.pathname);
+          });
+      }
+    }
+
     // Check Cloud Session (Supabase / Next.js Auth)
     const checkAuthSession = async () => {
       try {
@@ -1810,32 +1842,31 @@ export default function BrnsicMusicPage() {
     }
   };
 
-  // Google Auth Handler (No password required)
+  // Google Auth Handler (Supports Native Supabase Google OAuth SSO + Email Fallback)
   const handleGoogleSignIn = async (customEmail?: string) => {
     setAuthError(null);
     setIsAuthSubmitting(true);
 
-    const targetEmail = (customEmail || googleEmail).trim().toLowerCase();
-
-    // If no email was provided, prompt user to enter their Gmail!
-    if (!targetEmail || !targetEmail.includes("@")) {
-      setAuthError("Masukkan alamat email Google (Gmail) kamu terlebih dahulu");
-      setIsAuthSubmitting(false);
-      return;
-    }
-
     try {
-      // 1. If Supabase Google OAuth is configured, redirect to Google OAuth Consent screen
+      // 1. Check if Supabase Google OAuth SSO is enabled (opens accounts.google.com account picker)
       const oauthRes = await fetch("/api/auth/google/oauth").catch(() => null);
       if (oauthRes && oauthRes.ok) {
         const oauthData = await oauthRes.json();
-        if (oauthData.url) {
+        if (oauthData.url && oauthData.enabled) {
           window.location.href = oauthData.url;
           return;
         }
       }
 
-      // 2. Direct Google Sign In with the user's REAL email (no password needed)
+      // 2. If Google OAuth toggle is not enabled in Supabase yet, prompt for Gmail input
+      const targetEmail = (customEmail || googleEmail).trim().toLowerCase();
+      if (!targetEmail || !targetEmail.includes("@")) {
+        setAuthError("Masukkan alamat email Gmail kamu, atau aktifkan Google Provider di Supabase.");
+        setIsAuthSubmitting(false);
+        return;
+      }
+
+      // 3. Direct Google Sign In with the user's REAL email (no password needed)
       const targetName = targetEmail.split("@")[0].replace(/[._-]/g, " ");
 
       const res = await fetch("/api/auth/google", {
@@ -3186,6 +3217,88 @@ export default function BrnsicMusicPage() {
           </div>
         </div>
 
+        {/* Web / Desktop Liquid Glass Pill Tab Bar (Image 1) */}
+        <div className="hidden lg:flex items-center justify-center flex-1 max-w-xs mx-4">
+          <nav className="liquid-glass rounded-full px-2 py-1 flex items-center justify-between gap-1.5 border border-white/15 bg-black/60 backdrop-blur-2xl shadow-lg w-full">
+            <button
+              onClick={() => {
+                setMobileNavTab("home");
+                setCurrentView("home");
+              }}
+              className={`flex items-center justify-center transition-all duration-300 ${
+                currentView === "home"
+                  ? "w-9 h-9 rounded-full bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.4)] scale-105"
+                  : "w-9 h-9 rounded-full text-white/50 hover:text-white hover:bg-white/5"
+              }`}
+              title="Home"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill={currentView === "home" ? "currentColor" : "none"} stroke="currentColor" strokeWidth={currentView === "home" ? "0" : "2"}>
+                <path d="M12.5 3.247a1 1 0 0 0-1 0L4 7.577V20h4.5v-6a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v6H20V7.577l-7.5-4.33z" fill={currentView === "home" ? "currentColor" : "none"} />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                setMobileNavTab("liked");
+                setCurrentView("liked");
+              }}
+              className={`flex items-center justify-center transition-all duration-300 ${
+                currentView === "liked"
+                  ? "w-9 h-9 rounded-full bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.4)] scale-105"
+                  : "w-9 h-9 rounded-full text-white/50 hover:text-white hover:bg-white/5"
+              }`}
+              title="Lagu yang Disukai"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill={currentView === "liked" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                setMobileNavTab("search");
+                setCurrentView("search");
+              }}
+              className={`flex items-center justify-center transition-all duration-300 ${
+                currentView === "search"
+                  ? "w-9 h-9 rounded-full bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.4)] scale-105"
+                  : "w-9 h-9 rounded-full text-white/50 hover:text-white hover:bg-white/5"
+              }`}
+              title="Cari"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={currentView === "search" ? "2.8" : "2"}>
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                if (currentUser) {
+                  setIsProfileModalOpen(true);
+                } else {
+                  setAuthError(null);
+                  setIsAuthModalOpen(true);
+                }
+              }}
+              className={`flex items-center justify-center transition-all duration-300 ${
+                isProfileModalOpen || isAuthModalOpen
+                  ? "w-9 h-9 rounded-full bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.4)] scale-105"
+                  : "w-9 h-9 rounded-full text-white/50 hover:text-white hover:bg-white/5"
+              }`}
+              title={currentUser ? `Profil: ${currentUser.name}` : "Masuk Akun"}
+            >
+              {currentUser ? (
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isProfileModalOpen ? "bg-black text-[#1ed760]" : "bg-white text-black"} font-black text-[11px] select-none shadow-sm`}>
+                  {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
+                </div>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isProfileModalOpen || isAuthModalOpen ? "2.5" : "2"}>
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              )}
+            </button>
+          </nav>
+        </div>
+
         <div className="flex items-center gap-3">
           <button
             onClick={loadTrendingData}
@@ -3776,7 +3889,156 @@ export default function BrnsicMusicPage() {
             </div>
           )}
 
-          {/* VIEW: DEDICATED PLAYLIST VIEW (TOP 50, HEAVY ROTATION, VIRAL) */}
+          {/* VIEW: LIKED SONGS (LAGU YANG DISUKAI) */}
+          {currentView === "liked" && (
+            <div>
+              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#1ed760]/30 to-black md:to-[#121212] flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#1ed760]/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl shadow-2xl bg-gradient-to-br from-[#1ed760] via-[#0f8b3c] to-[#053617] flex items-center justify-center text-black flex-shrink-0 relative z-10 shadow-[0_15px_40px_rgba(30,215,96,0.3)]">
+                  <svg width="68" height="68" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1 text-center sm:text-left relative z-10">
+                  <span className="text-xs font-bold uppercase tracking-wider text-white/80">
+                    Playlist Favorit
+                  </span>
+                  <h1 className="text-3xl sm:text-5xl font-black text-white my-2 tracking-tight">
+                    Lagu yang Disukai
+                  </h1>
+                  <p className="text-sm text-white/80">
+                    {currentUser ? currentUser.name : "Koleksi Pribadi"} • {likedSongIds.length} lagu
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Bar */}
+              <div className="px-6 py-4 flex items-center gap-4">
+                {(() => {
+                  const allLikedPool = [
+                    ...DEFAULT_CATALOG,
+                    ...mostPlayedIndonesia,
+                    ...indonesiaTop50,
+                    ...viralIndonesia,
+                    ...globalTrending
+                  ];
+                  const likedList = allLikedPool.filter((s) => likedSongIds.includes(s.id));
+                  return (
+                    <button
+                      onClick={() => {
+                        if (likedList.length > 0) {
+                          handlePlayFromList(likedList[0], likedList, 0);
+                        } else if (DEFAULT_CATALOG.length > 0) {
+                          handlePlayFromList(DEFAULT_CATALOG[0], DEFAULT_CATALOG, 0);
+                        }
+                      }}
+                      className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-xl"
+                      title="Putar Lagu yang Disukai"
+                    >
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+                  );
+                })()}
+
+                <button
+                  onClick={() => setCurrentView("home")}
+                  className="text-xs font-bold text-[#b3b3b3] hover:text-white flex items-center gap-1.5 transition ml-auto"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                  <span>Kembali</span>
+                </button>
+              </div>
+
+              {/* Liked Tracks List */}
+              <div className="px-6 pb-28 flex flex-col gap-1">
+                {(() => {
+                  const allLikedPool = [
+                    ...DEFAULT_CATALOG,
+                    ...mostPlayedIndonesia,
+                    ...indonesiaTop50,
+                    ...viralIndonesia,
+                    ...globalTrending
+                  ];
+                  const seen = new Set<string>();
+                  const likedList = allLikedPool.filter((s) => {
+                    if (likedSongIds.includes(s.id) && !seen.has(s.id)) {
+                      seen.add(s.id);
+                      return true;
+                    }
+                    return false;
+                  });
+
+                  if (likedList.length === 0) {
+                    return (
+                      <div className="text-center py-20 text-[#b3b3b3]">
+                        <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 text-[#1ed760]">
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                          </svg>
+                        </div>
+                        <p className="text-base font-bold text-white mb-1">Belum ada lagu yang kamu sukai</p>
+                        <p className="text-xs max-w-sm mx-auto">
+                          Klik ikon hati pada lagu apa saja saat mendengarkan untuk menyimpannya ke koleksi favoritmu di sini.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return likedList.map((t: any, i: number) => {
+                    const isCur = currentTrack?.id === t.id;
+                    return (
+                      <div
+                        key={t.id || i}
+                        onClick={() => handlePlayFromList(t, likedList, i)}
+                        className={`group px-3 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition ${
+                          isCur ? "bg-white/10 text-[#1ed760]" : "hover:bg-white/5 text-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <span className="text-xs text-[#b3b3b3] w-5 text-right font-semibold">
+                            {i + 1}
+                          </span>
+                          <img
+                            src={t.cover}
+                            alt={t.title}
+                            onError={handleImgError}
+                            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className={`text-xs sm:text-sm font-bold truncate ${isCur ? "text-[#1ed760]" : "text-white"}`}>
+                              {t.title}
+                            </div>
+                            <div className="text-[11px] text-[#b3b3b3] truncate">
+                              {t.artist}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleLike(t.id);
+                            }}
+                            className="p-1.5 text-[#1ed760] hover:scale-110 transition"
+                            title="Hapus dari Lagu Disukai"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
           {(currentView === "top50-indo" ||
             currentView === "most-played-indo" ||
             currentView === "viral-indo" ||
@@ -5365,13 +5627,13 @@ export default function BrnsicMusicPage() {
       </footer>
 
       {/* ====================================================================
-          4. MOBILE FLOATING MINI-PLAYER + BOTTOM NAV BAR
+          4. MOBILE & IPAD FLOATING MINI-PLAYER + LIQUID GLASS TAB BAR (IMAGE 1)
           ==================================================================== */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex flex-col pointer-events-auto">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex flex-col pointer-events-none pb-3 sm:pb-4">
         {!isMobilePlayerOpen && hasUserStartedPlayback && (
           <div
             onClick={() => setIsMobilePlayerOpen(true)}
-            className="mx-2 mb-2 liquid-glass-borderless rounded-2xl p-2.5 flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition border-0"
+            className="pointer-events-auto mx-3 mb-2.5 max-w-lg w-[calc(100%-24px)] self-center liquid-glass-borderless rounded-2xl p-2.5 flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition border-0"
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <img
@@ -5454,58 +5716,95 @@ export default function BrnsicMusicPage() {
           </div>
         )}
 
-        {/* Mobile Bottom Navigation */}
+        {/* Floating Liquid Glass Tab Bar (Mobile & iPad - Image 1) */}
         {!isMobilePlayerOpen && (
-          <nav className="h-14 bg-black/95 backdrop-blur-2xl border-t border-white/5 flex items-center justify-around px-6">
-            <button
-              onClick={() => {
-                setMobileNavTab("home");
-                setCurrentView("home");
-              }}
-              className={`flex flex-col items-center gap-1 ${
-                mobileNavTab === "home" ? "text-white font-bold" : "text-[#b3b3b3]"
-              }`}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12.5 3.247a1 1 0 0 0-1 0L4 7.577V20h4.5v-6a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v6H20V7.577l-7.5-4.33z" />
-              </svg>
-              <span className="text-[10px]">Home</span>
-            </button>
-            <button
-              onClick={() => {
-                setMobileNavTab("search");
-                setCurrentView("search");
-              }}
-              className={`flex flex-col items-center gap-1 ${
-                mobileNavTab === "search" ? "text-white font-bold" : "text-[#b3b3b3]"
-              }`}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <span className="text-[10px]">Cari</span>
-            </button>
-            <button
-              onClick={() => {
-                setMobileNavTab("library");
-                if (userPlaylists.length > 0) {
-                  setActiveCustomPlaylist(userPlaylists[0]);
-                  setCurrentView("custom-playlist");
-                } else {
-                  setCurrentView("top50-indo");
-                }
-              }}
-              className={`flex flex-col items-center gap-1 ${
-                mobileNavTab === "library" ? "text-white font-bold" : "text-[#b3b3b3]"
-              }`}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 22a1 1 0 0 1-1-1V3a1 1 0 0 1 2 0v18a1 1 0 0 1-1 1zM15.5 2.134A1 1 0 0 0 14 3v18a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1.5-.866zM20 20h-4V4h4v16zm-10.5.134A1 1 0 0 0 8 19V5a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v14a1 1 0 0 0 1.5.866zM7 18H3V6h4v12z" />
-              </svg>
-              <span className="text-[10px]">Koleksi</span>
-            </button>
-          </nav>
+          <div className="flex justify-center px-4 w-full">
+            <nav className="pointer-events-auto liquid-glass rounded-full px-3 py-1.5 flex items-center justify-between gap-4 sm:gap-6 shadow-[0_15px_35px_rgba(0,0,0,0.75)] border border-white/15 backdrop-blur-2xl bg-black/80 max-w-[280px] sm:max-w-xs w-full">
+              {/* Tab 1: Home */}
+              <button
+                onClick={() => {
+                  setMobileNavTab("home");
+                  setCurrentView("home");
+                }}
+                className={`relative flex items-center justify-center transition-all duration-300 ${
+                  currentView === "home"
+                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
+                    : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
+                }`}
+                title="Home"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill={currentView === "home" ? "currentColor" : "none"} stroke="currentColor" strokeWidth={currentView === "home" ? "0" : "2"}>
+                  <path d="M12.5 3.247a1 1 0 0 0-1 0L4 7.577V20h4.5v-6a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v6H20V7.577l-7.5-4.33z" fill={currentView === "home" ? "currentColor" : "none"} />
+                </svg>
+              </button>
+
+              {/* Tab 2: Liked Songs (Heart) */}
+              <button
+                onClick={() => {
+                  setMobileNavTab("liked");
+                  setCurrentView("liked");
+                }}
+                className={`relative flex items-center justify-center transition-all duration-300 ${
+                  currentView === "liked"
+                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
+                    : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
+                }`}
+                title="Lagu yang Disukai"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill={currentView === "liked" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+              </button>
+
+              {/* Tab 3: Search (Cari) */}
+              <button
+                onClick={() => {
+                  setMobileNavTab("search");
+                  setCurrentView("search");
+                }}
+                className={`relative flex items-center justify-center transition-all duration-300 ${
+                  currentView === "search"
+                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
+                    : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
+                }`}
+                title="Cari"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={currentView === "search" ? "2.8" : "2"}>
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </button>
+
+              {/* Tab 4: Profile (Akun) */}
+              <button
+                onClick={() => {
+                  if (currentUser) {
+                    setIsProfileModalOpen(true);
+                  } else {
+                    setAuthError(null);
+                    setIsAuthModalOpen(true);
+                  }
+                }}
+                className={`relative flex items-center justify-center transition-all duration-300 ${
+                  isProfileModalOpen || isAuthModalOpen
+                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
+                    : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
+                }`}
+                title={currentUser ? `Profil: ${currentUser.name}` : "Masuk Akun"}
+              >
+                {currentUser ? (
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center ${isProfileModalOpen ? "bg-black text-[#1ed760]" : "bg-white text-black"} font-black text-xs select-none shadow-sm`}>
+                    {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
+                  </div>
+                ) : (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isProfileModalOpen || isAuthModalOpen ? "2.5" : "2"}>
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                )}
+              </button>
+            </nav>
+          </div>
         )}
       </div>
 
