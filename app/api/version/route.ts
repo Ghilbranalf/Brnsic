@@ -4,10 +4,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   return NextResponse.json({
-    version: "2.2.0",
+    version: "2.3.0",
     releaseDate: "2026-10-26",
-    title: "Brnsic 2.2 • Pembaruan Sistem",
-    notes: "Pembaruan resmi tangga lagu Spotify Top 50 Indonesia & Global, prioritas pencarian judul lagu teratas, dan peningkatan performa audio.",
+    title: "Brnsic 2.3 • Spotify Smart Shuffle & Taste Engine",
+    notes: "Fitur Spotify Smart Shuffle 3-state (Off / Standard Fewer Repeats / Smart ✨), algoritma pengacakan seimbang berbasis genre & selera lokal tanpa login, serta penataan kontrol audio resmi Spotify.",
     buildTime: Date.now()
   });
 }

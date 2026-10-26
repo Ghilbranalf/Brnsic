@@ -22,6 +22,7 @@ interface Track {
   plays?: string;
   collectionId?: number | string;
   lyrics: LyricLine[];
+  isSmartRecommendation?: boolean;
 }
 
 interface TrendingSong {
@@ -40,6 +41,7 @@ interface TrendingSong {
   reason?: string;
   youtubeId?: string;
   youtubeQuery: string;
+  isSmartRecommendation?: boolean;
 }
 
 interface TrendingArtist {
@@ -566,8 +568,97 @@ const normalizeSong = (raw: any): Track => {
     youtubeId,
     plays,
     collectionId,
-    lyrics
+    lyrics,
+    isSmartRecommendation: Boolean(raw.isSmartRecommendation)
   };
+};
+
+// Spotify-grade Balanced Dispersion Shuffle (Dither Algorithm with "Fewer Repeats")
+// Spaces out artists to prevent clumping, and penalizes recently played songs
+const balancedShuffle = (tracks: any[], playedTitles: Set<string>): any[] => {
+  if (tracks.length <= 2) {
+    return [...tracks].sort(() => Math.random() - 0.5);
+  }
+
+  // 1. Group tracks by artist to prevent artist clumping
+  const artistBuckets: Record<string, any[]> = {};
+  for (const track of tracks) {
+    const artist = (track.artist || track.artistName || "Artist").toLowerCase().trim();
+    if (!artistBuckets[artist]) artistBuckets[artist] = [];
+    artistBuckets[artist].push(track);
+  }
+
+  // 2. Distribute each artist's songs across [0, 1) with dither jitter
+  const weighted: Array<{ track: any; sortKey: number }> = [];
+  for (const bucket of Object.values(artistBuckets)) {
+    const len = bucket.length;
+    const shuffledBucket = [...bucket].sort(() => Math.random() - 0.5);
+    shuffledBucket.forEach((track, i) => {
+      const baseRatio = (i + Math.random() * 0.45) / len;
+      const cleanTitle = (track.title || track.trackName || "").toLowerCase().trim();
+      // "Fewer Repeats" penalty if played in current session
+      const penalty = playedTitles.has(cleanTitle) ? 1.0 : 0;
+      weighted.push({ track, sortKey: baseRatio + penalty });
+    });
+  }
+
+  weighted.sort((a, b) => a.sortKey - b.sortKey);
+  return weighted.map((w) => w.track);
+};
+
+// Spotify-grade Hybrid Smart Recommendation Candidate Finder
+// Combines Collaborative (Charts) + Content-Based (Acoustic/Artist relatedness) + Behavioral Taste Profile
+const getSmartShuffleCandidates = (
+  currentSeed: any,
+  existingQueue: any[],
+  playedTitles: Set<string>,
+  taste: TasteProfile,
+  catalogs: { related: any[]; topIndo: any[]; mostPlayed: any[]; defaultCat: any[] },
+  countNeeded: number
+): any[] => {
+  const existingSet = new Set(
+    existingQueue.map((s) => ((s.title || s.trackName || "") as string).toLowerCase().trim())
+  );
+
+  const rawPool = [
+    ...catalogs.related,
+    ...catalogs.topIndo,
+    ...catalogs.mostPlayed,
+    ...catalogs.defaultCat
+  ];
+
+  const seen = new Set<string>();
+  const scored: Array<{ track: any; score: number }> = [];
+
+  for (const item of rawPool) {
+    const cleanT = ((item.title || item.trackName || "") as string).toLowerCase().trim();
+    if (!cleanT || existingSet.has(cleanT) || playedTitles.has(cleanT) || seen.has(cleanT)) {
+      continue;
+    }
+    seen.add(cleanT);
+
+    // Hybrid Scoring:
+    // 1. Content-based similarity: Artist match or proximity
+    let score = 0;
+    const itemArtist = (item.artist || item.artistName || "").toLowerCase().trim();
+    const seedArtist = (currentSeed.artist || "").toLowerCase().trim();
+    if (itemArtist === seedArtist) score += 35;
+
+    // 2. Behavioral profile: user affinity weights
+    const userWeight = taste.artistWeights[item.artist] || 0;
+    score += userWeight * 8;
+
+    // 3. Collaborative / chart popularity bonus
+    if (item.rank && item.rank <= 25) score += 15;
+
+    scored.push({
+      track: { ...normalizeSong(item), isSmartRecommendation: true },
+      score
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, countNeeded).map((s) => s.track);
 };
 
 declare global {
@@ -666,6 +757,10 @@ export default function BrnsicMusicPage() {
   // 13. Dynamic User Taste Profile (Personalized Learning Engine)
   const [userTaste, setUserTaste] = useState<TasteProfile>(generateInitialTaste());
 
+  // 14. Spotify Shuffle Tri-State: "off" | "standard" (balanced fewer repeats) | "smart" (hybrid recommendation)
+  const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("off");
+  const [shuffleToast, setShuffleToast] = useState<string | null>(null);
+
   // References
   const ytPlayerRef = useRef<any>(null);
   const pendingVideoIdRef = useRef<string | null>(null);
@@ -681,6 +776,8 @@ export default function BrnsicMusicPage() {
   const hasUserStartedPlaybackRef = useRef<boolean>(false);
   const latestSearchQueryRef = useRef<string>("");
   const playRequestIdRef = useRef<number>(0);
+  const originalQueueRef = useRef<any[]>([]);
+  const shuffleToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 1. Splash Screen Timer
   useEffect(() => {
@@ -883,6 +980,94 @@ export default function BrnsicMusicPage() {
     setActiveQueue(updated);
     if (index < activeQueueIndex) {
       setActiveQueueIndex(activeQueueIndex - 1);
+    }
+  };
+
+  const showToast = (msg: string) => {
+    setShuffleToast(msg);
+    if (shuffleToastTimeoutRef.current) clearTimeout(shuffleToastTimeoutRef.current);
+    shuffleToastTimeoutRef.current = setTimeout(() => {
+      setShuffleToast(null);
+    }, 2800);
+  };
+
+  // Spotify-grade Tri-State Shuffle Controller ("off" -> "standard" -> "smart" -> "off")
+  const toggleShuffleMode = () => {
+    const nextMode: "off" | "standard" | "smart" =
+      shuffleMode === "off" ? "standard" : shuffleMode === "standard" ? "smart" : "off";
+    setShuffleMode(nextMode);
+
+    if (nextMode === "standard") {
+      if (originalQueueRef.current.length === 0) {
+        originalQueueRef.current = [...activeQueue];
+      }
+      const played = activeQueue.slice(0, activeQueueIndex + 1);
+      const upcoming = activeQueue
+        .slice(activeQueueIndex + 1)
+        .filter((t) => !t.isSmartRecommendation);
+      const shuffledUpcoming = balancedShuffle(upcoming, playedSongTitlesRef.current);
+      setActiveQueue([...played, ...shuffledUpcoming]);
+      showToast("Shuffle biasa aktif: Mengacak lagu seimbang (Fewer Repeats)");
+    } else if (nextMode === "smart") {
+      if (originalQueueRef.current.length === 0) {
+        originalQueueRef.current = [...activeQueue];
+      }
+      const played = activeQueue.slice(0, activeQueueIndex + 1);
+      const upcoming = activeQueue
+        .slice(activeQueueIndex + 1)
+        .filter((t) => !t.isSmartRecommendation);
+      const shuffledUpcoming = balancedShuffle(upcoming, playedSongTitlesRef.current);
+
+      const discovery = getSmartShuffleCandidates(
+        currentTrack,
+        activeQueue,
+        playedSongTitlesRef.current,
+        userTaste,
+        {
+          related: relatedQueue,
+          topIndo: indonesiaTop50,
+          mostPlayed: mostPlayedIndonesia,
+          defaultCat: DEFAULT_CATALOG
+        },
+        Math.max(3, Math.ceil(shuffledUpcoming.length / 2))
+      );
+
+      const woven: any[] = [];
+      let cIdx = 0;
+      shuffledUpcoming.forEach((t, i) => {
+        woven.push(t);
+        if ((i + 1) % 2 === 0 && cIdx < discovery.length) {
+          woven.push(discovery[cIdx++]);
+        }
+      });
+      while (cIdx < discovery.length && woven.length < 25) {
+        woven.push(discovery[cIdx++]);
+      }
+
+      setActiveQueue([...played, ...woven]);
+      showToast("Smart Shuffle aktif ✨: Menyisipkan rekomendasi sesuai seleramu");
+    } else {
+      // Off: Restore original queue
+      if (originalQueueRef.current.length > 0) {
+        const curTitle = (currentTrack.title || "").toLowerCase().trim();
+        const cleanedOriginal = originalQueueRef.current.filter((t) => !t.isSmartRecommendation);
+        const curIdx = cleanedOriginal.findIndex(
+          (t) => (t.title || "").toLowerCase().trim() === curTitle
+        );
+        if (curIdx !== -1) {
+          setActiveQueue(cleanedOriginal);
+          setActiveQueueIndex(curIdx);
+        } else {
+          const played = activeQueue.slice(0, activeQueueIndex + 1).filter((t) => !t.isSmartRecommendation);
+          const upcoming = cleanedOriginal.filter(
+            (t) => !played.some((p) => p.title.toLowerCase() === t.title.toLowerCase())
+          );
+          setActiveQueue([...played, ...upcoming]);
+        }
+      } else {
+        setActiveQueue((prev) => prev.filter((t) => !t.isSmartRecommendation));
+      }
+      showToast("Shuffle dimatikan: Kembali ke urutan antrean asli");
     }
   };
 
@@ -1229,10 +1414,49 @@ export default function BrnsicMusicPage() {
   const handlePlayFromList = (song: any, list: any[], index: number, isAlbum = false) => {
     hasUserStartedPlaybackRef.current = true;
     const normalizedList = (list || []).map((item) => normalizeSong(item));
+    originalQueueRef.current = [...normalizedList];
     const safeIndex = index >= 0 && index < normalizedList.length ? index : 0;
     const targetSong = normalizedList[safeIndex] || normalizeSong(song);
-    setActiveQueue(normalizedList);
-    setActiveQueueIndex(safeIndex);
+
+    if (shuffleMode === "off") {
+      setActiveQueue(normalizedList);
+      setActiveQueueIndex(safeIndex);
+    } else if (shuffleMode === "standard") {
+      const others = normalizedList.filter((_, i) => i !== safeIndex);
+      const shuffledOthers = balancedShuffle(others, playedSongTitlesRef.current);
+      setActiveQueue([targetSong, ...shuffledOthers]);
+      setActiveQueueIndex(0);
+    } else if (shuffleMode === "smart") {
+      const others = normalizedList.filter((_, i) => i !== safeIndex);
+      const shuffledOthers = balancedShuffle(others, playedSongTitlesRef.current);
+      const discovery = getSmartShuffleCandidates(
+        targetSong,
+        [targetSong, ...shuffledOthers],
+        playedSongTitlesRef.current,
+        userTaste,
+        {
+          related: relatedQueue,
+          topIndo: indonesiaTop50,
+          mostPlayed: mostPlayedIndonesia,
+          defaultCat: DEFAULT_CATALOG
+        },
+        Math.max(3, Math.ceil(shuffledOthers.length / 2))
+      );
+      const woven: any[] = [];
+      let cIdx = 0;
+      shuffledOthers.forEach((t, i) => {
+        woven.push(t);
+        if ((i + 1) % 2 === 0 && cIdx < discovery.length) {
+          woven.push(discovery[cIdx++]);
+        }
+      });
+      while (cIdx < discovery.length) {
+        woven.push(discovery[cIdx++]);
+      }
+      setActiveQueue([targetSong, ...woven]);
+      setActiveQueueIndex(0);
+    }
+
     if (!isAlbum) {
       setIsAlbumLoopMode(false);
     }
@@ -1292,16 +1516,62 @@ export default function BrnsicMusicPage() {
   // Play Album with options
   const playAlbumFull = (albumInfo: any, tracks: any[], loop = false) => {
     if (!tracks || tracks.length === 0) return;
-    setActiveAlbumTracks(tracks);
-    setActiveQueue(tracks);
-    setActiveQueueIndex(0);
+    const normalized = tracks.map((t) => normalizeSong(t));
+    originalQueueRef.current = [...normalized];
+    setActiveAlbumTracks(normalized);
     setIsAlbumLoopMode(loop);
     setRepeatMode(loop ? "all" : "off");
-    playAnySong(tracks[0]);
+
+    if (shuffleMode === "off") {
+      setActiveQueue(normalized);
+      setActiveQueueIndex(0);
+      playAnySong(normalized[0]);
+    } else if (shuffleMode === "standard") {
+      const first = normalized[0];
+      const others = normalized.slice(1);
+      const shuffled = balancedShuffle(others, playedSongTitlesRef.current);
+      setActiveQueue([first, ...shuffled]);
+      setActiveQueueIndex(0);
+      playAnySong(first);
+    } else {
+      const first = normalized[0];
+      const others = normalized.slice(1);
+      const shuffled = balancedShuffle(others, playedSongTitlesRef.current);
+      const discovery = getSmartShuffleCandidates(
+        first,
+        [first, ...shuffled],
+        playedSongTitlesRef.current,
+        userTaste,
+        {
+          related: relatedQueue,
+          topIndo: indonesiaTop50,
+          mostPlayed: mostPlayedIndonesia,
+          defaultCat: DEFAULT_CATALOG
+        },
+        Math.max(2, Math.ceil(shuffled.length / 2))
+      );
+      const woven: any[] = [];
+      let cIdx = 0;
+      shuffled.forEach((t, i) => {
+        woven.push(t);
+        if ((i + 1) % 2 === 0 && cIdx < discovery.length) {
+          woven.push(discovery[cIdx++]);
+        }
+      });
+      while (cIdx < discovery.length) woven.push(discovery[cIdx++]);
+      setActiveQueue([first, ...woven]);
+      setActiveQueueIndex(0);
+      playAnySong(first);
+    }
   };
 
   // INFINITE NEXT SONG ENGINE WITH TASTE PREFERENCE SCORING
   const playNextSong = (userTriggered = true) => {
+    // 0. User early-skip behavioral penalty (if user intentionally skipped in first 15 seconds)
+    if (userTriggered && currentTrack && currentTime < 15 && currentTime >= 1) {
+      recordTasteInteraction(currentTrack, "skip");
+    }
+
     // 1. If Repeat 1 (Single Track) is active, replay current song from 0
     if (repeatMode === "one") {
       setCurrentTime(0);
@@ -1320,6 +1590,27 @@ export default function BrnsicMusicPage() {
         if (candidate) {
           setActiveQueueIndex(nextIdx);
           playAnySong(candidate, userTriggered);
+
+          // If in Smart Shuffle mode and upcoming queue is getting low (<= 3 tracks left),
+          // dynamically generate and append more smart recommendations so music never stops!
+          if (shuffleMode === "smart" && activeQueue.length - nextIdx <= 3) {
+            const freshSmartCandidates = getSmartShuffleCandidates(
+              candidate,
+              activeQueue,
+              playedSongTitlesRef.current,
+              userTaste,
+              {
+                related: relatedQueue,
+                topIndo: indonesiaTop50,
+                mostPlayed: mostPlayedIndonesia,
+                defaultCat: DEFAULT_CATALOG
+              },
+              4
+            );
+            if (freshSmartCandidates.length > 0) {
+              setActiveQueue((prev) => [...prev, ...freshSmartCandidates]);
+            }
+          }
           return;
         }
       } else {
@@ -3303,8 +3594,16 @@ export default function BrnsicMusicPage() {
                               className="min-w-0 flex-1 cursor-pointer"
                               onClick={() => handlePlayFromList(song, activeQueue, actualIdx)}
                             >
-                              <div className="text-sm font-bold text-white truncate group-hover:text-[#1ed760] transition">
-                                {song.title || song.trackName}
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm font-bold text-white truncate group-hover:text-[#1ed760] transition">
+                                  {song.title || song.trackName}
+                                </div>
+                                {song.isSmartRecommendation && (
+                                  <span className="flex-shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-[#1ed760]/20 text-[#1ed760] border border-[#1ed760]/40 flex items-center gap-1 shadow-sm">
+                                    <span className="text-[10px]">✨</span>
+                                    <span>Smart Shuffle</span>
+                                  </span>
+                                )}
                               </div>
                               <div className="text-xs text-[#b3b3b3] truncate">{song.artist || song.artistName}</div>
                             </div>
@@ -3567,6 +3866,64 @@ export default function BrnsicMusicPage() {
         {/* Center Column: Official Playback Controls & Scrubber */}
         <div className="flex flex-col items-center gap-1.5 w-[40%] max-w-[720px]">
           <div className="flex items-center gap-5">
+            {/* Spotify Tri-State Shuffle: Off / Standard / Smart */}
+            <button
+              onClick={toggleShuffleMode}
+              className={`p-1.5 transition relative ${
+                shuffleMode !== "off" ? "text-[#1ed760]" : "text-[#b3b3b3] hover:text-white"
+              }`}
+              title={
+                shuffleMode === "off"
+                  ? "Aktifkan Shuffle (Acak lagu)"
+                  : shuffleMode === "standard"
+                  ? "Shuffle Biasa Aktif: Mengacak seimbang & Fewer Repeats (Klik untuk Smart Shuffle ✨)"
+                  : "Smart Shuffle Aktif ✨: Rekomendasi lagu disisipkan otomatis sesuai seleramu (Klik untuk Matikan)"
+              }
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 3 21 3 21 8"></polyline>
+                <line x1="4" y1="20" x2="21" y2="3"></line>
+                <polyline points="21 16 21 21 16 21"></polyline>
+                <line x1="15" y1="15" x2="21" y2="21"></line>
+                <line x1="4" y1="4" x2="9" y2="9"></line>
+              </svg>
+              {shuffleMode === "standard" && (
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#1ed760] rounded-full"></span>
+              )}
+              {shuffleMode === "smart" && (
+                <span className="absolute -top-1 -right-1 text-[10px] leading-none drop-shadow-[0_0_6px_rgba(30,215,96,0.8)]">
+                  ✨
+                </span>
+              )}
+            </button>
+
+            <button onClick={playPrevSong} className="text-[#b3b3b3] hover:text-white" title="Lagu sebelumnya">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+              </svg>
+            </button>
+
+            <button
+              onClick={togglePlay}
+              className="w-8 h-8 rounded-full bg-white text-black hover:scale-105 transition flex items-center justify-center shadow-md"
+            >
+              {isPlaying ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </button>
+
+            <button onClick={() => playNextSong(true)} className="text-[#b3b3b3] hover:text-white" title="Lagu berikutnya">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+              </svg>
+            </button>
+
             {/* 3-State Repeat Button: Off / All / One */}
             <button
               onClick={() => {
@@ -3600,41 +3957,6 @@ export default function BrnsicMusicPage() {
                 <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#1ed760] rounded-full"></span>
               )}
             </button>
-            <button onClick={playPrevSong} className="text-[#b3b3b3] hover:text-white" title="Lagu sebelumnya">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
-              </svg>
-            </button>
-            <button
-              onClick={togglePlay}
-              className="w-8 h-8 rounded-full bg-white text-black hover:scale-105 transition flex items-center justify-center shadow-md"
-            >
-              {isPlaying ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                </svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </button>
-            <button onClick={() => playNextSong(true)} className="text-[#b3b3b3] hover:text-white" title="Lagu berikutnya">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                if (currentTrack.collectionId || currentTrack.album) {
-                  openAlbumView(currentTrack.album, currentTrack.artist, currentTrack.collectionId);
-                }
-              }}
-              className="text-[#b3b3b3] hover:text-white text-xs font-bold px-2 py-0.5 rounded-full border border-white/20"
-              title="Buka Halaman Album Lagu Ini"
-            >
-              Album
-            </button>
           </div>
 
           <div className="flex items-center gap-2 w-full text-[11px] text-[#b3b3b3]">
@@ -3652,7 +3974,20 @@ export default function BrnsicMusicPage() {
         </div>
 
         {/* Right Column: Brnsic Action Icons */}
-        <div className="flex items-center justify-end gap-3.5 w-[30%] min-w-[180px]">
+        <div className="flex items-center justify-end gap-3 w-[30%] min-w-[180px]">
+          {currentTrack.album && (
+            <button
+              onClick={() => {
+                if (currentTrack.collectionId || currentTrack.album) {
+                  openAlbumView(currentTrack.album, currentTrack.artist, currentTrack.collectionId);
+                }
+              }}
+              className="text-[#b3b3b3] hover:text-white text-xs font-bold px-2 py-0.5 rounded-full border border-white/20 transition truncate max-w-[100px]"
+              title="Buka Halaman Album Lagu Ini"
+            >
+              Album
+            </button>
+          )}
           <button
             onClick={() => setSongToAddToPlaylist(currentTrack)}
             title="Tambah ke Playlist"
@@ -4037,7 +4372,15 @@ export default function BrnsicMusicPage() {
                               className="min-w-0 flex-1 cursor-pointer"
                               onClick={() => handlePlayFromList(song, activeQueue, actualIdx)}
                             >
-                              <div className="text-xs font-bold text-white truncate">{song.title || song.trackName}</div>
+                              <div className="flex items-center gap-1.5">
+                                <div className="text-xs font-bold text-white truncate">{song.title || song.trackName}</div>
+                                {song.isSmartRecommendation && (
+                                  <span className="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#1ed760]/20 text-[#1ed760] border border-[#1ed760]/40 flex items-center gap-0.5 shadow-sm">
+                                    <span>✨</span>
+                                    <span>Smart</span>
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-[11px] text-white/50 truncate">
                                 {song.artist || song.artistName}
                               </div>
@@ -4162,32 +4505,35 @@ export default function BrnsicMusicPage() {
                   </div>
                 </div>
 
-                {/* Playback Controls Bar */}
+                {/* Playback Controls Bar (Spotify Standard 5 Controls) */}
                 <div className="w-full flex items-center justify-between mt-2 px-2">
+                  {/* Spotify Tri-State Shuffle: Off / Standard / Smart */}
                   <button
-                    onClick={() => {
-                      const nextMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
-                      setRepeatMode(nextMode);
-                      setIsAlbumLoopMode(nextMode === "all");
-                    }}
-                    className={`p-1 relative ${repeatMode !== "off" ? "text-[#1ed760]" : "text-white/50 hover:text-white"}`}
+                    onClick={toggleShuffleMode}
+                    className={`p-1 relative transition ${
+                      shuffleMode !== "off" ? "text-[#1ed760]" : "text-white/50 hover:text-white"
+                    }`}
                     title={
-                      repeatMode === "off"
-                        ? "Ulangi: Mati (Lanjut lagu lain)"
-                        : repeatMode === "all"
-                        ? "Ulangi: Semua Lagu"
-                        : "Ulangi: 1 Lagu Ini"
+                      shuffleMode === "off"
+                        ? "Aktifkan Shuffle (Acak)"
+                        : shuffleMode === "standard"
+                        ? "Shuffle Biasa Aktif: Fewer Repeats (Klik untuk Smart Shuffle ✨)"
+                        : "Smart Shuffle Aktif ✨: Rekomendasi otomatis sesuai selera (Klik untuk Matikan)"
                     }
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="17 1 21 5 17 9"></polyline>
-                      <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-                      <polyline points="7 23 3 19 7 15"></polyline>
-                      <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="16 3 21 3 21 8"></polyline>
+                      <line x1="4" y1="20" x2="21" y2="3"></line>
+                      <polyline points="21 16 21 21 16 21"></polyline>
+                      <line x1="15" y1="15" x2="21" y2="21"></line>
+                      <line x1="4" y1="4" x2="9" y2="9"></line>
                     </svg>
-                    {repeatMode === "one" && (
-                      <span className="absolute -top-1 -right-1 bg-[#1ed760] text-black text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
-                        1
+                    {shuffleMode === "standard" && (
+                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#1ed760] rounded-full"></span>
+                    )}
+                    {shuffleMode === "smart" && (
+                      <span className="absolute -top-1 -right-1 text-[10px] leading-none drop-shadow-[0_0_6px_rgba(30,215,96,0.8)]">
+                        ✨
                       </span>
                     )}
                   </button>
@@ -4219,12 +4565,36 @@ export default function BrnsicMusicPage() {
                     </svg>
                   </button>
 
+                  {/* 3-State Repeat Button: Off / All / One */}
                   <button
-                    onClick={() => setSongToAddToPlaylist(currentTrack)}
-                    className="text-white/50 hover:text-white p-1 text-xs font-bold"
-                    title="Tambah ke Playlist"
+                    onClick={() => {
+                      const nextMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
+                      setRepeatMode(nextMode);
+                      setIsAlbumLoopMode(nextMode === "all");
+                    }}
+                    className={`p-1 relative transition ${repeatMode !== "off" ? "text-[#1ed760]" : "text-white/50 hover:text-white"}`}
+                    title={
+                      repeatMode === "off"
+                        ? "Ulangi: Mati (Lanjut lagu lain)"
+                        : repeatMode === "all"
+                        ? "Ulangi: Semua Lagu"
+                        : "Ulangi: 1 Lagu Ini"
+                    }
                   >
-                    + Playlist
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="17 1 21 5 17 9"></polyline>
+                      <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                      <polyline points="7 23 3 19 7 15"></polyline>
+                      <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                    </svg>
+                    {repeatMode === "one" && (
+                      <span className="absolute -top-1 -right-1 bg-[#1ed760] text-black text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center">
+                        1
+                      </span>
+                    )}
+                    {repeatMode === "all" && (
+                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#1ed760] rounded-full"></span>
+                    )}
                   </button>
                 </div>
 
@@ -4238,27 +4608,42 @@ export default function BrnsicMusicPage() {
                     </svg>
                     <span>Brnsic Audio Engine</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      if (navigator.share) {
-                        navigator.share({
-                          title: currentTrack.title,
-                          text: `Dengarkan lagu ${currentTrack.title} oleh ${currentTrack.artist} di Brnsic!`,
-                          url: window.location.href
-                        });
-                      }
-                    }}
-                    className="p-1 hover:text-white transition"
-                    title="Bagikan"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="18" cy="5" r="3"></circle>
-                      <circle cx="6" cy="12" r="3"></circle>
-                      <circle cx="18" cy="19" r="3"></circle>
-                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                    </svg>
-                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setSongToAddToPlaylist(currentTrack)}
+                      className="p-1 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold text-white/70"
+                      title="Tambah ke Playlist"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                      <span>Playlist</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (navigator.share) {
+                          navigator.share({
+                            title: currentTrack.title,
+                            text: `Dengarkan lagu ${currentTrack.title} oleh ${currentTrack.artist} di Brnsic!`,
+                            url: window.location.href
+                          });
+                        }
+                      }}
+                      className="p-1 hover:text-white transition"
+                      title="Bagikan"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -4897,6 +5282,18 @@ export default function BrnsicMusicPage() {
                 Nanti Saja
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          12. TOAST: NOTIFIKASI INTERAKTIF SHUFFLE & TASTE MODE
+          ==================================================================== */}
+      {shuffleToast && (
+        <div className="fixed bottom-24 md:bottom-24 left-1/2 -translate-x-1/2 z-[90] pointer-events-none animate-fadeIn">
+          <div className="liquid-glass border border-white/20 px-4 py-2 rounded-full shadow-[0_10px_35px_rgba(0,0,0,0.85)] backdrop-blur-xl flex items-center gap-2.5 text-xs font-bold text-white max-w-sm text-center">
+            <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse flex-shrink-0"></span>
+            <span className="truncate">{shuffleToast}</span>
           </div>
         </div>
       )}
