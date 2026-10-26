@@ -12,6 +12,24 @@ const POPULAR_SEARCH_INDEX = [
     tags: ["bunga", "matahari", "gala", "matahri", "sal", "priadi", "markers"]
   },
   {
+    title: "Dari Planet Lain",
+    artist: "Sal Priadi",
+    album: "MARKERS AND SUCH PENS FLASHDISKS",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 290,
+    youtubeId: "5NPu6JHzbuo",
+    tags: ["dari", "planet", "lain", "sepertinya", "kau", "memang", "sal", "priadi"]
+  },
+  {
+    title: "Mesra-mesraannya kecil-kecilan dulu",
+    artist: "Sal Priadi",
+    album: "MARKERS AND SUCH PENS FLASHDISKS",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 212,
+    youtubeId: "mOlx9vm39Pg",
+    tags: ["mesra", "kecil", "kecilan", "sal", "priadi"]
+  },
+  {
     title: "Satu Bulan",
     artist: "Bernadya",
     album: "Sialnya, Hidup Harus Tetap Berjalan",
@@ -243,13 +261,23 @@ export async function GET(request: Request) {
             const video = item.videoRenderer;
             if (video && video.videoId && video.title?.runs?.[0]?.text) {
               const fullTitle = video.title.runs[0].text;
+              const lower = fullTitle.toLowerCase();
               if (
-                fullTitle.toLowerCase().includes("reaction") ||
-                fullTitle.toLowerCase().includes("cover live") ||
-                fullTitle.toLowerCase().includes("mr bean") ||
-                fullTitle.toLowerCase().includes("parodi") ||
-                fullTitle.toLowerCase().includes("6sentani") ||
-                fullTitle.toLowerCase().includes("only siji")
+                lower.includes("reaction") ||
+                lower.includes("cover live") ||
+                lower.includes("mr bean") ||
+                lower.includes("bean") ||
+                lower.includes("meme") ||
+                lower.includes("parodi") ||
+                lower.includes("parody") ||
+                lower.includes("kartun") ||
+                lower.includes("cartoon") ||
+                lower.includes("animasi") ||
+                lower.includes("jedag jedug") ||
+                lower.includes("dj tiktok") ||
+                lower.includes("short") ||
+                lower.includes("6sentani") ||
+                lower.includes("only siji")
               ) {
                 continue;
               }

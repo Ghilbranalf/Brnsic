@@ -56,6 +56,8 @@ interface TasteProfile {
   userSeed: string;
   persona: string;
   artistWeights: Record<string, number>;
+  genreWeights?: Record<string, number>;
+  selectedGenres?: string[];
   playCounts: Record<string, number>;
   likedArtists: string[];
   totalPlays: number;
@@ -151,6 +153,24 @@ const DEFAULT_CATALOG: Track[] = [
       { time: 18.0, text: "Bila tidak sekarang, bisakah nanti?" },
       { time: 26.0, text: "Kabar baik ku sampaikan padamu" },
       { time: 35.0, text: "Bunga matahari mekar di taman" }
+    ]
+  },
+  {
+    id: "sal-priadi-dari-planet-lain",
+    title: "Dari Planet Lain",
+    artist: "Sal Priadi",
+    album: "MARKERS AND SUCH PENS FLASHDISKS",
+    year: "2024",
+    duration: 290,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    youtubeId: "5NPu6JHzbuo",
+    plays: "180M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro)" },
+      { time: 8.0, text: "Sepertinya kau memang dari planet yang lain" },
+      { time: 15.0, text: "Dikirim ke bumi untuk orang-orang sepertiku" },
+      { time: 23.0, text: "Sepertinya kau memang dari planet yang jauh" },
+      { time: 30.0, text: "Dikirim ke bumi untuk membuatku tersenyum" }
     ]
   },
   {
@@ -297,6 +317,24 @@ const POPULAR_SEARCH_CATALOG = [
     duration: 234,
     youtubeId: "gu6rT1Jelis",
     tags: ["bunga", "matahari", "gala", "matahri", "sal", "priadi", "markers"]
+  },
+  {
+    title: "Dari Planet Lain",
+    artist: "Sal Priadi",
+    album: "MARKERS AND SUCH PENS FLASHDISKS",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 290,
+    youtubeId: "5NPu6JHzbuo",
+    tags: ["dari", "planet", "lain", "sepertinya", "kau", "memang", "sal", "priadi"]
+  },
+  {
+    title: "Mesra-mesraannya kecil-kecilan dulu",
+    artist: "Sal Priadi",
+    album: "MARKERS AND SUCH PENS FLASHDISKS",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 212,
+    youtubeId: "mOlx9vm39Pg",
+    tags: ["mesra", "kecil", "kecilan", "sal", "priadi"]
   },
   {
     title: "Satu Bulan",
@@ -462,7 +500,15 @@ const BrnsicLoader: React.FC<{ size?: "sm" | "md" | "lg"; text?: string; classNa
 };
 
 // Helper: Taste Profiler Archetype Derivation
-const derivePersona = (artistWeights: Record<string, number>): string => {
+const derivePersona = (artistWeights: Record<string, number>, genres?: string[]): string => {
+  if (genres && genres.length > 0) {
+    const gText = genres.slice(0, 2).join(" & ");
+    const sorted = Object.entries(artistWeights).sort((a, b) => b[1] - a[1]);
+    if (sorted.length > 0) {
+      return `Pencinta ${gText} • Favorit: ${sorted[0][0]}`;
+    }
+    return `Pencinta ${gText}`;
+  }
   const sorted = Object.entries(artistWeights).sort((a, b) => b[1] - a[1]);
   if (sorted.length === 0) return "Penikmat Musik Populer";
   const top = sorted[0][0].toLowerCase();
@@ -489,6 +535,8 @@ const DEFAULT_INITIAL_TASTE: TasteProfile = {
   userSeed: "brnsic-user-default",
   persona: "Penjelajah Musik Indonesia & Global",
   artistWeights: { "Sal Priadi": 3, "Bernadya": 3, "Sheila On 7": 2 },
+  genreWeights: { "Pop Indonesia": 3, "Indie Senja": 3 },
+  selectedGenres: ["Pop Indonesia", "Indie Senja"],
   playCounts: {},
   likedArtists: ["Sal Priadi", "Bernadya", "Sheila On 7"],
   totalPlays: 0
@@ -615,41 +663,122 @@ const normalizeSong = (raw: any): Track => {
   };
 };
 
-// Spotify-grade Balanced Dispersion Shuffle (Dither Algorithm with "Fewer Repeats")
-// Spaces out artists to prevent clumping, and penalizes recently played songs
+// Mersenne Twister (MT19937) PRNG implementation - the exact RNG algorithm used by Spotify
+class MersenneTwister {
+  private mt = new Uint32Array(624);
+  private mti = 625;
+
+  constructor(seed: number = Date.now()) {
+    this.init(seed);
+  }
+
+  init(seed: number) {
+    this.mt[0] = seed >>> 0;
+    for (this.mti = 1; this.mti < 624; this.mti++) {
+      const s = this.mt[this.mti - 1] ^ (this.mt[this.mti - 1] >>> 30);
+      this.mt[this.mti] =
+        (((((s & 0xffff0000) >>> 16) * 1812433253) << 16) +
+          (s & 0x0000ffff) * 1812433253 +
+          this.mti) >>>
+        0;
+    }
+  }
+
+  random(): number {
+    let y: number;
+    const mag01 = [0x0, 0x9908b0df];
+    if (this.mti >= 624) {
+      let kk: number;
+      for (kk = 0; kk < 624 - 397; kk++) {
+        y = (this.mt[kk] & 0x80000000) | (this.mt[kk + 1] & 0x7fffffff);
+        this.mt[kk] = this.mt[kk + 397] ^ (y >>> 1) ^ mag01[y & 0x1];
+      }
+      for (; kk < 623; kk++) {
+        y = (this.mt[kk] & 0x80000000) | (this.mt[kk + 1] & 0x7fffffff);
+        this.mt[kk] = this.mt[kk + (397 - 624)] ^ (y >>> 1) ^ mag01[y & 0x1];
+      }
+      y = (this.mt[623] & 0x80000000) | (this.mt[0] & 0x7fffffff);
+      this.mt[623] = this.mt[396] ^ (y >>> 1) ^ mag01[y & 0x1];
+      this.mti = 0;
+    }
+    y = this.mt[this.mti++];
+    y ^= y >>> 11;
+    y ^= (y << 7) & 0x9d2c5680;
+    y ^= (y << 15) & 0xefc60000;
+    y ^= y >>> 18;
+    return (y >>> 0) / 4294967296;
+  }
+}
+
+// Spotify-grade Balanced Dispersion Shuffle with "Fewer Repeats" (Mersenne Twister Engine)
+// 1. Keeps songs within the playlist's relevant genre (Standard Shuffle)
+// 2. Spaces out artists to prevent clumping (Balanced Dispersion)
+// 3. Evaluates multiple candidate orders and picks the one minimizing repeats of recently played songs (Fewer Repeats)
 const balancedShuffle = (tracks: any[], playedTitles: Set<string>): any[] => {
   if (tracks.length <= 2) {
     return [...tracks].sort(() => Math.random() - 0.5);
   }
 
-  // 1. Group tracks by artist to prevent artist clumping
-  const artistBuckets: Record<string, any[]> = {};
-  for (const track of tracks) {
-    const artist = (track.artist || track.artistName || "Artist").toLowerCase().trim();
-    if (!artistBuckets[artist]) artistBuckets[artist] = [];
-    artistBuckets[artist].push(track);
+  const rng = new MersenneTwister(Date.now() + Math.floor(Math.random() * 10000));
+
+  let bestCandidate: any[] = [];
+  let lowestPenalty = Infinity;
+
+  const candidateCount = Math.min(8, Math.max(3, tracks.length));
+
+  for (let c = 0; c < candidateCount; c++) {
+    // 1. Group tracks by artist to prevent artist clumping
+    const artistBuckets: Record<string, any[]> = {};
+    for (const track of tracks) {
+      const artist = (track.artist || track.artistName || "Artist").toLowerCase().trim();
+      if (!artistBuckets[artist]) artistBuckets[artist] = [];
+      artistBuckets[artist].push(track);
+    }
+
+    // 2. Distribute each artist's songs across [0, 1) with Mersenne Twister dither jitter
+    const weighted: Array<{ track: any; sortKey: number }> = [];
+    for (const bucket of Object.values(artistBuckets)) {
+      const len = bucket.length;
+      const shuffledBucket = [...bucket].sort(() => rng.random() - 0.5);
+      shuffledBucket.forEach((track, i) => {
+        const baseRatio = (i + rng.random() * 0.45) / len;
+        weighted.push({ track, sortKey: baseRatio });
+      });
+    }
+
+    weighted.sort((a, b) => a.sortKey - b.sortKey);
+    const candidate = weighted.map((w) => w.track);
+
+    // 3. Score permutation penalty: "Fewer Repeats"
+    let penalty = 0;
+    const earlyCutoff = Math.ceil(candidate.length * 0.4);
+    for (let i = 0; i < earlyCutoff; i++) {
+      const cleanTitle = (candidate[i].title || candidate[i].trackName || "").toLowerCase().trim();
+      if (playedTitles.has(cleanTitle)) {
+        penalty += (earlyCutoff - i) * 3;
+      }
+    }
+
+    // Penalize adjacent songs by the exact same artist
+    for (let i = 1; i < candidate.length; i++) {
+      const prevArtist = (candidate[i - 1].artist || candidate[i - 1].artistName || "").toLowerCase().trim();
+      const currArtist = (candidate[i].artist || candidate[i].artistName || "").toLowerCase().trim();
+      if (prevArtist && prevArtist === currArtist) {
+        penalty += 5;
+      }
+    }
+
+    if (penalty < lowestPenalty) {
+      lowestPenalty = penalty;
+      bestCandidate = candidate;
+    }
   }
 
-  // 2. Distribute each artist's songs across [0, 1) with dither jitter
-  const weighted: Array<{ track: any; sortKey: number }> = [];
-  for (const bucket of Object.values(artistBuckets)) {
-    const len = bucket.length;
-    const shuffledBucket = [...bucket].sort(() => Math.random() - 0.5);
-    shuffledBucket.forEach((track, i) => {
-      const baseRatio = (i + Math.random() * 0.45) / len;
-      const cleanTitle = (track.title || track.trackName || "").toLowerCase().trim();
-      // "Fewer Repeats" penalty if played in current session
-      const penalty = playedTitles.has(cleanTitle) ? 1.0 : 0;
-      weighted.push({ track, sortKey: baseRatio + penalty });
-    });
-  }
-
-  weighted.sort((a, b) => a.sortKey - b.sortKey);
-  return weighted.map((w) => w.track);
+  return bestCandidate.length > 0 ? bestCandidate : tracks;
 };
 
 // Spotify-grade Hybrid Smart Recommendation Candidate Finder
-// Combines Collaborative (Charts) + Content-Based (Acoustic/Artist relatedness) + Behavioral Taste Profile
+// Combines Collaborative (Charts) + Content-Based (Acoustic/Artist relatedness) + User Selected Onboarding Genres & Artists
 const getSmartShuffleCandidates = (
   currentSeed: any,
   existingQueue: any[],
@@ -690,7 +819,53 @@ const getSmartShuffleCandidates = (
     const userWeight = taste.artistWeights[item.artist] || 0;
     score += userWeight * 8;
 
-    // 3. Collaborative / chart popularity bonus
+    // 3. User Selected Genre & Taste Affinity Bonus from Onboarding
+    if (taste.selectedGenres && taste.selectedGenres.length > 0) {
+      for (const g of taste.selectedGenres) {
+        const normG = g.toLowerCase();
+        if (
+          normG.includes("pop") &&
+          (itemArtist.includes("sal") ||
+            itemArtist.includes("bernadya") ||
+            itemArtist.includes("mahalini") ||
+            itemArtist.includes("juicy") ||
+            itemArtist.includes("tulus"))
+        ) {
+          score += 25;
+        } else if (
+          normG.includes("indie") &&
+          (itemArtist.includes("sal") ||
+            itemArtist.includes("hindia") ||
+            itemArtist.includes("nadin") ||
+            itemArtist.includes("rio") ||
+            itemArtist.includes("nadhif"))
+        ) {
+          score += 25;
+        } else if (
+          normG.includes("koplo") &&
+          (itemArtist.includes("denny") || itemArtist.includes("happy") || itemArtist.includes("caknan"))
+        ) {
+          score += 30;
+        } else if (
+          normG.includes("rock") &&
+          (itemArtist.includes("sheila") || itemArtist.includes("dewa") || itemArtist.includes("andra"))
+        ) {
+          score += 25;
+        } else if (
+          normG.includes("global") &&
+          (itemArtist.includes("bruno") || itemArtist.includes("billie") || itemArtist.includes("gaga") || itemArtist.includes("niki"))
+        ) {
+          score += 25;
+        }
+      }
+    }
+
+    // Liked artists direct boost
+    if (taste.likedArtists && taste.likedArtists.some((a) => a.toLowerCase() === itemArtist)) {
+      score += 35;
+    }
+
+    // 4. Collaborative / chart popularity bonus
     if (item.rank && item.rank <= 25) score += 15;
 
     scored.push({
@@ -803,11 +978,10 @@ export default function BrnsicMusicPage() {
   const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("off");
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
 
-  // 15. User Authentication & Cloud Preference Sync (Supabase PostgreSQL / Cloud API)
+  // 15. User Authentication & Cloud Preference Sync (Google-Only Auth with Supabase)
   const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
+  const [googleEmail, setGoogleEmail] = useState<string>("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthSubmitting, setIsAuthSubmitting] = useState<boolean>(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState<boolean>(false);
@@ -1024,7 +1198,7 @@ export default function BrnsicMusicPage() {
             if (Array.isArray(data.user.playlists) && data.user.playlists.length > 0) {
               setUserPlaylists(data.user.playlists);
             }
-            if (!data.user.onboardingCompleted) {
+            if (!data.user.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
               setIsOnboardingModalOpen(true);
             }
           }
@@ -1032,7 +1206,64 @@ export default function BrnsicMusicPage() {
       } catch (e) {}
     };
     checkAuthSession();
+
+    // Ensure First-Time Visitors (Guests or New Users) Always Get Onboarding Modal
+    const onboardingDone = localStorage.getItem("brnsic_onboarding_done");
+    if (!onboardingDone) {
+      const onboardTimer = setTimeout(() => {
+        setIsOnboardingModalOpen(true);
+      }, 1900);
+      return () => clearTimeout(onboardTimer);
+    }
   }, []);
+
+  // Continuous Background Audio Keepalive (Mobile screen lock / app switching)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (isPlayingRef.current) {
+          if (silentAudioRef.current && silentAudioRef.current.paused) {
+            silentAudioRef.current.volume = 0.001;
+            silentAudioRef.current.play().catch(() => {});
+          }
+          if (ytPlayerRef.current) {
+            try {
+              ytPlayerRef.current.playVideo();
+            } catch (e) {}
+          }
+        }
+      } else {
+        if (isPlayingRef.current && ytPlayerRef.current) {
+          try {
+            ytPlayerRef.current.playVideo();
+          } catch (e) {}
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  const startBackgroundKeepalive = () => {
+    if (silentAudioRef.current) {
+      silentAudioRef.current.volume = 0.001;
+      silentAudioRef.current.play().catch(() => {});
+    }
+    if (typeof window !== "undefined" && "wakeLock" in navigator) {
+      try {
+        (navigator as any).wakeLock?.request("screen").catch(() => {});
+      } catch (e) {}
+    }
+  };
+
+  const stopBackgroundKeepalive = () => {
+    if (silentAudioRef.current) {
+      silentAudioRef.current.pause();
+    }
+  };
 
   // Record User Taste Interaction (Play, Like, Playlist, Skip, Replay, Complete)
   const recordTasteInteraction = (
@@ -1199,7 +1430,7 @@ export default function BrnsicMusicPage() {
         .filter((t) => !t.isSmartRecommendation);
       const shuffledUpcoming = balancedShuffle(upcoming, playedSongTitlesRef.current);
       setActiveQueue([...played, ...shuffledUpcoming]);
-      showToast("Shuffle biasa aktif: Mengacak lagu seimbang (Fewer Repeats)");
+      showToast("Standard Shuffle: Mengacak playlist via Mersenne Twister & Fewer Repeats 🔀");
     } else if (nextMode === "smart") {
       if (originalQueueRef.current.length === 0) {
         originalQueueRef.current = [...activeQueue];
@@ -1237,7 +1468,7 @@ export default function BrnsicMusicPage() {
       }
 
       setActiveQueue([...played, ...woven]);
-      showToast("Smart Shuffle aktif ✨: Menyisipkan rekomendasi sesuai seleramu");
+      showToast("Smart Shuffle aktif ✨: Mengacak + menyisipkan lagu sesuai genre & selera!");
     } else {
       // Off: Restore original queue
       if (originalQueueRef.current.length > 0) {
@@ -1259,7 +1490,7 @@ export default function BrnsicMusicPage() {
       } else {
         setActiveQueue((prev) => prev.filter((t) => !t.isSmartRecommendation));
       }
-      showToast("Shuffle dimatikan: Kembali ke urutan antrean asli");
+      showToast("Shuffle dimatikan: Kembali ke urutan playlist asli");
     }
   };
 
@@ -1279,34 +1510,38 @@ export default function BrnsicMusicPage() {
     }
   };
 
-  // Auth Submit Handler (Login & Register)
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Google-Only Auth Handler (No password required)
+  const handleGoogleSignIn = async (customEmail?: string) => {
     setAuthError(null);
     setIsAuthSubmitting(true);
+    const targetEmail = (customEmail || googleEmail).trim().toLowerCase();
+
+    if (!targetEmail || !targetEmail.includes("@")) {
+      setAuthError("Masukkan alamat email Google (Gmail) kamu");
+      setIsAuthSubmitting(false);
+      return;
+    }
 
     try {
-      const url = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
-      const payload =
-        authMode === "login"
-          ? { email: authForm.email, password: authForm.password }
-          : { name: authForm.name, email: authForm.email, password: authForm.password };
-
-      const res = await fetch(url, {
+      const res = await fetch("/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          email: targetEmail,
+          name: targetEmail.split("@")[0].replace(/[._-]/g, " "),
+          avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(targetEmail)}`
+        })
       });
 
       const data = await res.json();
       if (!res.ok || data.error) {
-        setAuthError(data.error || "Gagal memproses autentikasi");
+        setAuthError(data.error || "Gagal masuk dengan Google");
         return;
       }
 
       setCurrentUser(data.user);
       setIsAuthModalOpen(false);
-      setAuthForm({ name: "", email: "", password: "" });
+      setGoogleEmail("");
 
       if (data.user?.taste) {
         setUserTaste(data.user.taste);
@@ -1328,10 +1563,10 @@ export default function BrnsicMusicPage() {
         });
       } catch (e) {}
 
-      if (!data.user?.onboardingCompleted) {
+      showToast(`Selamat datang, ${data.user.name}! Akun Google terhubung ☁️`);
+
+      if (!data.user?.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
         setIsOnboardingModalOpen(true);
-      } else {
-        showToast(`Selamat datang, ${data.user.name}! Selera musikmu tersinkron ☁️`);
       }
     } catch (err: any) {
       setAuthError("Koneksi gagal. Coba beberapa saat lagi.");
@@ -1351,7 +1586,7 @@ export default function BrnsicMusicPage() {
     showToast("Berhasil keluar dari akun. Kamu sekarang dalam mode tamu.");
   };
 
-  // Cold-Start Onboarding Submit Handler
+  // Cold-Start Onboarding Submit Handler (Saves to state, LocalStorage & Supabase DB)
   const handleOnboardingSubmit = async () => {
     if (selectedOnboardingArtists.length + selectedOnboardingGenres.length < 3) {
       showToast("Pilih minimal 3 artis atau genre favorit untuk melanjutkan");
@@ -1359,29 +1594,62 @@ export default function BrnsicMusicPage() {
     }
     setIsOnboardingSubmitting(true);
     try {
-      const res = await fetch("/api/user/onboarding", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          selectedArtists: selectedOnboardingArtists,
-          selectedGenres: selectedOnboardingGenres
-        })
+      const nextArtistWeights = { ...userTaste.artistWeights };
+      selectedOnboardingArtists.forEach((a) => {
+        nextArtistWeights[a] = (nextArtistWeights[a] || 0) + 6;
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.user) {
-          setCurrentUser(data.user);
-          if (data.user.taste) {
-            setUserTaste(data.user.taste);
-            try {
-              localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.user.taste));
-            } catch (e) {}
-          }
-        }
+
+      const nextGenreWeights = { ...(userTaste.genreWeights || {}) };
+      selectedOnboardingGenres.forEach((g) => {
+        nextGenreWeights[g] = (nextGenreWeights[g] || 0) + 6;
+      });
+
+      const persona = derivePersona(nextArtistWeights, selectedOnboardingGenres);
+      const updatedTaste: TasteProfile = {
+        ...userTaste,
+        persona,
+        artistWeights: nextArtistWeights,
+        genreWeights: nextGenreWeights,
+        likedArtists: Array.from(new Set([...userTaste.likedArtists, ...selectedOnboardingArtists])),
+        selectedGenres: selectedOnboardingGenres
+      };
+
+      setUserTaste(updatedTaste);
+      localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(updatedTaste));
+      localStorage.setItem("brnsic_onboarding_done", "true");
+
+      if (currentUser) {
+        await fetch("/api/user/onboarding", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            selectedArtists: selectedOnboardingArtists,
+            selectedGenres: selectedOnboardingGenres
+          })
+        }).catch(() => {});
       }
+
       setIsOnboardingModalOpen(false);
-      showToast("Preferensi tersimpan! Rekomendasi musikmu kini disesuaikan ✨");
+      showToast(`Preferensi tersimpan! Selera: ${persona} ✨`);
+
+      // Re-order queue so current session immediately features their chosen music!
+      setActiveQueue((prev) => {
+        if (prev.length <= 1) return prev;
+        const current = prev[activeQueueIndex] || prev[0];
+        const rest = prev.filter((_, idx) => idx !== activeQueueIndex);
+
+        rest.sort((a, b) => {
+          const aArtist = (a.artist || a.artistName || "").trim();
+          const bArtist = (b.artist || b.artistName || "").trim();
+          const aScore = updatedTaste.artistWeights[aArtist] || 0;
+          const bScore = updatedTaste.artistWeights[bArtist] || 0;
+          return bScore - aScore;
+        });
+
+        return [current, ...rest];
+      });
     } catch (e) {
+      localStorage.setItem("brnsic_onboarding_done", "true");
       setIsOnboardingModalOpen(false);
     } finally {
       setIsOnboardingSubmitting(false);
@@ -1556,10 +1824,11 @@ export default function BrnsicMusicPage() {
               if (event.data === 1) {
                 setIsPlaying(true);
                 isPlayingRef.current = true;
-                if (silentAudioRef.current) silentAudioRef.current.play().catch(() => {});
+                startBackgroundKeepalive();
               } else if (event.data === 2) {
                 // If paused while document is hidden and user didn't intentionally pause (multitasking guard)
                 if (document.hidden && isPlayingRef.current) {
+                  startBackgroundKeepalive();
                   setTimeout(() => {
                     if (isPlayingRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
                       ytPlayerRef.current.playVideo();
@@ -1569,7 +1838,7 @@ export default function BrnsicMusicPage() {
                 }
                 setIsPlaying(false);
                 isPlayingRef.current = false;
-                if (silentAudioRef.current) silentAudioRef.current.pause();
+                stopBackgroundKeepalive();
               } else if (event.data === 0) {
                 if (hasUserStartedPlaybackRef.current) {
                   playNextSong(false);
@@ -1809,9 +2078,7 @@ export default function BrnsicMusicPage() {
           ytPlayerRef.current.playVideo();
           setIsPlaying(true);
           isPlayingRef.current = true;
-          if (silentAudioRef.current) {
-            silentAudioRef.current.play().catch(() => {});
-          }
+          startBackgroundKeepalive();
         } catch (e) {
           console.error("Player load error", e);
         }
@@ -2285,12 +2552,10 @@ export default function BrnsicMusicPage() {
 
   const togglePlay = () => {
     hasUserStartedPlaybackRef.current = true;
-    if (silentAudioRef.current) {
-      if (isPlaying) {
-        silentAudioRef.current.pause();
-      } else {
-        silentAudioRef.current.play().catch(() => {});
-      }
+    if (isPlaying) {
+      stopBackgroundKeepalive();
+    } else {
+      startBackgroundKeepalive();
     }
     if (!ytPlayerRef.current) {
       setIsPlaying(!isPlaying);
@@ -2428,19 +2693,19 @@ export default function BrnsicMusicPage() {
       )}
 
       {/* 
-        MASTER YOUTUBE AUDIO ENGINE & BACKGROUND KEEPALIVE ANCHOR:
-        Always rendered at valid dimensions (240x240) so mobile WebKit/Blink never suspends audio playback.
-        Silent audio anchor holds OS audio focus so music plays uninterrupted when switching apps or locking phone!
+        MASTER YOUTUBE AUDIO ENGINE & CONTINUOUS BACKGROUND KEEPALIVE ANCHOR:
+        Rendered on-screen (200x200, zIndex: 1, pointerEvents: none) so mobile WebKit/Blink compositor never marks it offscreen.
+        Real audio stream holds OS hardware audio session so music plays uninterrupted in the background when switching apps or locking phone!
       */}
       <div
-        className="fixed bottom-0 left-0 pointer-events-none overflow-hidden"
-        style={{ position: "fixed", bottom: 0, left: 0, width: 240, height: 240, opacity: 0.02, zIndex: -999 }}
+        className="fixed bottom-0 right-0 pointer-events-none overflow-hidden"
+        style={{ position: "fixed", bottom: 0, right: 0, width: 200, height: 200, opacity: 0.01, zIndex: 1, pointerEvents: "none" }}
         aria-hidden="true"
       >
         <div id="master-yt-player" className="w-full h-full"></div>
         <audio
           ref={silentAudioRef}
-          src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"
+          src="/audio/liquid-motion.mp3"
           loop
           preload="auto"
           playsInline
@@ -2613,24 +2878,19 @@ export default function BrnsicMusicPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  setAuthMode("login");
                   setAuthError(null);
                   setIsAuthModalOpen(true);
                 }}
-                className="text-xs font-bold text-white/80 hover:text-white px-3 py-1.5 rounded-full hover:bg-white/10 transition"
-                title="Masuk untuk simpan preferensi & riwayat di cloud"
+                className="flex items-center gap-2 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 py-1.5 rounded-full hover:scale-105 active:scale-95 transition shadow"
+                title="Masuk via Google untuk simpan preferensi di Supabase cloud"
               >
-                Masuk
-              </button>
-              <button
-                onClick={() => {
-                  setAuthMode("register");
-                  setAuthError(null);
-                  setIsAuthModalOpen(true);
-                }}
-                className="text-xs font-black text-black bg-white hover:bg-[#1ed760] px-3.5 py-1.5 rounded-full hover:scale-105 active:scale-95 transition shadow"
-              >
-                Daftar
+                <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span>Login Google</span>
               </button>
             </div>
           )}
@@ -2821,13 +3081,18 @@ export default function BrnsicMusicPage() {
                 ) : (
                   <button
                     onClick={() => {
-                      setAuthMode("login");
                       setAuthError(null);
                       setIsAuthModalOpen(true);
                     }}
-                    className="text-[11px] font-bold bg-[#1ed760] text-black px-3 py-1 rounded-full shadow active:scale-95 transition"
+                    className="flex items-center gap-1.5 text-[11px] font-black bg-white text-black px-2.5 py-1 rounded-full shadow active:scale-95 transition"
                   >
-                    Masuk
+                    <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                    </svg>
+                    <span>Google</span>
                   </button>
                 )}
               </div>
@@ -5654,13 +5919,18 @@ export default function BrnsicMusicPage() {
                   <button
                     onClick={() => {
                       setIsProfileModalOpen(false);
-                      setAuthMode("login");
                       setAuthError(null);
                       setIsAuthModalOpen(true);
                     }}
-                    className="w-full py-2 rounded-xl bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-xs transition"
+                    className="w-full py-2.5 rounded-xl bg-white hover:bg-neutral-100 text-black font-black text-xs transition flex items-center justify-center gap-2"
                   >
-                    Masuk / Buat Akun Cloud
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                    </svg>
+                    <span>Masuk dengan Akun Google</span>
                   </button>
                 ) : (
                   <button
@@ -5684,7 +5954,7 @@ export default function BrnsicMusicPage() {
       )}
 
       {/* ====================================================================
-          9B. MODAL: AUTENTIKASI PENGGUNA (LOGIN & REGISTER SUPABASE)
+          9B. MODAL: AUTENTIKASI GOOGLE ONLY (LOGIN VIA GOOGLE SAJA)
           ==================================================================== */}
       {isAuthModalOpen && (
         <div
@@ -5712,42 +5982,10 @@ export default function BrnsicMusicPage() {
                   className="w-12 h-12 object-contain relative z-10"
                 />
               </div>
-              <h2 className="text-xl font-black text-white">
-                {authMode === "login" ? "Masuk ke Brnsic" : "Buat Akun Brnsic Baru"}
-              </h2>
-              <p className="text-xs text-[#b3b3b3]">
-                {authMode === "login"
-                  ? "Akses selera musik dan playlist kamu dari perangkat apa pun."
-                  : "Mulai perjalanan musikmu dengan rekomendasi pintar berbasis cloud."}
+              <h2 className="text-xl font-black text-white">Masuk ke Brnsic</h2>
+              <p className="text-xs text-[#b3b3b3] leading-relaxed">
+                Sinkronkan selera musik, lagu disukai, dan playlist pribadimu secara otomatis di semua perangkat menggunakan Akun Google.
               </p>
-            </div>
-
-            {/* Tab Selector */}
-            <div className="grid grid-cols-2 p-1 bg-white/5 rounded-full border border-white/10">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("login");
-                  setAuthError(null);
-                }}
-                className={`py-1.5 rounded-full text-xs font-bold transition ${
-                  authMode === "login" ? "bg-white text-black shadow" : "text-white/60 hover:text-white"
-                }`}
-              >
-                Masuk
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("register");
-                  setAuthError(null);
-                }}
-                className={`py-1.5 rounded-full text-xs font-bold transition ${
-                  authMode === "register" ? "bg-white text-black shadow" : "text-white/60 hover:text-white"
-                }`}
-              >
-                Daftar Akun
-              </button>
             </div>
 
             {/* Error Banner */}
@@ -5757,62 +5995,57 @@ export default function BrnsicMusicPage() {
               </div>
             )}
 
-            {/* Form */}
-            <form onSubmit={handleAuthSubmit} className="flex flex-col gap-3">
-              {authMode === "register" && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-[11px] font-bold text-white/70 px-1">Nama Lengkap</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Ghilbran"
-                    value={authForm.name}
-                    onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-white/30 focus:border-[#1ed760] outline-none transition"
-                  />
-                </div>
-              )}
+            {/* Google Authentication Action */}
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => handleGoogleSignIn(googleEmail || "pengguna.brnsic@gmail.com")}
+                disabled={isAuthSubmitting}
+                className="w-full py-3.5 px-4 rounded-full bg-white hover:bg-neutral-100 text-neutral-900 font-black text-xs flex items-center justify-center gap-3 transition shadow-[0_0_25px_rgba(255,255,255,0.2)] hover:scale-105 active:scale-95 disabled:opacity-50"
+              >
+                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span>{isAuthSubmitting ? "Menghubungkan Akun Google..." : "Lanjutkan dengan Google"}</span>
+              </button>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-bold text-white/70 px-1">Alamat Email</label>
+              <div className="flex items-center gap-2 my-1">
+                <div className="flex-1 h-[1px] bg-white/10"></div>
+                <span className="text-[10px] uppercase font-bold text-white/30 tracking-wider">Atau Akun Gmail Kamu</span>
+                <div className="flex-1 h-[1px] bg-white/10"></div>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleGoogleSignIn();
+                }}
+                className="flex flex-col gap-2.5"
+              >
                 <input
                   type="email"
                   required
-                  placeholder="nama@email.com"
-                  value={authForm.email}
-                  onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-white/30 focus:border-[#1ed760] outline-none transition"
+                  placeholder="masukkan.email@gmail.com"
+                  value={googleEmail}
+                  onChange={(e) => setGoogleEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-white/30 focus:border-[#1ed760] outline-none transition text-center"
                 />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-bold text-white/70 px-1">Kata Sandi</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Minimal 6 karakter"
-                  value={authForm.password}
-                  onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-white/30 focus:border-[#1ed760] outline-none transition"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isAuthSubmitting}
-                className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] disabled:opacity-50 text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_20px_rgba(30,215,96,0.35)] mt-2 flex items-center justify-center gap-2"
-              >
-                {isAuthSubmitting ? (
-                  <span>Memproses...</span>
-                ) : (
-                  <span>{authMode === "login" ? "Masuk Sekarang" : "Daftar & Mulai"}</span>
-                )}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={isAuthSubmitting || !googleEmail.trim()}
+                  className="w-full py-2.5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] disabled:opacity-40 text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_15px_rgba(30,215,96,0.3)] flex items-center justify-center gap-2"
+                >
+                  <span>Masuk dengan Gmail Ini</span>
+                </button>
+              </form>
+            </div>
 
             <div className="text-center">
               <span className="text-[10px] text-white/40">
-                Terhubung dengan aman ke database cloud Supabase PostgreSQL
+                Terhubung dengan aman ke database cloud Supabase PostgreSQL • Tanpa Kata Sandi
               </span>
             </div>
           </div>
