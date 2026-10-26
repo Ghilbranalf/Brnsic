@@ -13,13 +13,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/?auth_error=" + encodeURIComponent(error || "Akses Google ditolak"), origin));
   }
 
-  const GOOGLE_CLIENT_ID =
+  const GOOGLE_CLIENT_ID = (
     process.env.GOOGLE_CLIENT_ID ||
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-    "";
-  const GOOGLE_CLIENT_SECRET =
+    ""
+  ).trim();
+  const GOOGLE_CLIENT_SECRET = (
     process.env.GOOGLE_CLIENT_SECRET ||
-    "";
+    ""
+  ).trim();
 
   const callbackUrl = `${origin}/api/auth/google/callback`;
 

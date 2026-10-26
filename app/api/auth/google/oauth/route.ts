@@ -4,10 +4,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const origin = req.nextUrl.origin || "https://brnsic.vercel.app";
-  const GOOGLE_CLIENT_ID =
+  const GOOGLE_CLIENT_ID = (
     process.env.GOOGLE_CLIENT_ID ||
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-    "";
+    ""
+  ).trim();
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
 
   // 1. Direct Official Google Cloud OAuth Account Chooser

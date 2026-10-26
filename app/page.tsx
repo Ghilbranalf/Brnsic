@@ -6865,9 +6865,6 @@ export default function BrnsicMusicPage() {
                 />
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white">Masuk ke Brnsic</h2>
-              <p className="text-xs text-[#b3b3b3] leading-relaxed max-w-xs">
-                Sinkronkan selera musik, lagu disukai, dan playlist pribadimu secara otomatis di semua perangkat menggunakan Akun Google.
-              </p>
             </div>
 
             {/* Error Banner */}
@@ -6893,12 +6890,6 @@ export default function BrnsicMusicPage() {
                 </svg>
                 <span>{isAuthSubmitting ? "Membuka Akun Google..." : "Lanjutkan dengan Google"}</span>
               </button>
-            </div>
-
-            <div className="text-center pt-1">
-              <span className="text-[10px] text-white/40">
-                Terhubung dengan aman ke database cloud Supabase PostgreSQL • Tanpa Kata Sandi
-              </span>
             </div>
           </div>
         </div>
