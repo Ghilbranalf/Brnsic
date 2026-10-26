@@ -13,6 +13,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 194,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
     plays: "320M+ Streams",
+    youtubeId: "7Jm2Il2U-c0",
     youtubeQuery: "Bernadya - Satu Bulan official audio"
   },
   {
@@ -23,6 +24,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 234,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
     plays: "290M+ Streams",
+    youtubeId: "gu6rT1Jelis",
     youtubeQuery: "Sal Priadi - Gala Bunga Matahari official audio"
   },
   {
@@ -33,6 +35,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 228,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/c1/97/e2/c197e2d2-a9f4-fd0f-f670-de2f88f96879/192641986017_Cover.jpg/600x600bb.jpg",
     plays: "260M+ Streams",
+    youtubeId: "qmgA_WejI8w",
     youtubeQuery: "Juicy Luicy - Tampar official audio"
   },
   {
@@ -43,6 +46,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 247,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e6/91/eb/e691eb58-7ae3-cb1b-0a5f-839ad3a010e0/cover.jpg/600x600bb.jpg",
     plays: "245M+ Streams",
+    youtubeId: "qR3f5K1V2sI",
     youtubeQuery: "Mahalini - Mati-Matian official audio"
   },
   {
@@ -53,6 +57,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 251,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/a8/18/16a81850-ca96-0927-a46d-0d9af767006c/196922358449_Cover.jpg/600x600bb.jpg",
     plays: "280M+ Streams",
+    youtubeId: "wQ-O3DqIc5c",
     youtubeQuery: "Adrian Khalif Juicy Luicy Sialan official audio"
   },
   {
@@ -63,6 +68,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 242,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6f/18/10/6f1810e0-2d6a-a456-1362-de607c70408a/cover.jpg/600x600bb.jpg",
     plays: "380M+ Streams",
+    youtubeId: "_N6vSc_mT6I",
     youtubeQuery: "Tulus - Hati-Hati di Jalan official audio"
   },
   {
@@ -73,6 +79,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 215,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
     plays: "310M+ Streams",
+    youtubeId: "saXhrw-7rQI",
     youtubeQuery: "Hindia - Evaluasi official audio"
   },
   {
@@ -83,6 +90,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 320,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8d/6f/fa/8d6ffae9-5a5f-75bd-d626-756a539e1b78/cover.jpg/600x600bb.jpg",
     plays: "230M+ Streams",
+    youtubeId: "Kk02q89_3Y0",
     youtubeQuery: "Nadin Amizah - Rayuan Perempuan Gila official audio"
   },
   {
@@ -93,6 +101,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 275,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
     plays: "190M+ Streams",
+    youtubeId: "bXf9_8-Hw8E",
     youtubeQuery: "Denny Caknan - Sigar official audio"
   },
   {
@@ -103,6 +112,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 288,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music/90/01/6d/mzi.ywjxtlbq.jpg/600x600bb.jpg",
     plays: "350M+ Streams",
+    youtubeId: "9Y1O1eM_y-Q",
     youtubeQuery: "Sheila On 7 - Dan official audio"
   },
   {
@@ -113,17 +123,19 @@ const MOST_PLAYED_INDONESIA = [
     duration: 334,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/39/59/b0/3959b0f9-d9f1-a458-44db-6d1dd2f60a05/190296432903.jpg/600x600bb.jpg",
     plays: "310M+ Streams",
+    youtubeId: "o3X4_5wP-u8",
     youtubeQuery: "Dewa 19 - Kangen official audio"
   },
   {
-    id: "al-ghazali-amnesia",
-    title: "Amnesia",
-    artist: "Al-Ghazali",
-    album: "Amnesia - Single",
-    duration: 218,
-    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/b6/5d/e6/b65de670-f18c-80d1-1615-813044d4755a/190295245535.jpg/600x600bb.jpg",
-    plays: "120M+ Streams",
-    youtubeQuery: "Al-Ghazali - Amnesia official video"
+    id: "hindia-cincin",
+    title: "Cincin",
+    artist: "Hindia",
+    album: "Lagipula Hidup Akan Berakhir",
+    duration: 279,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8b/6e/c3/8b6ec33c-3094-1a61-9c3f-c6b9bb787ef6/cover.jpg/600x600bb.jpg",
+    plays: "210M+ Streams",
+    youtubeId: "E_oJ4y3n9tU",
+    youtubeQuery: "Hindia - Cincin official audio"
   }
 ];
 

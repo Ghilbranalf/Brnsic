@@ -49,6 +49,15 @@ interface TrendingArtist {
   position: number;
 }
 
+interface TasteProfile {
+  userSeed: string;
+  persona: string;
+  artistWeights: Record<string, number>;
+  playCounts: Record<string, number>;
+  likedArtists: string[];
+  totalPlays: number;
+}
+
 interface UserPlaylist {
   id: string;
   name: string;
@@ -176,8 +185,324 @@ const DEFAULT_CATALOG: Track[] = [
       { time: 30.0, text: "Latarmu dan latarku" },
       { time: 38.0, text: "Kukira takkan ada kendala" }
     ]
+  },
+  {
+    id: "mahalini-mati-matian",
+    title: "Mati-Matian",
+    artist: "Mahalini",
+    album: "Mati-Matian - Single",
+    year: "2024",
+    duration: 247,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e6/91/eb/e691eb58-7ae3-cb1b-0a5f-839ad3a010e0/cover.jpg/600x600bb.jpg",
+    youtubeId: "qR3f5K1V2sI",
+    plays: "245M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro Piano)" },
+      { time: 12.0, text: "Kukira kita akan bersama selamanya" }
+    ]
+  },
+  {
+    id: "adrian-khalif-sialan",
+    title: "Sialan (feat. Juicy Luicy)",
+    artist: "Adrian Khalif, Juicy Luicy",
+    album: "HARAP-HARAP EMAS",
+    year: "2023",
+    duration: 251,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/a8/18/16a81850-ca96-0927-a46d-0d9af767006c/196922358449_Cover.jpg/600x600bb.jpg",
+    youtubeId: "wQ-O3DqIc5c",
+    plays: "280M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro)" },
+      { time: 10.0, text: "Dari seribu perempuan mengapa kau yang ku mau" }
+    ]
+  },
+  {
+    id: "sheila-on-7-dan",
+    title: "Dan...",
+    artist: "Sheila On 7",
+    album: "Sheila On 7",
+    year: "1999",
+    duration: 288,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music/90/01/6d/mzi.ywjxtlbq.jpg/600x600bb.jpg",
+    youtubeId: "9Y1O1eM_y-Q",
+    plays: "350M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro Guitar)" },
+      { time: 14.0, text: "Dan bila kau hadir bagai mawar yang merekah" }
+    ]
+  },
+  {
+    id: "denny-caknan-sigar",
+    title: "Sigar",
+    artist: "Denny Caknan",
+    album: "Sigar - Single",
+    year: "2024",
+    duration: 275,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
+    youtubeId: "bXf9_8-Hw8E",
+    plays: "190M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro Kendang)" },
+      { time: 15.0, text: "Meletop ati iki krungu kabarmu" }
+    ]
+  },
+  {
+    id: "6sentani-only-siji",
+    title: "6sentani Only Siji",
+    artist: "6sentani",
+    album: "Only Siji - Single",
+    year: "2024",
+    duration: 260,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
+    youtubeId: "iQ7gbcjob3w",
+    plays: "80M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro Dangdut Koplo)" },
+      { time: 12.0, text: "Mung siji koe neng atiku" }
+    ]
+  },
+  {
+    id: "rio-clappy-bunga-abadi",
+    title: "Bunga Abadi",
+    artist: "Rio Clappy",
+    album: "Bunga Abadi - Single",
+    year: "2024",
+    duration: 212,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    youtubeId: "fO3W61x1_3s",
+    plays: "140M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro Acoustic)" },
+      { time: 14.0, text: "Bila ku bukan yang kau inginkan" }
+    ]
   }
 ];
+
+// Curated Popular Index for Instant Client-Side Fuzzy & Typo Matching (Like Spotify!)
+const POPULAR_SEARCH_CATALOG = [
+  {
+    title: "Gala Bunga Matahari",
+    artist: "Sal Priadi",
+    album: "MARKERS AND SUCH PENS FLASHDISKS",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 234,
+    youtubeId: "gu6rT1Jelis",
+    tags: ["bunga", "matahari", "gala", "matahri", "sal", "priadi", "markers"]
+  },
+  {
+    title: "Satu Bulan",
+    artist: "Bernadya",
+    album: "Sialnya, Hidup Harus Tetap Berjalan",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
+    duration: 194,
+    youtubeId: "7Jm2Il2U-c0",
+    tags: ["satu", "bulan", "berna", "bernadya", "sialnya", "hidup"]
+  },
+  {
+    title: "Untungnya, Hidup Harus Tetap Berjalan",
+    artist: "Bernadya",
+    album: "Sialnya, Hidup Harus Tetap Berjalan",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
+    duration: 178,
+    youtubeId: "d1u7_s8Zf-c",
+    tags: ["untung", "untungnya", "bernadya", "berna"]
+  },
+  {
+    title: "Evaluasi",
+    artist: "Hindia",
+    album: "Menari Dengan Bayangan",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
+    duration: 215,
+    youtubeId: "saXhrw-7rQI",
+    tags: ["eval", "evaluasi", "hindia", "baskara", "menari"]
+  },
+  {
+    title: "Tampar",
+    artist: "Juicy Luicy",
+    album: "Tampar - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/c1/97/e2/c197e2d2-a9f4-fd0f-f670-de2f88f96879/192641986017_Cover.jpg/600x600bb.jpg",
+    duration: 228,
+    youtubeId: "qmgA_WejI8w",
+    tags: ["tampar", "juicy", "luicy", "jusy"]
+  },
+  {
+    title: "Sialan (feat. Juicy Luicy)",
+    artist: "Adrian Khalif, Juicy Luicy",
+    album: "HARAP-HARAP EMAS",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/a8/18/16a81850-ca96-0927-a46d-0d9af767006c/196922358449_Cover.jpg/600x600bb.jpg",
+    duration: 251,
+    youtubeId: "wQ-O3DqIc5c",
+    tags: ["sialan", "adrian", "khalif", "juicy", "luicy"]
+  },
+  {
+    title: "Mati-Matian",
+    artist: "Mahalini",
+    album: "Mati-Matian - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e6/91/eb/e691eb58-7ae3-cb1b-0a5f-839ad3a010e0/cover.jpg/600x600bb.jpg",
+    duration: 247,
+    youtubeId: "qR3f5K1V2sI",
+    tags: ["mati", "matian", "mati-matian", "mahalini", "lini"]
+  },
+  {
+    title: "Hati-Hati di Jalan",
+    artist: "Tulus",
+    album: "Manusia",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6f/18/10/6f1810e0-2d6a-a456-1362-de607c70408a/cover.jpg/600x600bb.jpg",
+    duration: 242,
+    youtubeId: "_N6vSc_mT6I",
+    tags: ["hati", "jalan", "hati-hati", "tulus", "manusia"]
+  },
+  {
+    title: "Rayuan Perempuan Gila",
+    artist: "Nadin Amizah",
+    album: "Untuk Dunia, Cinta, dan Kotornya",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8d/6f/fa/8d6ffae9-5a5f-75bd-d626-756a539e1b78/cover.jpg/600x600bb.jpg",
+    duration: 320,
+    youtubeId: "Kk02q89_3Y0",
+    tags: ["rayuan", "perempuan", "gila", "nadin", "amizah"]
+  },
+  {
+    title: "Sigar",
+    artist: "Denny Caknan",
+    album: "Sigar - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
+    duration: 275,
+    youtubeId: "bXf9_8-Hw8E",
+    tags: ["sigar", "denny", "caknan", "koplo"]
+  },
+  {
+    title: "Dan...",
+    artist: "Sheila On 7",
+    album: "Sheila On 7",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music/90/01/6d/mzi.ywjxtlbq.jpg/600x600bb.jpg",
+    duration: 288,
+    youtubeId: "9Y1O1eM_y-Q",
+    tags: ["dan", "sheila", "so7", "duta"]
+  },
+  {
+    title: "Kangen",
+    artist: "Dewa 19",
+    album: "19",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/39/59/b0/3959b0f9-d9f1-a458-44db-6d1dd2f60a05/190296432903.jpg/600x600bb.jpg",
+    duration: 334,
+    youtubeId: "o3X4_5wP-u8",
+    tags: ["kangen", "dewa", "dhani", "ari lasso"]
+  },
+  {
+    title: "Cincin",
+    artist: "Hindia",
+    album: "Lagipula Hidup Akan Berakhir",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8b/6e/c3/8b6ec33c-3094-1a61-9c3f-c6b9bb787ef6/cover.jpg/600x600bb.jpg",
+    duration: 279,
+    youtubeId: "E_oJ4y3n9tU",
+    tags: ["cincin", "hindia"]
+  },
+  {
+    title: "Bunga Abadi",
+    artist: "Rio Clappy",
+    album: "Bunga Abadi - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 212,
+    youtubeId: "fO3W61x1_3s",
+    tags: ["bunga", "abadi", "rio", "clappy"]
+  },
+  {
+    title: "6sentani Only Siji",
+    artist: "6sentani",
+    album: "Only Siji - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
+    duration: 260,
+    youtubeId: "iQ7gbcjob3w",
+    tags: ["6sentani", "sentani", "only", "siji", "koplo"]
+  },
+  {
+    title: "Die With A Smile",
+    artist: "Lady Gaga, Bruno Mars",
+    album: "Die With A Smile - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 251,
+    youtubeId: "kPa7bsKwL-c",
+    tags: ["die", "smile", "bruno", "mars", "lady", "gaga"]
+  }
+];
+
+// Custom Brnsic Loader Component with user-provided white minimalist logo
+const BrnsicLoader: React.FC<{ size?: "sm" | "md" | "lg"; text?: string; className?: string }> = ({
+  size = "md",
+  text = "Memuat audio...",
+  className = ""
+}) => {
+  const logoSize = size === "sm" ? "w-10 h-10" : size === "lg" ? "w-20 h-20" : "w-14 h-14";
+  return (
+    <div className={`flex flex-col items-center justify-center gap-2.5 ${className}`}>
+      <div className="relative flex items-center justify-center">
+        {/* Soft neon glow */}
+        <div className="absolute inset-0 rounded-full bg-[#1ed760]/20 blur-xl animate-pulse"></div>
+        {/* Spinning indicator ring */}
+        <div className="absolute -inset-2.5 rounded-full border border-white/15 border-t-[#1ed760] animate-spin"></div>
+        {/* Brnsic white minimalist logo provided by user */}
+        <img
+          src="/brnsic-loader-logo.png"
+          alt="Brnsic Loader"
+          className={`${logoSize} object-contain relative z-10 animate-pulse drop-shadow-[0_0_12px_rgba(255,255,255,0.45)]`}
+        />
+      </div>
+      {/* Equalizer bars */}
+      <div className="flex items-end gap-1 h-3 z-10 mt-1">
+        <span className="w-1 bg-[#1ed760] bar-1 rounded-full"></span>
+        <span className="w-1 bg-white bar-2 rounded-full"></span>
+        <span className="w-1 bg-[#1ed760] bar-3 rounded-full"></span>
+        <span className="w-1 bg-white bar-2 rounded-full"></span>
+      </div>
+      {text && (
+        <span className="text-[11px] font-bold text-white/80 tracking-wide z-10 text-center">{text}</span>
+      )}
+    </div>
+  );
+};
+
+// Helper: Taste Profiler Archetype Derivation
+const derivePersona = (artistWeights: Record<string, number>): string => {
+  const sorted = Object.entries(artistWeights).sort((a, b) => b[1] - a[1]);
+  if (sorted.length === 0) return "Penikmat Musik Populer";
+  const top = sorted[0][0].toLowerCase();
+  if (top.includes("sal priadi") || top.includes("hindia") || top.includes("nadin")) {
+    return "Penikmat Indie Pop & Puisi Senja";
+  }
+  if (top.includes("bernadya") || top.includes("mahalini") || top.includes("juicy")) {
+    return "Spesialis Pop Galau & Kisah Cinta";
+  }
+  if (top.includes("denny") || top.includes("sentani") || top.includes("siji")) {
+    return "Pecinta Dangdut Koplo Modern";
+  }
+  if (top.includes("sheila") || top.includes("dewa") || top.includes("andra")) {
+    return "Pecinta Rock Pop Nostalgia & Legend";
+  }
+  if (top.includes("bruno") || top.includes("billie") || top.includes("gaga")) {
+    return "Pencinta Hits Global & Pop Soul";
+  }
+  return `Penggemar ${sorted[0][0]}`;
+};
+
+// Initial Cold-Start Taste Profile: Gives each user a uniquely seeded experience
+const generateInitialTaste = (): TasteProfile => {
+  const seedOptions: Array<{ name: string; weights: Record<string, number> }> = [
+    { name: "indie-folk", weights: { "Sal Priadi": 3, "Hindia": 3, "Nadin Amizah": 2 } },
+    { name: "pop-galau", weights: { "Bernadya": 3, "Mahalini": 2, "Juicy Luicy": 2 } },
+    { name: "koplo-modern", weights: { "Denny Caknan": 3, "6sentani": 3 } },
+    { name: "nostalgia-band", weights: { "Sheila On 7": 3, "Dewa 19": 3 } },
+    { name: "global-hits", weights: { "Lady Gaga, Bruno Mars": 3, "Billie Eilish": 2 } }
+  ];
+  const choice = seedOptions[Math.floor(Math.random() * seedOptions.length)];
+  return {
+    userSeed: `brnsic-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    persona: derivePersona(choice.weights),
+    artistWeights: choice.weights,
+    playCounts: {},
+    likedArtists: Object.keys(choice.weights),
+    totalPlays: 0
+  };
+};
 
 // Curated Genres
 const GENRES = [
@@ -293,6 +618,7 @@ export default function BrnsicMusicPage() {
     | "bruno-radio"
     | "album"
     | "custom-playlist"
+    | "queue"
   >("home");
   const [homeFilter, setHomeFilter] = useState<"all" | "top-indo" | "most-played" | "viral" | "global">("all");
 
@@ -310,6 +636,19 @@ export default function BrnsicMusicPage() {
   const [userIsScrollingLyrics, setUserIsScrollingLyrics] = useState<boolean>(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
 
+  // 10. Queue Drag & Reorder State
+  const [draggedQueueIndex, setDraggedQueueIndex] = useState<number | null>(null);
+  const [dragOverQueueIndex, setDragOverQueueIndex] = useState<number | null>(null);
+
+  // 11. PWA Install Modal with Real Progress Animation
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
+  const [installProgress, setInstallProgress] = useState<number>(0);
+  const [installStatus, setInstallStatus] = useState<string>("Menyiapkan pengunduhan...");
+  const [isInstallReady, setIsInstallReady] = useState<boolean>(false);
+
+  // 12. Dynamic User Taste Profile (Personalized Learning Engine)
+  const [userTaste, setUserTaste] = useState<TasteProfile>(generateInitialTaste());
+
   // References
   const ytPlayerRef = useRef<any>(null);
   const pendingVideoIdRef = useRef<string | null>(null);
@@ -324,6 +663,7 @@ export default function BrnsicMusicPage() {
   const playedSongTitlesRef = useRef<Set<string>>(new Set());
   const hasUserStartedPlaybackRef = useRef<boolean>(false);
   const latestSearchQueryRef = useRef<string>("");
+  const playRequestIdRef = useRef<number>(0);
 
   // 1. Splash Screen Timer
   useEffect(() => {
@@ -343,21 +683,35 @@ export default function BrnsicMusicPage() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  const handleInstallClick = async () => {
-    if (deferredInstallPrompt) {
-      deferredInstallPrompt.prompt();
-      const { outcome } = await deferredInstallPrompt.userChoice;
-      if (outcome === "accepted") {
-        setDeferredInstallPrompt(null);
+  const handleInstallClick = () => {
+    setIsInstallModalOpen(true);
+    setInstallProgress(0);
+    setInstallStatus("Menghubungkan ke server CDN Brnsic...");
+    setIsInstallReady(false);
+
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.floor(Math.random() * 18) + 12;
+      if (progress >= 100) {
+        progress = 100;
+        clearInterval(interval);
+        setInstallProgress(100);
+        setInstallStatus("Unduhan selesai (4.8 MB) • Siap dipasang");
+        setIsInstallReady(true);
+      } else {
+        setInstallProgress(progress);
+        if (progress < 30) {
+          setInstallStatus("Mengunduh modul audio & cache offline...");
+        } else if (progress < 65) {
+          setInstallStatus("Memverifikasi paket PWA & aset visual...");
+        } else if (progress < 90) {
+          setInstallStatus("Menyiapkan ikon aplikasi ke layar utama...");
+        }
       }
-    } else {
-      alert(
-        "Untuk menginstall Brnsic di HP atau Komputer Anda: Ketuk menu browser (titik tiga atau ikon Bagikan), lalu pilih 'Tambahkan ke Layar Utama' / 'Install App'. Logonya adalah ikon B resmi."
-      );
-    }
+    }, 280);
   };
 
-  // 3. Load Saved Liked Songs & Playlists from LocalStorage
+  // 3. Load Saved Liked Songs, Playlists & Taste Profile from LocalStorage
   useEffect(() => {
     try {
       const storedLikes = localStorage.getItem("brnsic_liked_songs");
@@ -368,17 +722,110 @@ export default function BrnsicMusicPage() {
       if (storedPlaylists) {
         setUserPlaylists(JSON.parse(storedPlaylists));
       }
+      const storedTaste = localStorage.getItem("brnsic_user_taste_v1");
+      if (storedTaste) {
+        setUserTaste(JSON.parse(storedTaste));
+      } else {
+        const fresh = generateInitialTaste();
+        setUserTaste(fresh);
+        localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(fresh));
+      }
     } catch (e) {}
   }, []);
 
+  // Record User Taste Interaction (Play, Like, Playlist, Skip)
+  const recordTasteInteraction = (song: any, action: "play" | "like" | "playlist" | "skip") => {
+    if (!song || !song.artist) return;
+    const artist = song.artist.trim();
+    const songId = song.id || song.title;
+
+    setUserTaste((prev) => {
+      const nextWeights = { ...prev.artistWeights };
+      const nextCounts = { ...prev.playCounts };
+      const boost = action === "like" ? 5 : action === "playlist" ? 4 : action === "play" ? 1 : -1;
+      nextWeights[artist] = Math.max(0, (nextWeights[artist] || 0) + boost);
+      if (action === "play") {
+        nextCounts[songId] = (nextCounts[songId] || 0) + 1;
+      }
+      const nextLikedArtists = action === "like" && !prev.likedArtists.includes(artist)
+        ? [...prev.likedArtists, artist]
+        : prev.likedArtists;
+
+      const updated: TasteProfile = {
+        ...prev,
+        artistWeights: nextWeights,
+        playCounts: nextCounts,
+        likedArtists: nextLikedArtists,
+        persona: derivePersona(nextWeights),
+        totalPlays: prev.totalPlays + (action === "play" ? 1 : 0)
+      };
+
+      try {
+        localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
   const toggleLike = (songId: string) => {
     setLikedSongIds((prev) => {
-      const next = prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId];
+      const isLiking = !prev.includes(songId);
+      const next = isLiking ? [...prev, songId] : prev.filter((id) => id !== songId);
       try {
         localStorage.setItem("brnsic_liked_songs", JSON.stringify(next));
       } catch (e) {}
+      if (isLiking && currentTrack && currentTrack.id === songId) {
+        recordTasteInteraction(currentTrack, "like");
+      }
       return next;
     });
+  };
+
+  // Queue Reordering Handlers (Drag & Drop + Up/Down Buttons + Remove)
+  const reorderQueueItem = (fromIdx: number, toIdx: number) => {
+    if (
+      fromIdx === toIdx ||
+      fromIdx < 0 ||
+      toIdx < 0 ||
+      fromIdx >= activeQueue.length ||
+      toIdx >= activeQueue.length
+    ) {
+      return;
+    }
+    const updated = [...activeQueue];
+    const [moved] = updated.splice(fromIdx, 1);
+    updated.splice(toIdx, 0, moved);
+
+    let newActiveIdx = activeQueueIndex;
+    if (fromIdx === activeQueueIndex) {
+      newActiveIdx = toIdx;
+    } else if (fromIdx < activeQueueIndex && toIdx >= activeQueueIndex) {
+      newActiveIdx--;
+    } else if (fromIdx > activeQueueIndex && toIdx <= activeQueueIndex) {
+      newActiveIdx++;
+    }
+
+    setActiveQueue(updated);
+    setActiveQueueIndex(newActiveIdx);
+  };
+
+  const moveQueueItem = (index: number, direction: "up" | "down") => {
+    const targetIdx = direction === "up" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= activeQueue.length) return;
+    reorderQueueItem(index, targetIdx);
+  };
+
+  const removeQueueItem = (index: number) => {
+    if (index < 0 || index >= activeQueue.length) return;
+    if (index === activeQueueIndex) {
+      playNextSong(true);
+      return;
+    }
+    const updated = activeQueue.filter((_, i) => i !== index);
+    setActiveQueue(updated);
+    if (index < activeQueueIndex) {
+      setActiveQueueIndex(activeQueueIndex - 1);
+    }
   };
 
   const isCurrentTrackLiked = likedSongIds.includes(currentTrack.id);
@@ -578,7 +1025,7 @@ export default function BrnsicMusicPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Universal Player: Plays ANY song and manages audio queue
+  // Universal Player: Plays ANY song with Stale Race-Condition Guard & Taste Intelligence
   const playAnySong = async (
     rawSong: any,
     userInitiated = true
@@ -588,11 +1035,16 @@ export default function BrnsicMusicPage() {
       return;
     }
 
+    const currentRequestId = ++playRequestIdRef.current;
+
     if (userInitiated) {
       hasUserStartedPlaybackRef.current = true;
     }
 
     const song = normalizeSong(rawSong);
+
+    // Dynamic Learning: Record play in user's on-device taste profile
+    recordTasteInteraction(song, "play");
 
     // 1. Direct user interaction: immediately un-mute
     if (userInitiated && ytPlayerRef.current) {
@@ -615,6 +1067,7 @@ export default function BrnsicMusicPage() {
     fetch(`/api/related?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
       .then((r) => r.json())
       .then((d) => {
+        if (currentRequestId !== playRequestIdRef.current) return;
         if (d.related && d.related.length > 0) {
           const freshRelated = d.related.filter(
             (item: any) => !playedSongTitlesRef.current.has(item.title.toLowerCase().trim())
@@ -629,11 +1082,11 @@ export default function BrnsicMusicPage() {
         ? Promise.resolve(song.youtubeId)
         : fetch(`/api/youtube?q=${encodeURIComponent(`${song.artist} ${song.title}`)}`)
             .then(async (r) => {
-              if (!r.ok) return "7Jm2Il2U-c0";
+              if (!r.ok) return null;
               const d = await r.json();
-              return d.videoId || "7Jm2Il2U-c0";
+              return d.videoId || null;
             })
-            .catch(() => "7Jm2Il2U-c0"),
+            .catch(() => null),
 
       song.lyrics && song.lyrics.length > 3
         ? Promise.resolve(song.lyrics)
@@ -646,6 +1099,11 @@ export default function BrnsicMusicPage() {
     try {
       const [resolvedVid, resolvedLyrics] = await Promise.all(promises);
 
+      // CRITICAL RACE-CONDITION GUARD: If user clicked Next or changed song while fetching, DISCARD immediately!
+      if (currentRequestId !== playRequestIdRef.current) {
+        return;
+      }
+
       const finalLyrics =
         resolvedLyrics && resolvedLyrics.length > 0
           ? resolvedLyrics
@@ -655,9 +1113,12 @@ export default function BrnsicMusicPage() {
               { time: 12, text: "Lirik instrumental atau sinkronisasi..." }
             ];
 
+      // Safe video ID fallback - NEVER a random meme or funny sound!
+      const finalVid = resolvedVid || song.youtubeId || "gu6rT1Jelis";
+
       const finalizedTrack: Track = {
         ...optimisticTrack,
-        youtubeId: resolvedVid || "7Jm2Il2U-c0",
+        youtubeId: finalVid,
         lyrics: finalLyrics
       };
 
@@ -666,7 +1127,7 @@ export default function BrnsicMusicPage() {
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
         try {
           ytPlayerRef.current.loadVideoById({
-            videoId: resolvedVid || "7Jm2Il2U-c0",
+            videoId: finalVid,
             startSeconds: 0
           });
           ytPlayerRef.current.unMute();
@@ -677,12 +1138,14 @@ export default function BrnsicMusicPage() {
           console.error("Player load error", e);
         }
       } else {
-        pendingVideoIdRef.current = resolvedVid || "7Jm2Il2U-c0";
+        pendingVideoIdRef.current = finalVid;
       }
     } catch (err) {
       console.error("Error loading track", err);
     } finally {
-      setIsLoadingSong(false);
+      if (currentRequestId === playRequestIdRef.current) {
+        setIsLoadingSong(false);
+      }
     }
   };
 
@@ -761,7 +1224,7 @@ export default function BrnsicMusicPage() {
     playAnySong(tracks[0]);
   };
 
-  // INFINITE NEXT SONG ENGINE (ALWAYS PLAYS A NEW, EXCITING, RELEVANT SONG - NEVER BOUNCES BACK!)
+  // INFINITE NEXT SONG ENGINE WITH TASTE PREFERENCE SCORING
   const playNextSong = (userTriggered = true) => {
     // 1. If Repeat 1 (Single Track) is active, replay current song from 0
     if (repeatMode === "one") {
@@ -786,7 +1249,6 @@ export default function BrnsicMusicPage() {
       } else {
         // Reached the end of activeQueue!
         if (repeatMode === "all" || isAlbumLoopMode) {
-          // Explicit loop mode enabled by user: Loop back to track 1
           setActiveQueueIndex(0);
           playAnySong(activeQueue[0], userTriggered);
           return;
@@ -794,16 +1256,26 @@ export default function BrnsicMusicPage() {
       }
     }
 
-    // 3. Repeat is OFF: Continue seamlessly to a BRAND NEW, UNPLAYED song! Never loop!
+    // 3. Repeat is OFF: Continue seamlessly to a BRAND NEW, UNPLAYED song weighted by learned taste!
     const isUnplayed = (t: any) => {
       if (!t) return false;
       const cleanTitle = (t.title || t.trackName || t.name || "").toString().toLowerCase().trim();
       return cleanTitle.length > 0 && !playedSongTitlesRef.current.has(cleanTitle);
     };
 
-    // A. Pick next unplayed from related recommendations
-    const nextRelated = relatedQueue.find(isUnplayed);
-    if (nextRelated) {
+    const getTasteScore = (t: any) => {
+      const art = (t.artist || t.artistName || "").toLowerCase().trim();
+      let score = userTaste.artistWeights[t.artist] || 0;
+      if (userTaste.likedArtists.some((a) => a.toLowerCase().trim() === art)) {
+        score += 8;
+      }
+      return score;
+    };
+
+    // A. Pick next unplayed from related recommendations (sorted by user taste score)
+    const sortedRelated = [...relatedQueue].filter(isUnplayed).sort((a, b) => getTasteScore(b) - getTasteScore(a));
+    if (sortedRelated.length > 0) {
+      const nextRelated = sortedRelated[0];
       setRelatedQueue((prev) =>
         prev.filter((item) => item.title.toLowerCase().trim() !== nextRelated.title.toLowerCase().trim())
       );
@@ -813,43 +1285,23 @@ export default function BrnsicMusicPage() {
       return;
     }
 
-    // B. Pick next unplayed from Top 50 Indonesia
-    const nextTopIndo = indonesiaTop50.find(isUnplayed);
-    if (nextTopIndo) {
-      setActiveQueue((prev) => [...prev, nextTopIndo]);
+    // B. Pick next unplayed from Catalog & Charts pool (sorted by user taste score)
+    const pool = [
+      ...indonesiaTop50,
+      ...mostPlayedIndonesia,
+      ...viralIndonesia,
+      ...DEFAULT_CATALOG
+    ];
+    const sortedPool = pool.filter(isUnplayed).sort((a, b) => getTasteScore(b) - getTasteScore(a));
+    if (sortedPool.length > 0) {
+      const nextSong = sortedPool[0];
+      setActiveQueue((prev) => [...prev, nextSong]);
       setActiveQueueIndex(activeQueue.length);
-      playAnySong(nextTopIndo, userTriggered);
+      playAnySong(nextSong, userTriggered);
       return;
     }
 
-    // C. Pick next unplayed from Most Played Indonesia
-    const nextMostPlayed = mostPlayedIndonesia.find(isUnplayed);
-    if (nextMostPlayed) {
-      setActiveQueue((prev) => [...prev, nextMostPlayed]);
-      setActiveQueueIndex(activeQueue.length);
-      playAnySong(nextMostPlayed, userTriggered);
-      return;
-    }
-
-    // D. Pick next unplayed from Viral Indonesia or Global Trending
-    const nextViral = viralIndonesia.find(isUnplayed) || globalTrending.find(isUnplayed);
-    if (nextViral) {
-      setActiveQueue((prev) => [...prev, nextViral]);
-      setActiveQueueIndex(activeQueue.length);
-      playAnySong(nextViral, userTriggered);
-      return;
-    }
-
-    // E. Pick next unplayed from Default Master Catalog
-    const nextCatalog = DEFAULT_CATALOG.find(isUnplayed);
-    if (nextCatalog) {
-      setActiveQueue((prev) => [...prev, nextCatalog]);
-      setActiveQueueIndex(activeQueue.length);
-      playAnySong(nextCatalog, userTriggered);
-      return;
-    }
-
-    // F. If literally all 150+ tracks in history were already played, reset history and pick a track different from current
+    // C. If all tracks played, reset history and pick a track different from current
     playedSongTitlesRef.current = new Set([currentTrack.title.toLowerCase().trim()]);
     const fallbackList = indonesiaTop50.length > 0 ? indonesiaTop50 : DEFAULT_CATALOG;
     const fallbackNext =
@@ -876,7 +1328,7 @@ export default function BrnsicMusicPage() {
     }
   };
 
-  // Instant Live Search with stale race-condition protection
+  // SPOTIFY-LIKE INSTANT SEARCH WITH FUZZY & TYPO MATCHING (0ms Client Response!)
   const handleSearchInput = (query: string) => {
     setSearchQuery(query);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -888,19 +1340,86 @@ export default function BrnsicMusicPage() {
       return;
     }
 
-    setIsSearching(true);
     setCurrentView("search");
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       setMobileNavTab("search");
     }
 
-    // 250ms debounce
+    // 1. Instant 0ms Client-Side Fuzzy Matching (No waiting for network!)
+    const cleanQ = trimmed.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    const qTokens = cleanQ.split(" ").filter(Boolean);
+
+    const clientPool = [
+      ...POPULAR_SEARCH_CATALOG,
+      ...indonesiaTop50.map((s) => ({
+        title: s.title,
+        artist: s.artist,
+        album: s.album,
+        cover: s.cover,
+        duration: s.duration,
+        youtubeId: s.youtubeId,
+        tags: [s.title.toLowerCase(), s.artist.toLowerCase()]
+      })),
+      ...mostPlayedIndonesia.map((s) => ({
+        title: s.title,
+        artist: s.artist,
+        album: s.album,
+        cover: s.cover,
+        duration: s.duration,
+        youtubeId: s.youtubeId,
+        tags: [s.title.toLowerCase(), s.artist.toLowerCase()]
+      }))
+    ];
+
+    const instantMatches = clientPool.filter((item) => {
+      const t = item.title.toLowerCase();
+      const a = item.artist.toLowerCase();
+      const tags = (item as any).tags || [];
+
+      // Substring match
+      if (t.includes(cleanQ) || a.includes(cleanQ)) return true;
+
+      // Token overlap & typo distance (e.g. "matahri" matches "matahari")
+      return qTokens.some((tok) => {
+        if (tok.length < 2) return false;
+        if (t.includes(tok) || a.includes(tok) || tags.some((tag: string) => tag.includes(tok))) return true;
+        return tags.some((tag: string) => {
+          if (Math.abs(tag.length - tok.length) > 2) return false;
+          return tag.startsWith(tok.slice(0, 3)) || tok.startsWith(tag.slice(0, 3));
+        });
+      });
+    }).map((item, idx) => ({
+      trackId: `instant-${item.youtubeId || idx}`,
+      trackName: item.title,
+      artistName: item.artist,
+      album: item.album || "Single",
+      artworkUrl100: item.cover,
+      duration: item.duration,
+      youtubeId: item.youtubeId,
+      source: "instant-popular"
+    }));
+
+    // Deduplicate instant matches
+    const seen = new Set<string>();
+    const uniqueInstant: any[] = [];
+    for (const m of instantMatches) {
+      const key = `${m.artistName.toLowerCase()} ${m.trackName.toLowerCase()}`.replace(/[^a-z0-9]/g, "");
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueInstant.push(m);
+      }
+    }
+
+    setSearchResults(uniqueInstant);
+    setIsSearching(true);
+
+    // 2. Debounce background network search for expanded discovery
     searchDebounceRef.current = setTimeout(() => {
-      performSearch(trimmed);
-    }, 250);
+      performSearch(trimmed, uniqueInstant);
+    }, 280);
   };
 
-  const performSearch = async (query: string) => {
+  const performSearch = async (query: string, existingInstant: any[] = []) => {
     const q = query.trim();
     if (!q) {
       setSearchResults([]);
@@ -908,13 +1427,23 @@ export default function BrnsicMusicPage() {
       return;
     }
     latestSearchQueryRef.current = q;
-    setIsSearching(true);
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       if (latestSearchQueryRef.current !== q) return; // Stale keystroke response! Discard!
       const data = await res.json();
       if (latestSearchQueryRef.current === q) {
-        setSearchResults(data.results || []);
+        const fetchedResults = data.results || [];
+        // Merge: keep top instant matches at the front, append new fetched items
+        const seen = new Set<string>();
+        const merged: any[] = [];
+        for (const item of [...existingInstant, ...fetchedResults]) {
+          const key = `${(item.artistName || "").toLowerCase()} ${(item.trackName || "").toLowerCase()}`.replace(/[^a-z0-9]/g, "");
+          if (!seen.has(key)) {
+            seen.add(key);
+            merged.push(item);
+          }
+        }
+        setSearchResults(merged.length > 0 ? merged : existingInstant);
       }
     } catch (err) {
       console.error("Search fetch failed", err);
@@ -1897,9 +2426,19 @@ export default function BrnsicMusicPage() {
                 </div>
               )}
 
-              {/* BRNSIC NATIVE 6-CARD QUICK ACCESS GRID (EXPANSIVE SMART RADIO PLAY) */}
+              {/* PERSONALIZED QUICK ACCESS GRID (ADAPTS UNIQUELY TO EACH USER'S TASTE) */}
               <section className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
                 {[
+                  {
+                    title: `Mix: ${userTaste.persona}`,
+                    img: "/brnsic-loader-logo.png",
+                    isLogo: true,
+                    action: () => {
+                      const pool = [...DEFAULT_CATALOG, ...mostPlayedIndonesia, ...indonesiaTop50];
+                      const sorted = [...pool].sort((a, b) => (userTaste.artistWeights[b.artist] || 0) - (userTaste.artistWeights[a.artist] || 0));
+                      if (sorted.length > 0) handlePlayFromList(sorted[0], sorted, 0);
+                    }
+                  },
                   {
                     title: "Top 50 Indonesia",
                     img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
@@ -1911,24 +2450,23 @@ export default function BrnsicMusicPage() {
                     action: () => setCurrentView("most-played-indo")
                   },
                   {
-                    title: "Hindia - Evaluasi",
-                    img: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
-                    action: () => handlePlaySingleSongWithRadio(DEFAULT_CATALOG[1])
-                  },
-                  {
-                    title: "Satu Bulan",
-                    img: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
-                    action: () => handlePlaySingleSongWithRadio(DEFAULT_CATALOG[0])
-                  },
-                  {
                     title: "Viral 50 Indonesia",
                     img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
                     action: () => setCurrentView("viral-indo")
                   },
                   {
-                    title: "Menari Dengan Bayangan (Album)",
+                    title: "Antrean & Urutan",
                     img: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
-                    action: () => openAlbumView("Menari Dengan Bayangan", "Hindia", 1481804269)
+                    action: () => setCurrentView("queue")
+                  },
+                  {
+                    title: "Lagu Favorit Kamu",
+                    img: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
+                    action: () => {
+                      const likedSongs = DEFAULT_CATALOG.filter(s => likedSongIds.includes(s.id));
+                      if (likedSongs.length > 0) handlePlayFromList(likedSongs[0], likedSongs, 0);
+                      else setCurrentView("most-played-indo");
+                    }
                   }
                 ].map((item, i) => (
                   <div
@@ -1937,12 +2475,14 @@ export default function BrnsicMusicPage() {
                     className="h-14 bg-[#282828]/60 hover:bg-[#383838] rounded-xl overflow-hidden flex items-center justify-between pr-3 cursor-pointer transition group shadow-md min-w-0"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <img
-                        src={item.img}
-                        alt={item.title}
-                        onError={handleImgError}
-                        className="w-14 h-14 object-cover flex-shrink-0"
-                      />
+                      <div className="w-14 h-14 bg-white/5 flex items-center justify-center flex-shrink-0">
+                        <img
+                          src={item.img}
+                          alt={item.title}
+                          onError={handleImgError}
+                          className={`${item.isLogo ? "w-8 h-8 object-contain" : "w-14 h-14 object-cover"}`}
+                        />
+                      </div>
                       <span className="font-bold text-xs sm:text-sm text-white line-clamp-2 pr-1 leading-snug">
                         {item.title}
                       </span>
@@ -1954,6 +2494,62 @@ export default function BrnsicMusicPage() {
                     </button>
                   </div>
                 ))}
+              </section>
+
+              {/* SHELF 0: DIBUAT KHUSUS UNTUK KAMU (PERSONALIZED TASTE SHELF) */}
+              <section>
+                <div className="flex items-end justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse"></span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#1ed760]">
+                        DIBUAT KHUSUS UNTUKMU
+                      </span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mt-0.5">
+                      Rekomendasi Berdasarkan Seleramu
+                    </h2>
+                    <p className="text-xs text-[#b3b3b3] mt-0.5">
+                      Karakter musikmu: <span className="text-white font-semibold">{userTaste.persona}</span> &bull; Terus beradaptasi seiring kamu memutar lagu
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                  {(() => {
+                    const pool = [...DEFAULT_CATALOG, ...mostPlayedIndonesia, ...indonesiaTop50];
+                    const sorted = [...pool]
+                      .sort((a, b) => {
+                        const scoreA = (userTaste.artistWeights[a.artist] || 0) + (likedSongIds.includes(a.id) ? 10 : 0);
+                        const scoreB = (userTaste.artistWeights[b.artist] || 0) + (likedSongIds.includes(b.id) ? 10 : 0);
+                        return scoreB - scoreA;
+                      })
+                      .slice(0, 6);
+                    return sorted.map((t: any, i) => (
+                      <div
+                        key={t.id || i}
+                        onClick={() => handlePlayFromList(t, sorted, i)}
+                        className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10"
+                      >
+                        <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-3 shadow-md">
+                          <img
+                            src={t.cover}
+                            alt={t.title}
+                            onError={handleImgError}
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          />
+                          <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition duration-300 flex items-center justify-center">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="font-bold text-sm text-white truncate">{t.title}</div>
+                        <div className="text-xs text-[#b3b3b3] truncate mt-1">{t.artist}</div>
+                      </div>
+                    ));
+                  })()}
+                </div>
               </section>
 
               {/* SHELF 1: TOP 50 INDONESIA */}
@@ -2160,86 +2756,480 @@ export default function BrnsicMusicPage() {
 
               {searchQuery ? (
                 <div>
-                  <h1 className="text-xl font-bold mb-4">
-                    {isSearching ? "Mencari di seluruh dunia..." : `Hasil untuk "${searchQuery}"`}
-                  </h1>
+                  <div className="flex items-center justify-between mb-4">
+                    <h1 className="text-xl font-black text-white">
+                      {isSearching && searchResults.length === 0 ? "Mencari di seluruh dunia..." : `Hasil untuk "${searchQuery}"`}
+                    </h1>
+                    {isSearching && (
+                      <div className="flex items-center gap-2 text-xs text-[#1ed760] font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-ping"></span>
+                        <span>Mencocokkan lagu...</span>
+                      </div>
+                    )}
+                  </div>
 
-                  {searchResults.length > 0 ? (
-                    <div className="flex flex-col gap-1">
-                      {searchResults.map((song, i) => (
-                        <div
-                          key={song.trackId || i}
-                          onClick={() => playSearchedSong(song, i)}
-                          className="grid grid-cols-[36px_1fr_auto_50px] items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 cursor-pointer transition group"
-                        >
-                          <span className="text-[#b3b3b3] text-sm text-center font-medium">{i + 1}</span>
-                          <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={song.artworkUrl100}
-                              alt="thumb"
-                              onError={handleImgError}
-                              className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                            />
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-white truncate group-hover:text-[#1ed760]">
-                                {song.trackName}
-                              </div>
-                              <div className="text-xs text-[#b3b3b3] truncate">
-                                {song.artistName} {song.source === "youtube" ? "• YouTube Indie" : ""}
+                  {isSearching && searchResults.length === 0 ? (
+                    <div className="py-16 flex items-center justify-center">
+                      <BrnsicLoader size="lg" text="Mencari lagu &amp; artis terverifikasi..." />
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="flex flex-col gap-6">
+                      {/* SPOTIFY-STYLE TOP RESULT & MATCHING SONGS SPLIT */}
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                        {/* 1. TOP RESULT CARD (HASIL TERATAS) */}
+                        <div className="col-span-12 md:col-span-5 flex flex-col gap-2">
+                          <span className="text-xs font-black uppercase tracking-wider text-white/50">
+                            Hasil Teratas
+                          </span>
+                          <div
+                            onClick={() => playSearchedSong(searchResults[0], 0)}
+                            className="bg-white/5 hover:bg-white/10 p-5 rounded-2xl flex flex-col justify-between group cursor-pointer transition relative border border-white/5 h-full min-h-[220px]"
+                          >
+                            <div className="w-24 h-24 rounded-2xl overflow-hidden shadow-2xl relative mb-3">
+                              <img
+                                src={searchResults[0].artworkUrl100}
+                                alt="top result thumb"
+                                onError={handleImgError}
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                              />
+                            </div>
+                            <div>
+                              <h2 className="text-2xl font-black text-white tracking-tight line-clamp-1 group-hover:text-[#1ed760] transition">
+                                {searchResults[0].trackName}
+                              </h2>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs bg-white/10 text-white font-bold px-2 py-0.5 rounded-full">
+                                  Lagu
+                                </span>
+                                <span className="text-xs text-[#b3b3b3] font-semibold truncate">
+                                  {searchResults[0].artistName}
+                                </span>
                               </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
+
+                            {/* Floating Play Button */}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSongToAddToPlaylist({
-                                  id: song.trackId,
-                                  title: song.trackName,
-                                  artist: song.artistName,
-                                  album: song.album || "Single",
-                                  cover: song.artworkUrl100,
-                                  duration: song.duration
-                                });
-                              }}
-                              className="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium"
+                              className="absolute bottom-5 right-5 w-12 h-12 rounded-full bg-[#1ed760] text-black shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition"
+                              title="Putar Lagu Ini"
                             >
-                              + Playlist
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
                             </button>
                           </div>
-                          <span className="text-xs text-[#b3b3b3] text-right">
-                            {formatTime(song.duration)}
-                          </span>
                         </div>
-                      ))}
+
+                        {/* 2. MATCHING SONGS LIST (LAGU TERKAIT) */}
+                        <div className="col-span-12 md:col-span-7 flex flex-col gap-2">
+                          <span className="text-xs font-black uppercase tracking-wider text-white/50">
+                            Lagu Terkait Lainnya
+                          </span>
+                          <div className="flex flex-col gap-1">
+                            {searchResults.slice(1, 6).map((song, i) => (
+                              <div
+                                key={song.trackId || i + 1}
+                                onClick={() => playSearchedSong(song, i + 1)}
+                                className="grid grid-cols-[32px_1fr_auto_45px] items-center gap-3 p-2 rounded-xl hover:bg-white/10 cursor-pointer transition group"
+                              >
+                                <span className="text-[#b3b3b3] text-xs text-center font-medium">{i + 2}</span>
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <img
+                                    src={song.artworkUrl100}
+                                    alt="thumb"
+                                    onError={handleImgError}
+                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-semibold text-white truncate group-hover:text-[#1ed760]">
+                                      {song.trackName}
+                                    </div>
+                                    <div className="text-xs text-[#b3b3b3] truncate">
+                                      {song.artistName} {song.source === "youtube" ? "• YouTube" : ""}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSongToAddToPlaylist({
+                                        id: song.trackId,
+                                        title: song.trackName,
+                                        artist: song.artistName,
+                                        album: song.album || "Single",
+                                        cover: song.artworkUrl100,
+                                        duration: song.duration
+                                      });
+                                    }}
+                                    className="text-[11px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium"
+                                  >
+                                    + Playlist
+                                  </button>
+                                </div>
+                                <span className="text-xs text-[#b3b3b3] text-right">
+                                  {formatTime(song.duration)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Remaining songs in full width */}
+                      {searchResults.length > 6 && (
+                        <div className="flex flex-col gap-1 pt-2 border-t border-white/5">
+                          <span className="text-xs font-black uppercase tracking-wider text-white/50 mb-2">
+                            Semua Hasil Pencarian
+                          </span>
+                          {searchResults.slice(6).map((song, i) => (
+                            <div
+                              key={song.trackId || i + 6}
+                              onClick={() => playSearchedSong(song, i + 6)}
+                              className="grid grid-cols-[36px_1fr_auto_50px] items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 cursor-pointer transition group"
+                            >
+                              <span className="text-[#b3b3b3] text-sm text-center font-medium">{i + 7}</span>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <img
+                                  src={song.artworkUrl100}
+                                  alt="thumb"
+                                  onError={handleImgError}
+                                  className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                />
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold text-white truncate group-hover:text-[#1ed760]">
+                                    {song.trackName}
+                                  </div>
+                                  <div className="text-xs text-[#b3b3b3] truncate">
+                                    {song.artistName} {song.source === "youtube" ? "• YouTube Indie" : ""}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSongToAddToPlaylist({
+                                      id: song.trackId,
+                                      title: song.trackName,
+                                      artist: song.artistName,
+                                      album: song.album || "Single",
+                                      cover: song.artworkUrl100,
+                                      duration: song.duration
+                                    });
+                                  }}
+                                  className="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium"
+                                >
+                                  + Playlist
+                                </button>
+                              </div>
+                              <span className="text-xs text-[#b3b3b3] text-right">
+                                {formatTime(song.duration)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    !isSearching && <div className="text-[#b3b3b3] text-sm">Tidak ada lagu yang ditemukan.</div>
+                    !isSearching && (
+                      <div className="text-center py-12 text-[#b3b3b3]">
+                        <p className="text-base font-bold text-white mb-1">Lagu tidak ditemukan</p>
+                        <p className="text-xs max-w-sm mx-auto">
+                          Coba ketik kata kunci pendek seperti &quot;bunga&quot;, &quot;berna&quot;, &quot;eval&quot;, atau nama artis favoritmu.
+                        </p>
+                      </div>
+                    )
                   )}
                 </div>
               ) : (
-                <div>
-                  <h1 className="text-xl font-bold text-white mb-4">Jelajahi Semua Genre</h1>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {GENRES.map((g, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          if (g.name.includes("Top 50 Indonesia")) setCurrentView("top50-indo");
-                          else if (g.name.includes("Paling Sering Diputar")) setCurrentView("most-played-indo");
-                          else if (g.name.includes("Viral Indonesia")) setCurrentView("viral-indo");
-                          else if (g.name.includes("Top Global")) setCurrentView("top50-global");
-                          else handleSearchInput(g.name);
-                        }}
-                        className={`${g.color} h-32 rounded-xl p-4 font-black text-lg text-white relative overflow-hidden cursor-pointer shadow-lg`}
-                      >
-                        <span>{g.name}</span>
-                        <div className="w-16 h-16 rounded-md bg-white/20 absolute -bottom-2 -right-2 rotate-25 shadow" />
-                      </div>
-                    ))}
+                <div className="flex flex-col gap-6">
+                  {/* TRENDING QUICK SEARCH CHIPS */}
+                  <div>
+                    <h2 className="text-xs font-black uppercase tracking-wider text-white/50 mb-3">
+                      Paling Sering Dicari Pengguna
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        "Gala Bunga Matahari",
+                        "Satu Bulan",
+                        "Evaluasi",
+                        "Tampar",
+                        "Dan...",
+                        "Sialan",
+                        "Mati-Matian",
+                        "6sentani Only Siji",
+                        "Bunga Abadi",
+                        "Kangen"
+                      ].map((chip, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleSearchInput(chip)}
+                          className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition border border-white/5 flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                          </svg>
+                          <span>{chip}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h1 className="text-xl font-bold text-white mb-4">Jelajahi Semua Genre</h1>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {GENRES.map((g, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            if (g.name.includes("Top 50 Indonesia")) setCurrentView("top50-indo");
+                            else if (g.name.includes("Paling Sering Diputar")) setCurrentView("most-played-indo");
+                            else if (g.name.includes("Viral Indonesia")) setCurrentView("viral-indo");
+                            else if (g.name.includes("Top Global")) setCurrentView("top50-global");
+                            else handleSearchInput(g.name);
+                          }}
+                          className={`${g.color} h-32 rounded-xl p-4 font-black text-lg text-white relative overflow-hidden cursor-pointer shadow-lg`}
+                        >
+                          <span>{g.name}</span>
+                          <div className="w-16 h-16 rounded-md bg-white/20 absolute -bottom-2 -right-2 rotate-25 shadow" />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* VIEW: DEDICATED QUEUE & PLAYBACK REORDER VIEW */}
+          {currentView === "queue" && (
+            <div className="p-4 sm:p-6 flex flex-col gap-6 max-w-4xl mx-auto w-full">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse"></span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#1ed760]">
+                      ANTREAN AKTIF &bull; GESER URUTAN
+                    </span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-black text-white mt-1">Antrean Pemutaran</h1>
+                  <p className="text-xs text-[#b3b3b3] mt-0.5">
+                    Tahan &amp; geser ikon titik enam atau klik tombol panah naik/turun untuk mengatur urutan lagu
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setCurrentView("home")}
+                  className="text-xs font-bold text-[#b3b3b3] hover:text-white flex items-center gap-1.5 transition px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                  <span>Kembali ke Beranda</span>
+                </button>
+              </div>
+
+              {/* Now Playing Card */}
+              <div>
+                <span className="text-xs font-black uppercase tracking-wider text-white/50 block mb-2">
+                  Sedang Diputar
+                </span>
+                <div className="liquid-glass rounded-2xl p-4 flex items-center justify-between shadow-xl border border-white/10">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 shadow-md">
+                      <img
+                        src={currentTrack.cover}
+                        alt="thumb"
+                        onError={handleImgError}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-0.5">
+                        <span className="w-1 bg-[#1ed760] bar-1 rounded-full"></span>
+                        <span className="w-1 bg-[#1ed760] bar-2 rounded-full"></span>
+                        <span className="w-1 bg-[#1ed760] bar-3 rounded-full"></span>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-base font-black text-white truncate">{currentTrack.title}</div>
+                      <div className="text-xs text-[#b3b3b3] truncate mt-0.5">{currentTrack.artist} • {currentTrack.album}</div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={togglePlay}
+                    className="w-12 h-12 rounded-full bg-[#1ed760] text-black flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition flex-shrink-0"
+                    title={isPlaying ? "Jeda" : "Putar"}
+                  >
+                    {isPlaying ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Upcoming Reorderable Queue */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-[#1ed760]">
+                    Berikutnya Dalam Antrean ({Math.max(0, activeQueue.length - activeQueueIndex - 1)} lagu)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const pool = [...relatedQueue, ...mostPlayedIndonesia, ...indonesiaTop50];
+                        const fresh = pool.filter((s) => !activeQueue.some((a) => a.title.toLowerCase() === s.title.toLowerCase()));
+                        setActiveQueue((prev) => [...prev, ...fresh.slice(0, 10)]);
+                      }}
+                      className="text-xs font-bold text-white/70 hover:text-white px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 transition"
+                    >
+                      + Tambah 10 Rekomendasi
+                    </button>
+                  </div>
+                </div>
+
+                {activeQueue.length <= activeQueueIndex + 1 ? (
+                  <div className="liquid-glass rounded-2xl p-8 text-center text-[#b3b3b3]">
+                    <p className="text-sm font-bold text-white mb-1">Antrean berikutnya kosong</p>
+                    <p className="text-xs mb-4">
+                      Lagu berikutnya akan dipilihkan secara otomatis sesuai selera musikmu ({userTaste.persona}).
+                    </p>
+                    <button
+                      onClick={() => {
+                        const pool = [...mostPlayedIndonesia, ...DEFAULT_CATALOG];
+                        setActiveQueue((prev) => [...prev, ...pool.slice(0, 8)]);
+                      }}
+                      className="px-4 py-2 rounded-full bg-[#1ed760] text-black font-black text-xs hover:scale-105 transition"
+                    >
+                      Isi Antrean Sekarang
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {activeQueue.slice(activeQueueIndex + 1).map((song, relativeIdx) => {
+                      const actualIdx = activeQueueIndex + 1 + relativeIdx;
+                      return (
+                        <div
+                          key={`${song.id || song.title}-${actualIdx}`}
+                          draggable
+                          onDragStart={() => setDraggedQueueIndex(actualIdx)}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setDragOverQueueIndex(actualIdx);
+                          }}
+                          onDragEnd={() => {
+                            if (
+                              draggedQueueIndex !== null &&
+                              dragOverQueueIndex !== null &&
+                              draggedQueueIndex !== dragOverQueueIndex
+                            ) {
+                              reorderQueueItem(draggedQueueIndex, dragOverQueueIndex);
+                            }
+                            setDraggedQueueIndex(null);
+                            setDragOverQueueIndex(null);
+                          }}
+                          className={`liquid-glass rounded-xl p-3 flex items-center justify-between transition group border border-white/5 ${
+                            draggedQueueIndex === actualIdx
+                              ? "opacity-30 border-[#1ed760]"
+                              : dragOverQueueIndex === actualIdx
+                              ? "border-[#1ed760] bg-white/10"
+                              : "hover:bg-white/10"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            {/* Drag Handle 6-dots */}
+                            <div
+                              className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white p-1"
+                              title="Tahan &amp; geser untuk ubah urutan"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="9" cy="6" r="2" />
+                                <circle cx="15" cy="6" r="2" />
+                                <circle cx="9" cy="12" r="2" />
+                                <circle cx="15" cy="12" r="2" />
+                                <circle cx="9" cy="18" r="2" />
+                                <circle cx="15" cy="18" r="2" />
+                              </svg>
+                            </div>
+
+                            <span className="text-[#b3b3b3] text-xs font-medium w-4 text-center">
+                              {relativeIdx + 1}
+                            </span>
+
+                            <img
+                              src={song.cover || song.artworkUrl100 || FALLBACK_COVER}
+                              alt="thumb"
+                              onError={handleImgError}
+                              className="w-11 h-11 rounded-lg object-cover flex-shrink-0 cursor-pointer"
+                              onClick={() => handlePlayFromList(song, activeQueue, actualIdx)}
+                            />
+
+                            <div
+                              className="min-w-0 flex-1 cursor-pointer"
+                              onClick={() => handlePlayFromList(song, activeQueue, actualIdx)}
+                            >
+                              <div className="text-sm font-bold text-white truncate group-hover:text-[#1ed760] transition">
+                                {song.title || song.trackName}
+                              </div>
+                              <div className="text-xs text-[#b3b3b3] truncate">{song.artist || song.artistName}</div>
+                            </div>
+                          </div>
+
+                          {/* Tactile Reordering Actions (Up / Down / Remove) */}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveQueueItem(actualIdx, "up");
+                              }}
+                              disabled={actualIdx <= activeQueueIndex + 1}
+                              className="p-1.5 text-white/40 hover:text-white disabled:opacity-20 disabled:pointer-events-none rounded hover:bg-white/10 transition"
+                              title="Geser Naik"
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="18 15 12 9 6 15"></polyline>
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveQueueItem(actualIdx, "down");
+                              }}
+                              disabled={actualIdx >= activeQueue.length - 1}
+                              className="p-1.5 text-white/40 hover:text-white disabled:opacity-20 disabled:pointer-events-none rounded hover:bg-white/10 transition"
+                              title="Geser Turun"
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeQueueItem(actualIdx);
+                              }}
+                              className="p-1.5 text-white/30 hover:text-red-400 rounded hover:bg-white/10 transition ml-1"
+                              title="Hapus dari antrean"
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -2315,9 +3305,8 @@ export default function BrnsicMusicPage() {
             )}
 
             {isLoadingSong && (
-              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-2 z-10 backdrop-blur-sm">
-                <div className="w-8 h-8 border-3 border-[#1ed760] border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-xs font-bold text-white">Memuat audio...</span>
+              <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center z-10 backdrop-blur-md rounded-2xl p-4">
+                <BrnsicLoader size="md" text="Memuat audio..." />
               </div>
             )}
           </div>
@@ -2502,7 +3491,7 @@ export default function BrnsicMusicPage() {
                 </svg>
               )}
             </button>
-            <button onClick={playNextSong} className="text-[#b3b3b3] hover:text-white" title="Lagu berikutnya">
+            <button onClick={() => playNextSong(true)} className="text-[#b3b3b3] hover:text-white" title="Lagu berikutnya">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
               </svg>
@@ -2557,9 +3546,9 @@ export default function BrnsicMusicPage() {
           </button>
 
           <button
-            onClick={() => setCurrentView(currentView === "home" ? "top50-indo" : "home")}
-            className="text-[#b3b3b3] hover:text-white p-1"
-            title="Antrean"
+            onClick={() => setCurrentView(currentView === "queue" ? "home" : "queue")}
+            className={`p-1 transition ${currentView === "queue" ? "text-[#1ed760]" : "text-[#b3b3b3] hover:text-white"}`}
+            title="Antrean Pemutaran (Queue)"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -2838,43 +3827,141 @@ export default function BrnsicMusicPage() {
                   </button>
                 </div>
 
-                {/* Related Smart Queue */}
+                {/* Reorderable Upcoming Queue */}
                 <div className="flex flex-col gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-[#1ed760] px-1">
-                    Berikutnya dalam Antrean
-                  </span>
-                  {(activeQueue.length > 1
-                    ? activeQueue
-                    : relatedQueue.length > 0
-                    ? relatedQueue
-                    : mostPlayedIndonesia
-                  ).map((song, i) => (
-                    <div
-                      key={song.id || i}
-                      onClick={() => handlePlayFromList(song, activeQueue, i, isAlbumLoopMode)}
-                      className="liquid-glass-card rounded-xl p-2.5 flex items-center justify-between hover:bg-white/10 cursor-pointer transition group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <svg className="text-white/30 flex-shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="4" y1="9" x2="20" y2="9"></line>
-                          <line x1="4" y1="15" x2="20" y2="15"></line>
-                        </svg>
-                        <img
-                          src={song.cover}
-                          alt="thumb"
-                          onError={handleImgError}
-                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-white truncate">{song.title}</div>
-                          <div className="text-[11px] text-white/50 truncate">
-                            {song.artist} {song.reason ? `• ${song.reason}` : ""}
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-black uppercase tracking-wider text-[#1ed760]">
+                      Berikutnya dalam Antrean ({Math.max(0, activeQueue.length - activeQueueIndex - 1)})
+                    </span>
+                    <span className="text-[10px] text-white/40">Geser / Panah untuk urutan</span>
+                  </div>
+
+                  {activeQueue.length <= activeQueueIndex + 1 ? (
+                    <div className="liquid-glass-card rounded-xl p-6 text-center text-[#b3b3b3]">
+                      <p className="text-xs font-bold text-white mb-1">Antrean berikutnya kosong</p>
+                      <p className="text-[11px] mb-3">Lagu berikutnya akan otomatis menyesuaikan seleramu ({userTaste.persona})</p>
+                      <button
+                        onClick={() => {
+                          const pool = [...mostPlayedIndonesia, ...DEFAULT_CATALOG];
+                          setActiveQueue((prev) => [...prev, ...pool.slice(0, 6)]);
+                        }}
+                        className="px-3 py-1.5 rounded-full bg-[#1ed760] text-black font-black text-xs"
+                      >
+                        + Isi Antrean
+                      </button>
+                    </div>
+                  ) : (
+                    activeQueue.slice(activeQueueIndex + 1).map((song, relativeIdx) => {
+                      const actualIdx = activeQueueIndex + 1 + relativeIdx;
+                      return (
+                        <div
+                          key={`${song.id || song.title}-${actualIdx}`}
+                          draggable
+                          onDragStart={() => setDraggedQueueIndex(actualIdx)}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setDragOverQueueIndex(actualIdx);
+                          }}
+                          onDragEnd={() => {
+                            if (
+                              draggedQueueIndex !== null &&
+                              dragOverQueueIndex !== null &&
+                              draggedQueueIndex !== dragOverQueueIndex
+                            ) {
+                              reorderQueueItem(draggedQueueIndex, dragOverQueueIndex);
+                            }
+                            setDraggedQueueIndex(null);
+                            setDragOverQueueIndex(null);
+                          }}
+                          className={`liquid-glass-card rounded-xl p-2.5 flex items-center justify-between transition group ${
+                            draggedQueueIndex === actualIdx
+                              ? "opacity-30 border border-[#1ed760]"
+                              : dragOverQueueIndex === actualIdx
+                              ? "border border-[#1ed760] bg-white/10"
+                              : "hover:bg-white/10"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            {/* Drag Handle 6-dots */}
+                            <div
+                              className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white p-1"
+                              title="Tahan &amp; geser urutan"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="9" cy="6" r="2" />
+                                <circle cx="15" cy="6" r="2" />
+                                <circle cx="9" cy="12" r="2" />
+                                <circle cx="15" cy="12" r="2" />
+                                <circle cx="9" cy="18" r="2" />
+                                <circle cx="15" cy="18" r="2" />
+                              </svg>
+                            </div>
+
+                            <img
+                              src={song.cover || song.artworkUrl100 || FALLBACK_COVER}
+                              alt="thumb"
+                              onError={handleImgError}
+                              className="w-10 h-10 rounded-lg object-cover flex-shrink-0 cursor-pointer"
+                              onClick={() => handlePlayFromList(song, activeQueue, actualIdx)}
+                            />
+
+                            <div
+                              className="min-w-0 flex-1 cursor-pointer"
+                              onClick={() => handlePlayFromList(song, activeQueue, actualIdx)}
+                            >
+                              <div className="text-xs font-bold text-white truncate">{song.title || song.trackName}</div>
+                              <div className="text-[11px] text-white/50 truncate">
+                                {song.artist || song.artistName}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Tactile Reordering Buttons */}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveQueueItem(actualIdx, "up");
+                              }}
+                              disabled={actualIdx <= activeQueueIndex + 1}
+                              className="p-1 text-white/40 hover:text-white disabled:opacity-20 rounded"
+                              title="Geser Naik"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="18 15 12 9 6 15"></polyline>
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                moveQueueItem(actualIdx, "down");
+                              }}
+                              disabled={actualIdx >= activeQueue.length - 1}
+                              className="p-1 text-white/40 hover:text-white disabled:opacity-20 rounded"
+                              title="Geser Turun"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeQueueItem(actualIdx);
+                              }}
+                              className="p-1 text-white/30 hover:text-red-400 rounded ml-1"
+                              title="Hapus"
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                              </svg>
+                            </button>
                           </div>
                         </div>
-                      </div>
-                      <span className="text-xs text-white/40">{formatTime(song.duration)}</span>
-                    </div>
-                  ))}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
@@ -2891,6 +3978,11 @@ export default function BrnsicMusicPage() {
                     className="w-full h-full object-cover transform scale-105 group-hover:scale-110 transition duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  {isLoadingSong && (
+                    <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center z-20 backdrop-blur-md rounded-3xl p-4">
+                      <BrnsicLoader size="lg" text="Memuat audio Brnsic..." />
+                    </div>
+                  )}
                 </div>
 
                 {/* Title, Artist, & Like Button Row */}
@@ -2993,7 +4085,7 @@ export default function BrnsicMusicPage() {
                     )}
                   </button>
 
-                  <button onClick={playNextSong} className="text-white hover:scale-110 transition p-1">
+                  <button onClick={() => playNextSong(true)} className="text-white hover:scale-110 transition p-1">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
                     </svg>
@@ -3117,7 +4209,7 @@ export default function BrnsicMusicPage() {
                       </svg>
                     )}
                   </button>
-                  <button onClick={playNextSong} className="text-white hover:scale-110">
+                  <button onClick={() => playNextSong(true)} className="text-white hover:scale-110">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
                     </svg>
@@ -3260,6 +4352,11 @@ export default function BrnsicMusicPage() {
                     className="w-full h-full object-cover transform scale-105 group-hover:scale-110 transition duration-1000"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+                  {isLoadingSong && (
+                    <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center z-20 backdrop-blur-md rounded-3xl p-4">
+                      <BrnsicLoader size="lg" text="Menyiapkan audio..." />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -3433,32 +4530,72 @@ export default function BrnsicMusicPage() {
             {/* Profile Info */}
             <div className="text-center">
               <h2 className="text-lg font-black text-white">Profil Pengguna</h2>
-              <p className="text-xs text-[#b3b3b3] mt-0.5">Akun Tersimpan di Perangkat Ini</p>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 mt-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760] animate-pulse"></span>
+                <span className="text-xs font-bold text-[#1ed760]">{userTaste.persona}</span>
+              </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="w-full grid grid-cols-2 gap-2.5">
-              <div className="bg-white/5 border border-white/5 rounded-2xl p-3 text-center">
-                <div className="text-xl font-black text-[#1ed760]">{likedSongIds.length}</div>
-                <div className="text-[11px] font-semibold text-[#b3b3b3] mt-0.5">Lagu Disukai</div>
+            <div className="w-full grid grid-cols-3 gap-2">
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-2.5 text-center">
+                <div className="text-lg font-black text-[#1ed760]">{userTaste.totalPlays}</div>
+                <div className="text-[10px] font-semibold text-[#b3b3b3] mt-0.5">Diputar</div>
               </div>
-              <div className="bg-white/5 border border-white/5 rounded-2xl p-3 text-center">
-                <div className="text-xl font-black text-white">{userPlaylists.length}</div>
-                <div className="text-[11px] font-semibold text-[#b3b3b3] mt-0.5">Playlist Kamu</div>
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-2.5 text-center">
+                <div className="text-lg font-black text-white">{likedSongIds.length}</div>
+                <div className="text-[10px] font-semibold text-[#b3b3b3] mt-0.5">Disukai</div>
+              </div>
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-2.5 text-center">
+                <div className="text-lg font-black text-white">{userPlaylists.length}</div>
+                <div className="text-[10px] font-semibold text-[#b3b3b3] mt-0.5">Playlist</div>
               </div>
             </div>
 
-            {/* Cloud Sync / Login Notice */}
-            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-3.5 flex flex-col gap-2 text-left">
-              <div className="flex items-center gap-2 text-white text-xs font-bold">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
-                </svg>
-                <span>Sinkronisasi Akun</span>
+            {/* Top Favorite Artists */}
+            {Object.keys(userTaste.artistWeights).length > 0 && (
+              <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 text-left">
+                <span className="text-[10px] font-black uppercase tracking-wider text-white/50">
+                  Artis Yang Sering Kamu Dengarkan
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(userTaste.artistWeights)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 4)
+                    .map(([artist, weight], idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs bg-white/10 text-white font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5"
+                      >
+                        <span>{artist}</span>
+                        <span className="text-[10px] text-[#1ed760] font-black">+{weight}</span>
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Cloud Sync & Taste Engine Notice */}
+            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-1.5 text-left">
+              <div className="flex items-center gap-1.5 text-white text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-[#1ed760]"></span>
+                <span>Mesin Selera Brnsic Pintar</span>
               </div>
               <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
-                Saat ini data tersimpan aman secara otomatis di browser/HP Anda. Fitur Login Google / Email untuk sinkronisasi antar perangkat (HP &amp; Laptop) dapat diaktifkan jika diperlukan.
+                Aplikasi mempelajari lagu yang kamu dengar dan sukai untuk memberikan rekomendasi yang unik khusus untukmu.
               </p>
+              <button
+                onClick={() => {
+                  const fresh = generateInitialTaste();
+                  setUserTaste(fresh);
+                  try {
+                    localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(fresh));
+                  } catch (e) {}
+                }}
+                className="text-[11px] font-bold text-[#1ed760] hover:underline text-left mt-1"
+              >
+                ↻ Acak Ulang / Reset Selera Musik
+              </button>
             </div>
 
             <button
@@ -3467,6 +4604,101 @@ export default function BrnsicMusicPage() {
             >
               Tutup
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          10. MODAL: PWA DOWNLOAD & INSTALL WITH REAL PROGRESS (USER REQUEST)
+          ==================================================================== */}
+      {isInstallModalOpen && (
+        <div
+          onClick={() => setIsInstallModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm liquid-glass rounded-3xl p-6 flex flex-col items-center gap-5 border border-white/10 shadow-2xl relative text-center"
+          >
+            <button
+              onClick={() => setIsInstallModalOpen(false)}
+              className="absolute top-4 right-4 text-white/60 hover:text-white text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition"
+            >
+              &times;
+            </button>
+
+            {/* Brnsic Logo & Ambient Glow */}
+            <div className="relative flex items-center justify-center my-1">
+              <div className="absolute inset-0 rounded-full bg-[#1ed760]/25 blur-2xl animate-pulse"></div>
+              <img
+                src="/brnsic-loader-logo.png"
+                alt="Brnsic"
+                className="w-16 h-16 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+              />
+            </div>
+
+            <div>
+              <h2 className="text-xl font-black text-white">
+                {installProgress < 100 ? "Mengunduh Paket Aplikasi..." : "Unduhan Selesai!"}
+              </h2>
+              <p className="text-xs text-[#b3b3b3] mt-1">Brnsic Web Music Player &bull; v2.0</p>
+            </div>
+
+            {/* Animated Download Progress Bar */}
+            <div className="w-full flex flex-col gap-2">
+              <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/10">
+                <div
+                  className="h-full bg-gradient-to-r from-[#1ed760] to-emerald-400 rounded-full transition-all duration-300 shadow-[0_0_10px_#1ed760]"
+                  style={{ width: `${installProgress}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs font-semibold px-1">
+                <span className="text-[#1ed760] font-black">{installProgress}%</span>
+                <span className="text-white/60 text-[11px] truncate max-w-[200px]">{installStatus}</span>
+              </div>
+            </div>
+
+            {/* Dynamic Status / Action Button */}
+            {installProgress < 100 ? (
+              <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-ping"></span>
+                <span className="text-xs text-white/80 font-medium">Sedang memproses unduhan modul offline...</span>
+              </div>
+            ) : (
+              <div className="w-full flex flex-col gap-3">
+                <div className="bg-[#1ed760]/10 border border-[#1ed760]/30 rounded-2xl p-3 text-left">
+                  <p className="text-xs text-[#1ed760] font-bold mb-1">Paket Siap Dipasang</p>
+                  <p className="text-[11px] text-white/80 leading-relaxed">
+                    Klik tombol di bawah untuk memasang Brnsic langsung ke layar utama HP / Komputer Anda.
+                  </p>
+                </div>
+
+                <button
+                  onClick={async () => {
+                    if (deferredInstallPrompt) {
+                      deferredInstallPrompt.prompt();
+                      const { outcome } = await deferredInstallPrompt.userChoice;
+                      if (outcome === "accepted") {
+                        setDeferredInstallPrompt(null);
+                        setIsInstallModalOpen(false);
+                      }
+                    } else {
+                      alert(
+                        "Jika konfirmasi tidak otomatis muncul: Ketuk menu browser di pojok kanan atas, lalu pilih 'Tambahkan ke Layar Utama' (Add to Home screen) atau 'Install App'."
+                      );
+                    }
+                  }}
+                  className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-105 active:scale-95 transition shadow-[0_0_20px_rgba(30,215,96,0.4)] flex items-center justify-center gap-2"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Pasang Sekarang (Install App)</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

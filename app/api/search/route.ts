@@ -1,5 +1,171 @@
 import { NextResponse } from "next/server";
 
+// Curated top popular & trending tracks indexed for instant smart search
+const POPULAR_SEARCH_INDEX = [
+  {
+    title: "Gala Bunga Matahari",
+    artist: "Sal Priadi",
+    album: "MARKERS AND SUCH PENS FLASHDISKS",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 234,
+    youtubeId: "gu6rT1Jelis",
+    tags: ["bunga", "matahari", "gala", "matahri", "sal", "priadi", "markers"]
+  },
+  {
+    title: "Satu Bulan",
+    artist: "Bernadya",
+    album: "Sialnya, Hidup Harus Tetap Berjalan",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
+    duration: 194,
+    youtubeId: "7Jm2Il2U-c0",
+    tags: ["satu", "bulan", "berna", "bernadya", "sialnya", "hidup"]
+  },
+  {
+    title: "Untungnya, Hidup Harus Tetap Berjalan",
+    artist: "Bernadya",
+    album: "Sialnya, Hidup Harus Tetap Berjalan",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
+    duration: 178,
+    youtubeId: "d1u7_s8Zf-c",
+    tags: ["untung", "untungnya", "bernadya", "berna"]
+  },
+  {
+    title: "Evaluasi",
+    artist: "Hindia",
+    album: "Menari Dengan Bayangan",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
+    duration: 215,
+    youtubeId: "saXhrw-7rQI",
+    tags: ["eval", "evaluasi", "hindia", "baskara", "menari"]
+  },
+  {
+    title: "Tampar",
+    artist: "Juicy Luicy",
+    album: "Tampar - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/c1/97/e2/c197e2d2-a9f4-fd0f-f670-de2f88f96879/192641986017_Cover.jpg/600x600bb.jpg",
+    duration: 228,
+    youtubeId: "qmgA_WejI8w",
+    tags: ["tampar", "juicy", "luicy", "jusy"]
+  },
+  {
+    title: "Sialan (feat. Juicy Luicy)",
+    artist: "Adrian Khalif, Juicy Luicy",
+    album: "HARAP-HARAP EMAS",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/a8/18/16a81850-ca96-0927-a46d-0d9af767006c/196922358449_Cover.jpg/600x600bb.jpg",
+    duration: 251,
+    youtubeId: "wQ-O3DqIc5c",
+    tags: ["sialan", "adrian", "khalif", "juicy", "luicy"]
+  },
+  {
+    title: "Mati-Matian",
+    artist: "Mahalini",
+    album: "Mati-Matian - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e6/91/eb/e691eb58-7ae3-cb1b-0a5f-839ad3a010e0/cover.jpg/600x600bb.jpg",
+    duration: 247,
+    youtubeId: "qR3f5K1V2sI",
+    tags: ["mati", "matian", "mati-matian", "mahalini", "lini"]
+  },
+  {
+    title: "Hati-Hati di Jalan",
+    artist: "Tulus",
+    album: "Manusia",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6f/18/10/6f1810e0-2d6a-a456-1362-de607c70408a/cover.jpg/600x600bb.jpg",
+    duration: 242,
+    youtubeId: "_N6vSc_mT6I",
+    tags: ["hati", "jalan", "hati-hati", "tulus", "manusia"]
+  },
+  {
+    title: "Rayuan Perempuan Gila",
+    artist: "Nadin Amizah",
+    album: "Untuk Dunia, Cinta, dan Kotornya",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8d/6f/fa/8d6ffae9-5a5f-75bd-d626-756a539e1b78/cover.jpg/600x600bb.jpg",
+    duration: 320,
+    youtubeId: "Kk02q89_3Y0",
+    tags: ["rayuan", "perempuan", "gila", "nadin", "amizah"]
+  },
+  {
+    title: "Sigar",
+    artist: "Denny Caknan",
+    album: "Sigar - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
+    duration: 275,
+    youtubeId: "bXf9_8-Hw8E",
+    tags: ["sigar", "denny", "caknan", "koplo"]
+  },
+  {
+    title: "Dan...",
+    artist: "Sheila On 7",
+    album: "Sheila On 7",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music/90/01/6d/mzi.ywjxtlbq.jpg/600x600bb.jpg",
+    duration: 288,
+    youtubeId: "9Y1O1eM_y-Q",
+    tags: ["dan", "sheila", "so7", "duta"]
+  },
+  {
+    title: "Kangen",
+    artist: "Dewa 19",
+    album: "19",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/39/59/b0/3959b0f9-d9f1-a458-44db-6d1dd2f60a05/190296432903.jpg/600x600bb.jpg",
+    duration: 334,
+    youtubeId: "o3X4_5wP-u8",
+    tags: ["kangen", "dewa", "dhani", "ari lasso"]
+  },
+  {
+    title: "Cincin",
+    artist: "Hindia",
+    album: "Lagipula Hidup Akan Berakhir",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8b/6e/c3/8b6ec33c-3094-1a61-9c3f-c6b9bb787ef6/cover.jpg/600x600bb.jpg",
+    duration: 279,
+    youtubeId: "E_oJ4y3n9tU",
+    tags: ["cincin", "hindia"]
+  },
+  {
+    title: "Bunga Abadi",
+    artist: "Rio Clappy",
+    album: "Bunga Abadi - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 212,
+    youtubeId: "fO3W61x1_3s",
+    tags: ["bunga", "abadi", "rio", "clappy"]
+  },
+  {
+    title: "Penjaga Hati",
+    artist: "Nadhif Basalamah",
+    album: "Penjaga Hati - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6f/18/10/6f1810e0-2d6a-a456-1362-de607c70408a/cover.jpg/600x600bb.jpg",
+    duration: 250,
+    youtubeId: "fFm-Hn7vEaU",
+    tags: ["penjaga", "hati", "nadhif", "basalamah"]
+  },
+  {
+    title: "Komang",
+    artist: "Raim Laode",
+    album: "Komang - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8d/6f/fa/8d6ffae9-5a5f-75bd-d626-756a539e1b78/cover.jpg/600x600bb.jpg",
+    duration: 222,
+    youtubeId: "sNqB3a8B99Q",
+    tags: ["komang", "raim", "laode"]
+  },
+  {
+    title: "6sentani Only Siji",
+    artist: "6sentani",
+    album: "Only Siji - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
+    duration: 260,
+    youtubeId: "iQ7gbcjob3w",
+    tags: ["6sentani", "sentani", "only", "siji", "koplo"]
+  },
+  {
+    title: "Die With A Smile",
+    artist: "Lady Gaga, Bruno Mars",
+    album: "Die With A Smile - Single",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+    duration: 251,
+    youtubeId: "kPa7bsKwL-c",
+    tags: ["die", "smile", "bruno", "mars", "lady", "gaga"]
+  }
+];
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q") || "";
@@ -8,8 +174,42 @@ export async function GET(request: Request) {
     return NextResponse.json({ results: [] });
   }
 
+  const queryClean = q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  const queryWords = queryClean.split(" ").filter(Boolean);
+
+  // 1. Instant match against verified popular songs (fuzzy token matching for typos & partial titles)
+  const popularMatches = POPULAR_SEARCH_INDEX.filter((song) => {
+    const t = song.title.toLowerCase();
+    const a = song.artist.toLowerCase();
+    const tags = song.tags || [];
+
+    // Direct substring in title or artist
+    if (t.includes(queryClean) || a.includes(queryClean)) return true;
+
+    // Word/Token overlap
+    return queryWords.some((word) => {
+      if (word.length < 2) return false;
+      if (t.includes(word) || a.includes(word) || tags.some((tag) => tag.includes(word))) return true;
+      // Handle typo variations (e.g. "matahri" -> "matahari", "berna" -> "bernadya")
+      return tags.some((tag) => {
+        if (Math.abs(tag.length - word.length) > 2) return false;
+        return tag.startsWith(word.slice(0, 3)) || word.startsWith(tag.slice(0, 3));
+      });
+    });
+  }).map((song) => ({
+    trackId: `popular-${song.youtubeId}`,
+    trackName: song.title,
+    artistName: song.artist,
+    album: song.album,
+    artworkUrl100: song.cover,
+    duration: song.duration,
+    youtubeId: song.youtubeId,
+    source: "popular-verified",
+    isPopular: true
+  }));
+
   try {
-    // 1. Fetch iTunes Music API (Official Global & Indonesian releases)
+    // 2. Fetch iTunes Music API
     const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(
       q.trim()
     )}&country=id&entity=song&limit=25`;
@@ -30,7 +230,7 @@ export async function GET(request: Request) {
       }));
     }
 
-    // 2. Fetch YouTube Indie / Local Search (for songs not on iTunes, e.g. "6sentani Only Siji", covers, underground indie)
+    // 3. Fetch YouTube Indie / Local Search
     let ytItems: any[] = [];
     try {
       const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
@@ -41,7 +241,7 @@ export async function GET(request: Request) {
       });
       if (ytRes.ok) {
         const html = await ytRes.text();
-        const jsonMatch = html.match(/ytInitialData\s*=\s*({.+?});<\/script>/s);
+        const jsonMatch = html.match(/ytInitialData\s*=\s*({[\s\S]+?});<\/script>/);
         if (jsonMatch) {
           const ytData = JSON.parse(jsonMatch[1]);
           const contents =
@@ -49,58 +249,52 @@ export async function GET(request: Request) {
               ?.contents?.[0]?.itemSectionRenderer?.contents || [];
           
           for (const item of contents) {
-            const v = item.videoRenderer;
-            if (v && v.videoId && v.title?.runs?.[0]?.text) {
-              const rawTitle = v.title.runs[0].text;
-              const rawChannel =
-                v.ownerText?.runs?.[0]?.text || v.longBylineText?.runs?.[0]?.text || "Artis Indie";
-              const thumb =
-                v.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
-                `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+            const video = item.videoRenderer;
+            if (video && video.videoId && video.title?.runs?.[0]?.text) {
+              const fullTitle = video.title.runs[0].text;
+              if (
+                fullTitle.toLowerCase().includes("reaction") ||
+                fullTitle.toLowerCase().includes("cover live") ||
+                fullTitle.toLowerCase().includes("mr bean") ||
+                fullTitle.toLowerCase().includes("parodi")
+              ) {
+                continue;
+              }
 
-              let artist = rawChannel.replace(" - Topic", "").trim();
-              let title = rawTitle;
-
-              if (rawTitle.includes(" - ")) {
-                const parts = rawTitle.split(" - ");
+              let artist = video.ownerText?.runs?.[0]?.text || "Indie Artist";
+              let title = fullTitle;
+              if (fullTitle.includes(" - ")) {
+                const parts = fullTitle.split(" - ");
                 artist = parts[0].trim();
-                title = parts.slice(1).join(" - ").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+                title = parts.slice(1).join(" - ").replace(/\(Official.*?\)/gi, "").replace(/\[Official.*?\]/gi, "").trim();
               }
 
               ytItems.push({
-                trackId: `yt-${v.videoId}`,
-                trackName: title || rawTitle,
+                trackId: `yt-${video.videoId}`,
+                trackName: title,
                 artistName: artist,
-                album: "YouTube Release",
-                artworkUrl100: thumb,
-                duration: 180,
-                youtubeId: v.videoId,
+                album: "YouTube Single",
+                artworkUrl100: video.thumbnail?.thumbnails?.[0]?.url || "",
+                duration: 210,
+                youtubeId: video.videoId,
                 source: "youtube"
               });
 
-              if (ytItems.length >= 8) break;
+              if (ytItems.length >= 6) break;
             }
           }
         }
       }
     } catch (e) {}
 
-    // Combine results: if query specifically matched indie or few iTunes results, prioritize YouTube items
+    // Combine results: popular verified always on top, then iTunes, then YouTube
     const seen = new Set<string>();
     const combined: any[] = [];
 
-    // Prioritize direct title matches from YouTube if query has specific keywords like "sentani", "siji"
-    const isIndieTarget =
-      q.toLowerCase().includes("sentani") ||
-      q.toLowerCase().includes("siji") ||
-      itunesItems.length === 0;
-
-    const listToMerge = isIndieTarget
-      ? [...ytItems, ...itunesItems]
-      : [...itunesItems, ...ytItems];
+    const listToMerge = [...popularMatches, ...itunesItems, ...ytItems];
 
     for (const item of listToMerge) {
-      const cleanKey = `${item.artistName.toLowerCase()} ${item.trackName.toLowerCase()}`.replace(
+      const cleanKey = `${(item.artistName || "").toLowerCase()} ${(item.trackName || "").toLowerCase()}`.replace(
         /[^a-z0-9]/g,
         ""
       );
@@ -112,6 +306,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ results: combined.slice(0, 30) });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message, results: [] }, { status: 500 });
+    return NextResponse.json({ error: err.message, results: popularMatches }, { status: 500 });
   }
 }
