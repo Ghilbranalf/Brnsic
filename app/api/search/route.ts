@@ -26,7 +26,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "Sialnya, Hidup Harus Tetap Berjalan",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
     duration: 178,
-    youtubeId: "d1u7_s8Zf-c",
+    youtubeId: "eUx-BHUhGLA",
     tags: ["untung", "untungnya", "bernadya", "berna"]
   },
   {
@@ -53,7 +53,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "HARAP-HARAP EMAS",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/a8/18/16a81850-ca96-0927-a46d-0d9af767006c/196922358449_Cover.jpg/600x600bb.jpg",
     duration: 251,
-    youtubeId: "wQ-O3DqIc5c",
+    youtubeId: "_m6l5nKEGIA",
     tags: ["sialan", "adrian", "khalif", "juicy", "luicy"]
   },
   {
@@ -62,7 +62,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "Mati-Matian - Single",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e6/91/eb/e691eb58-7ae3-cb1b-0a5f-839ad3a010e0/cover.jpg/600x600bb.jpg",
     duration: 247,
-    youtubeId: "qR3f5K1V2sI",
+    youtubeId: "LAOxuo6pkdo",
     tags: ["mati", "matian", "mati-matian", "mahalini", "lini"]
   },
   {
@@ -89,7 +89,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "Sigar - Single",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
     duration: 275,
-    youtubeId: "bXf9_8-Hw8E",
+    youtubeId: "s525A0Bc3z4",
     tags: ["sigar", "denny", "caknan", "koplo"]
   },
   {
@@ -98,7 +98,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "Sheila On 7",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music/90/01/6d/mzi.ywjxtlbq.jpg/600x600bb.jpg",
     duration: 288,
-    youtubeId: "9Y1O1eM_y-Q",
+    youtubeId: "IWvo2fld3s4",
     tags: ["dan", "sheila", "so7", "duta"]
   },
   {
@@ -107,7 +107,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "19",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/39/59/b0/3959b0f9-d9f1-a458-44db-6d1dd2f60a05/190296432903.jpg/600x600bb.jpg",
     duration: 334,
-    youtubeId: "o3X4_5wP-u8",
+    youtubeId: "m8cPU4tzGa4",
     tags: ["kangen", "dewa", "dhani", "ari lasso"]
   },
   {
@@ -116,7 +116,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "Lagipula Hidup Akan Berakhir",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8b/6e/c3/8b6ec33c-3094-1a61-9c3f-c6b9bb787ef6/cover.jpg/600x600bb.jpg",
     duration: 279,
-    youtubeId: "E_oJ4y3n9tU",
+    youtubeId: "S0Kez6MERGE",
     tags: ["cincin", "hindia"]
   },
   {
@@ -125,7 +125,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "Bunga Abadi - Single",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
     duration: 212,
-    youtubeId: "fO3W61x1_3s",
+    youtubeId: "fPMB2H450iI",
     tags: ["bunga", "abadi", "rio", "clappy"]
   },
   {
@@ -152,7 +152,7 @@ const POPULAR_SEARCH_INDEX = [
     album: "Only Siji - Single",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
     duration: 260,
-    youtubeId: "iQ7gbcjob3w",
+    youtubeId: "hQ1dTDQytjM",
     tags: ["6sentani", "sentani", "only", "siji", "koplo"]
   },
   {

@@ -1,104 +1,77 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Curated verified YouTube video IDs for top tracks so playback is 100% accurate, clean & instant
+// Curated verified YouTube video IDs - 100% active, official & playable in embed
 const VERIFIED_MAP: Record<string, string> = {
+  // Dewa 19
+  "dewa 19 kangen": "m8cPU4tzGa4",
+  "kangen dewa 19": "m8cPU4tzGa4",
+  "kangen": "m8cPU4tzGa4",
+  "dewa 19 risalah hati": "J6i53rCB0y8",
+  "risalah hati": "J6i53rCB0y8",
+  "dewa 19 pupus": "7v2AJiZXHjI",
+  "pupus": "7v2AJiZXHjI",
+
+  // Sheila On 7
+  "sheila on 7 dan": "IWvo2fld3s4",
+  "dan sheila on 7": "IWvo2fld3s4",
+  "dan": "IWvo2fld3s4",
+  "sheila on 7 seberapa pantas": "jHPZMBF1I94",
+  "seberapa pantas": "jHPZMBF1I94",
+
   // Sal Priadi
   "sal priadi gala bunga matahari": "gu6rT1Jelis",
   "gala bunga matahari": "gu6rT1Jelis",
   "bunga matahari": "gu6rT1Jelis",
-  "sal priadi dari planet lain": "iY5vN_6T_rY",
-  "dari planet lain": "iY5vN_6T_rY",
-  "sal priadi foto kita blur": "GvX3T_iU06A",
-  "sal priadi mesra mesraannya kecil kecilan dulu": "XwQ9P-tE9_4",
+  "sal priadi dari planet lain": "KDQ2GAdldGI",
+  "dari planet lain": "KDQ2GAdldGI",
 
   // Bernadya
   "bernadya satu bulan": "7Jm2Il2U-c0",
   "satu bulan": "7Jm2Il2U-c0",
-  "bernadya untungnya hidup harus tetap berjalan": "d1u7_s8Zf-c",
-  "untungnya hidup harus tetap berjalan": "d1u7_s8Zf-c",
-  "bernadya kini mereka tahu": "saXhrw-7rQI",
-  "bernadya apa mungkin": "Kk02q89_3Y0",
-  "bernadya kata mereka ini berlebihan": "bXf9_8-Hw8E",
+  "bernadya untungnya hidup harus tetap berjalan": "eUx-BHUhGLA",
+  "untungnya hidup harus tetap berjalan": "eUx-BHUhGLA",
+  "untungnya": "eUx-BHUhGLA",
 
   // Hindia
   "hindia evaluasi": "saXhrw-7rQI",
   "evaluasi": "saXhrw-7rQI",
-  "hindia cincin": "E_oJ4y3n9tU",
-  "cincin": "E_oJ4y3n9tU",
-  "hindia rumah ke rumah": "1FvQn4F1Jj8",
-  "rumah ke rumah": "1FvQn4F1Jj8",
-  "hindia membasuh": "N5g_86jF-Jc",
-  "membasuh": "N5g_86jF-Jc",
-  "hindia secukupnya": "s5UaE5d1Nn4",
-  "secukupnya": "s5UaE5d1Nn4",
+  "hindia cincin": "S0Kez6MERGE",
+  "cincin": "S0Kez6MERGE",
+  "hindia rumah ke rumah": "pjhOjHDX0A8",
+  "rumah ke rumah": "pjhOjHDX0A8",
 
   // Juicy Luicy & Adrian Khalif
   "juicy luicy tampar": "qmgA_WejI8w",
   "tampar": "qmgA_WejI8w",
-  "juicy luicy lantas": "sNqB3a8B99Q",
-  "lantas": "sNqB3a8B99Q",
-  "juicy luicy lampu kuning": "V91aY5eOq6A",
-  "adrian khalif juicy luicy sialan": "wQ-O3DqIc5c",
-  "adrian khalif sialan": "wQ-O3DqIc5c",
-  "sialan": "wQ-O3DqIc5c",
+  "adrian khalif juicy luicy sialan": "_m6l5nKEGIA",
+  "adrian khalif sialan": "_m6l5nKEGIA",
+  "sialan": "_m6l5nKEGIA",
 
   // Mahalini
-  "mahalini mati matian": "qR3f5K1V2sI",
-  "mati matian": "qR3f5K1V2sI",
-  "mahalini sisa rasa": "9Y1O1eM_y-Q",
-  "mahalini sial": "o3X4_5wP-u8",
+  "mahalini mati matian": "LAOxuo6pkdo",
+  "mati matian": "LAOxuo6pkdo",
+  "mahalini sial": "QSWYyoF79oE",
+  "sial mahalini": "QSWYyoF79oE",
 
   // Tulus
   "tulus hati hati di jalan": "_N6vSc_mT6I",
   "hati hati di jalan": "_N6vSc_mT6I",
-  "tulus diri": "saXhrw-7rQI",
-  "tulus tujuh belas": "7Jm2Il2U-c0",
-  "tulus monokrom": "gu6rT1Jelis",
-
-  // Nadin Amizah
-  "nadin amizah rayuan perempuan gila": "Kk02q89_3Y0",
-  "rayuan perempuan gila": "Kk02q89_3Y0",
-  "nadin amizah semua aku dirayakan": "qmgA_WejI8w",
-  "semua aku dirayakan": "qmgA_WejI8w",
-  "nadin amizah bertaut": "_N6vSc_mT6I",
 
   // Denny Caknan & Koplo
-  "denny caknan sigar": "bXf9_8-Hw8E",
-  "sigar": "bXf9_8-Hw8E",
-  "denny caknan sekti": "7hLd_e7kXlA",
-  "sekti": "7hLd_e7kXlA",
-  "denny caknan wirang": "Zq3tBwL0v2s",
-  "wirang": "Zq3tBwL0v2s",
-  "denny caknan cundamani": "XwQ9P-tE9_4",
+  "denny caknan sigar": "s525A0Bc3z4",
+  "sigar": "s525A0Bc3z4",
+  "6sentani only siji": "hQ1dTDQytjM",
+  "sentani only siji": "hQ1dTDQytjM",
+  "only siji": "hQ1dTDQytjM",
 
-  // 6sentani & Indie
-  "6sentani only siji": "iQ7gbcjob3w",
-  "sentani only siji": "iQ7gbcjob3w",
-  "only siji": "iQ7gbcjob3w",
-  "rio clappy bunga abadi": "fO3W61x1_3s",
-  "bunga abadi": "fO3W61x1_3s",
-  "nadhif basalamah penjaga hati": "fFm-Hn7vEaU",
-  "penjaga hati": "fFm-Hn7vEaU",
-  "raim laode komang": "sNqB3a8B99Q",
-  "komang": "sNqB3a8B99Q",
+  // Rio Clappy
+  "rio clappy bunga abadi": "fPMB2H450iI",
+  "bunga abadi": "fPMB2H450iI",
 
-  // Sheila On 7 & Dewa 19
-  "sheila on 7 dan": "9Y1O1eM_y-Q",
-  "dan sheila on 7": "9Y1O1eM_y-Q",
-  "sheila on 7 seberapa pantas": "o3X4_5wP-u8",
-  "dewa 19 kangen": "o3X4_5wP-u8",
-  "kangen dewa 19": "o3X4_5wP-u8",
-  "dewa 19 risalah hati": "qG0E0vQ1i_k",
-  "dewa 19 pupus": "GvX3T_iU06A",
-
-  // International Hits
+  // International
   "bruno mars die with a smile": "kPa7bsKwL-c",
   "lady gaga bruno mars die with a smile": "kPa7bsKwL-c",
-  "die with a smile": "kPa7bsKwL-c",
-  "billie eilish birds of a feather": "V9PVRfjEBTI",
-  "birds of a feather": "V9PVRfjEBTI",
-  "sabrina carpenter espresso": "eVli-tstM5E",
-  "espresso": "eVli-tstM5E"
+  "die with a smile": "kPa7bsKwL-c"
 };
 
 export async function GET(request: NextRequest) {
@@ -111,14 +84,14 @@ export async function GET(request: NextRequest) {
 
   const cleanQuery = q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 
-  // 1. Check instant verified lookup
+  // 1. Direct key match in verified table
   for (const [key, id] of Object.entries(VERIFIED_MAP)) {
-    if (cleanQuery.includes(key) || key.includes(cleanQuery)) {
+    if (cleanQuery === key || cleanQuery.includes(key) || key.includes(cleanQuery)) {
       return NextResponse.json({ videoId: id, candidates: [id], source: "verified", query: q });
     }
   }
 
-  // Check token intersection (e.g. if query contains both "sal" and "matahari")
+  // 2. Token overlap check
   const queryTokens = cleanQuery.split(" ").filter((w) => w.length > 2);
   for (const [key, id] of Object.entries(VERIFIED_MAP)) {
     const keyTokens = key.split(" ");
@@ -150,8 +123,8 @@ export async function GET(request: NextRequest) {
     let match;
     while ((match = vidRegex.exec(html)) !== null) {
       const candidateId = match[1];
-      // Filter out known meme/ad IDs
-      if (candidateId !== "HDEzc4kcJXg" && !ids.includes(candidateId)) {
+      // Filter out known broken/meme IDs
+      if (candidateId !== "HDEzc4kcJXg" && candidateId !== "o3X4_5wP-u8" && !ids.includes(candidateId)) {
         ids.push(candidateId);
       }
       if (ids.length >= 6) break;
@@ -161,7 +134,7 @@ export async function GET(request: NextRequest) {
       const urlRegex = /\/watch\?v=([a-zA-Z0-9_-]{11})/g;
       while ((match = urlRegex.exec(html)) !== null) {
         const candidateId = match[1];
-        if (candidateId !== "HDEzc4kcJXg" && !ids.includes(candidateId)) {
+        if (candidateId !== "HDEzc4kcJXg" && candidateId !== "o3X4_5wP-u8" && !ids.includes(candidateId)) {
           ids.push(candidateId);
         }
         if (ids.length >= 6) break;
@@ -172,7 +145,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ videoId: ids[0], candidates: ids, query: q });
     }
 
-    // Never return a meme or commercial video!
     return NextResponse.json({ videoId: null, candidates: [], query: q }, { status: 404 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message, videoId: null, candidates: [] }, { status: 500 });

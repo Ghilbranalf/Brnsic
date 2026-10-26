@@ -46,7 +46,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 247,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e6/91/eb/e691eb58-7ae3-cb1b-0a5f-839ad3a010e0/cover.jpg/600x600bb.jpg",
     plays: "245M+ Streams",
-    youtubeId: "qR3f5K1V2sI",
+    youtubeId: "LAOxuo6pkdo",
     youtubeQuery: "Mahalini - Mati-Matian official audio"
   },
   {
@@ -57,7 +57,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 251,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/a8/18/16a81850-ca96-0927-a46d-0d9af767006c/196922358449_Cover.jpg/600x600bb.jpg",
     plays: "280M+ Streams",
-    youtubeId: "wQ-O3DqIc5c",
+    youtubeId: "_m6l5nKEGIA",
     youtubeQuery: "Adrian Khalif Juicy Luicy Sialan official audio"
   },
   {
@@ -101,7 +101,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 275,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
     plays: "190M+ Streams",
-    youtubeId: "bXf9_8-Hw8E",
+    youtubeId: "s525A0Bc3z4",
     youtubeQuery: "Denny Caknan - Sigar official audio"
   },
   {
@@ -112,7 +112,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 288,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music/90/01/6d/mzi.ywjxtlbq.jpg/600x600bb.jpg",
     plays: "350M+ Streams",
-    youtubeId: "9Y1O1eM_y-Q",
+    youtubeId: "IWvo2fld3s4",
     youtubeQuery: "Sheila On 7 - Dan official audio"
   },
   {
@@ -123,7 +123,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 334,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/39/59/b0/3959b0f9-d9f1-a458-44db-6d1dd2f60a05/190296432903.jpg/600x600bb.jpg",
     plays: "310M+ Streams",
-    youtubeId: "o3X4_5wP-u8",
+    youtubeId: "m8cPU4tzGa4",
     youtubeQuery: "Dewa 19 - Kangen official audio"
   },
   {
@@ -134,7 +134,7 @@ const MOST_PLAYED_INDONESIA = [
     duration: 279,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8b/6e/c3/8b6ec33c-3094-1a61-9c3f-c6b9bb787ef6/cover.jpg/600x600bb.jpg",
     plays: "210M+ Streams",
-    youtubeId: "E_oJ4y3n9tU",
+    youtubeId: "S0Kez6MERGE",
     youtubeQuery: "Hindia - Cincin official audio"
   }
 ];

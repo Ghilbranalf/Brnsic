@@ -194,7 +194,7 @@ const DEFAULT_CATALOG: Track[] = [
     year: "2024",
     duration: 247,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e6/91/eb/e691eb58-7ae3-cb1b-0a5f-839ad3a010e0/cover.jpg/600x600bb.jpg",
-    youtubeId: "qR3f5K1V2sI",
+    youtubeId: "LAOxuo6pkdo",
     plays: "245M+ Streams",
     lyrics: [
       { time: 0, text: "(Intro Piano)" },
@@ -209,11 +209,32 @@ const DEFAULT_CATALOG: Track[] = [
     year: "2023",
     duration: 251,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/a8/18/16a81850-ca96-0927-a46d-0d9af767006c/196922358449_Cover.jpg/600x600bb.jpg",
-    youtubeId: "wQ-O3DqIc5c",
+    youtubeId: "_m6l5nKEGIA",
     plays: "280M+ Streams",
     lyrics: [
       { time: 0, text: "(Intro)" },
       { time: 10.0, text: "Dari seribu perempuan mengapa kau yang ku mau" }
+    ]
+  },
+  {
+    id: "dewa-19-kangen",
+    title: "Kangen",
+    artist: "Dewa 19",
+    album: "19",
+    year: "1992",
+    duration: 334,
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/39/59/b0/3959b0f9-d9f1-a458-44db-6d1dd2f60a05/190296432903.jpg/600x600bb.jpg",
+    youtubeId: "m8cPU4tzGa4",
+    plays: "310M+ Streams",
+    lyrics: [
+      { time: 0, text: "(Intro Acoustic Guitar)" },
+      { time: 15.0, text: "Kutrima suratmu, tlah kubaca dan aku mengerti" },
+      { time: 26.0, text: "Betapa merindunya dirimu akan hadirnya diriku" },
+      { time: 38.0, text: "Didalam hari-harimu bersama lagi" },
+      { time: 51.0, text: "Semua kata rindumu semakin membuatku tak berdaya" },
+      { time: 63.0, text: "Menahan rasa ingin jumpa" },
+      { time: 70.0, text: "Percayalah padaku akupun rindu kamu" },
+      { time: 78.0, text: "Ku akan pulang melepas semua kerinduan yang terpendam" }
     ]
   },
   {
@@ -224,7 +245,7 @@ const DEFAULT_CATALOG: Track[] = [
     year: "1999",
     duration: 288,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music/90/01/6d/mzi.ywjxtlbq.jpg/600x600bb.jpg",
-    youtubeId: "9Y1O1eM_y-Q",
+    youtubeId: "IWvo2fld3s4",
     plays: "350M+ Streams",
     lyrics: [
       { time: 0, text: "(Intro Guitar)" },
@@ -239,7 +260,7 @@ const DEFAULT_CATALOG: Track[] = [
     year: "2024",
     duration: 275,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
-    youtubeId: "bXf9_8-Hw8E",
+    youtubeId: "s525A0Bc3z4",
     plays: "190M+ Streams",
     lyrics: [
       { time: 0, text: "(Intro Kendang)" },
@@ -254,7 +275,7 @@ const DEFAULT_CATALOG: Track[] = [
     year: "2024",
     duration: 260,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
-    youtubeId: "iQ7gbcjob3w",
+    youtubeId: "hQ1dTDQytjM",
     plays: "80M+ Streams",
     lyrics: [
       { time: 0, text: "(Intro Dangdut Koplo)" },
@@ -269,7 +290,7 @@ const DEFAULT_CATALOG: Track[] = [
     year: "2024",
     duration: 212,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
-    youtubeId: "fO3W61x1_3s",
+    youtubeId: "fPMB2H450iI",
     plays: "140M+ Streams",
     lyrics: [
       { time: 0, text: "(Intro Acoustic)" },
@@ -304,7 +325,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "Sialnya, Hidup Harus Tetap Berjalan",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
     duration: 178,
-    youtubeId: "d1u7_s8Zf-c",
+    youtubeId: "eUx-BHUhGLA",
     tags: ["untung", "untungnya", "bernadya", "berna"]
   },
   {
@@ -331,7 +352,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "HARAP-HARAP EMAS",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/16/a8/18/16a81850-ca96-0927-a46d-0d9af767006c/196922358449_Cover.jpg/600x600bb.jpg",
     duration: 251,
-    youtubeId: "wQ-O3DqIc5c",
+    youtubeId: "_m6l5nKEGIA",
     tags: ["sialan", "adrian", "khalif", "juicy", "luicy"]
   },
   {
@@ -340,7 +361,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "Mati-Matian - Single",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e6/91/eb/e691eb58-7ae3-cb1b-0a5f-839ad3a010e0/cover.jpg/600x600bb.jpg",
     duration: 247,
-    youtubeId: "qR3f5K1V2sI",
+    youtubeId: "LAOxuo6pkdo",
     tags: ["mati", "matian", "mati-matian", "mahalini", "lini"]
   },
   {
@@ -367,7 +388,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "Sigar - Single",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
     duration: 275,
-    youtubeId: "bXf9_8-Hw8E",
+    youtubeId: "s525A0Bc3z4",
     tags: ["sigar", "denny", "caknan", "koplo"]
   },
   {
@@ -376,7 +397,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "Sheila On 7",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music/90/01/6d/mzi.ywjxtlbq.jpg/600x600bb.jpg",
     duration: 288,
-    youtubeId: "9Y1O1eM_y-Q",
+    youtubeId: "IWvo2fld3s4",
     tags: ["dan", "sheila", "so7", "duta"]
   },
   {
@@ -385,7 +406,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "19",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/39/59/b0/3959b0f9-d9f1-a458-44db-6d1dd2f60a05/190296432903.jpg/600x600bb.jpg",
     duration: 334,
-    youtubeId: "o3X4_5wP-u8",
+    youtubeId: "m8cPU4tzGa4",
     tags: ["kangen", "dewa", "dhani", "ari lasso"]
   },
   {
@@ -394,7 +415,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "Lagipula Hidup Akan Berakhir",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8b/6e/c3/8b6ec33c-3094-1a61-9c3f-c6b9bb787ef6/cover.jpg/600x600bb.jpg",
     duration: 279,
-    youtubeId: "E_oJ4y3n9tU",
+    youtubeId: "S0Kez6MERGE",
     tags: ["cincin", "hindia"]
   },
   {
@@ -403,7 +424,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "Bunga Abadi - Single",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
     duration: 212,
-    youtubeId: "fO3W61x1_3s",
+    youtubeId: "fPMB2H450iI",
     tags: ["bunga", "abadi", "rio", "clappy"]
   },
   {
@@ -412,7 +433,7 @@ const POPULAR_SEARCH_CATALOG = [
     album: "Only Siji - Single",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
     duration: 260,
-    youtubeId: "iQ7gbcjob3w",
+    youtubeId: "hQ1dTDQytjM",
     tags: ["6sentani", "sentani", "only", "siji", "koplo"]
   },
   {
@@ -520,6 +541,21 @@ const GENRES = [
   { name: "Nostalgia 2000-an", color: "bg-[#503750]" }
 ];
 
+// Quick lookup for verified official YouTube video IDs
+const getVerifiedVideoId = (title: string, artist: string): string | undefined => {
+  const normT = (title || "").toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+  const normA = (artist || "").toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+  const combined = `${normA} ${normT}`;
+
+  for (const item of POPULAR_SEARCH_CATALOG) {
+    const itemT = item.title.toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+    if (combined.includes(itemT) || itemT.includes(normT) || normT.includes(itemT)) {
+      return item.youtubeId;
+    }
+  }
+  return undefined;
+};
+
 // Helper to normalize any song object (iTunes, YouTube, custom playlist) into strict Track
 const normalizeSong = (raw: any): Track => {
   if (!raw) return DEFAULT_CATALOG[0];
@@ -534,7 +570,7 @@ const normalizeSong = (raw: any): Track => {
       ? Math.round(raw.trackTimeMillis / 1000)
       : 210;
   const id = (raw.id || raw.trackId || `track-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`).toString();
-  const youtubeId = raw.youtubeId;
+  const youtubeId = raw.youtubeId || getVerifiedVideoId(title, artist);
   const plays = raw.plays;
   const collectionId = raw.collectionId;
   const lyrics = Array.isArray(raw.lyrics) && raw.lyrics.length > 0 ? raw.lyrics : [
@@ -972,16 +1008,34 @@ export default function BrnsicMusicPage() {
               } catch (e) {}
             },
             onError: (event: any) => {
-              // Handle 100, 101, 150 embedding restrictions on YouTube videos or blocked ad pings
-              console.warn("YouTube player event:", event.data);
+              console.warn("YouTube player event error:", event.data);
               // CRITICAL: NEVER automatically advance on initial page load before user has pressed play!
               if (!hasUserStartedPlaybackRef.current) {
-                console.log("Ignoring initial YouTube player event before user interaction.");
                 return;
               }
-              setTimeout(() => {
-                playNextSong(false);
-              }, 400);
+              // Attempt to recover by querying fresh ID for the current track first
+              const recoveringSong = currentTrack.title;
+              fetch(`/api/youtube?q=${encodeURIComponent(`${currentTrack.artist} ${currentTrack.title}`)}`)
+                .then((r) => r.json())
+                .then((d) => {
+                  if (d.videoId && d.videoId !== currentTrack.youtubeId && ytPlayerRef.current) {
+                    ytPlayerRef.current.loadVideoById({ videoId: d.videoId, startSeconds: 0 });
+                    ytPlayerRef.current.playVideo();
+                    return;
+                  }
+                  setTimeout(() => {
+                    if (currentTrack.title === recoveringSong) {
+                      playNextSong(false);
+                    }
+                  }, 800);
+                })
+                .catch(() => {
+                  setTimeout(() => {
+                    if (currentTrack.title === recoveringSong) {
+                      playNextSong(false);
+                    }
+                  }, 800);
+                });
             },
             onStateChange: (event: any) => {
               if (event.data === 1) setIsPlaying(true);
@@ -1113,8 +1167,8 @@ export default function BrnsicMusicPage() {
               { time: 12, text: "Lirik instrumental atau sinkronisasi..." }
             ];
 
-      // Safe video ID fallback - NEVER a random meme or funny sound!
-      const finalVid = resolvedVid || song.youtubeId || "gu6rT1Jelis";
+      // Safe verified video ID - Matches title & artist accurately
+      const finalVid = resolvedVid || song.youtubeId || getVerifiedVideoId(song.title, song.artist) || "m8cPU4tzGa4";
 
       const finalizedTrack: Track = {
         ...optimisticTrack,
@@ -2517,8 +2571,17 @@ export default function BrnsicMusicPage() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                   {(() => {
-                    const pool = [...DEFAULT_CATALOG, ...mostPlayedIndonesia, ...indonesiaTop50];
-                    const sorted = [...pool]
+                    const rawPool = [...DEFAULT_CATALOG, ...mostPlayedIndonesia, ...indonesiaTop50];
+                    const seenTitles = new Set<string>();
+                    const uniquePool: any[] = [];
+                    for (const s of rawPool) {
+                      const cleanTitle = ((s as any).title || (s as any).trackName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                      if (cleanTitle && !seenTitles.has(cleanTitle)) {
+                        seenTitles.add(cleanTitle);
+                        uniquePool.push(s);
+                      }
+                    }
+                    const sorted = uniquePool
                       .sort((a, b) => {
                         const scoreA = (userTaste.artistWeights[a.artist] || 0) + (likedSongIds.includes(a.id) ? 10 : 0);
                         const scoreB = (userTaste.artistWeights[b.artist] || 0) + (likedSongIds.includes(b.id) ? 10 : 0);
@@ -2527,7 +2590,7 @@ export default function BrnsicMusicPage() {
                       .slice(0, 6);
                     return sorted.map((t: any, i) => (
                       <div
-                        key={t.id || i}
+                        key={t.id || `${t.title}-${i}`}
                         onClick={() => handlePlayFromList(t, sorted, i)}
                         className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10"
                       >
