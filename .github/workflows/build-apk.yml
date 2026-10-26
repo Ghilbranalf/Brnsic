@@ -23,6 +23,9 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
@@ -39,23 +42,11 @@ jobs:
         run: |
           npx cap sync android || ./node_modules/.bin/cap sync android || true
 
-      - name: Configure Android SDK Local Properties
-        run: |
-          echo "sdk.dir=$ANDROID_HOME" > ./android/local.properties
-          cat ./android/local.properties
-
       - name: Make Gradle Executable
         run: chmod +x ./android/gradlew
 
-      - name: Accept Android SDK Licenses
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
       - name: Build Debug APK
         working-directory: ./android
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Prepare APK Output
