@@ -6543,14 +6543,14 @@ export default function BrnsicMusicPage() {
               &times;
             </button>
 
-            {/* Header with Larger Brnsic Wordmark Logo */}
-            <div className="flex flex-col items-center text-center gap-2.5">
-              <div className="relative flex items-center justify-center my-2">
-                <div className="absolute inset-0 rounded-full bg-[#1ed760]/25 blur-2xl animate-pulse"></div>
+            {/* Header with Larger Transparent Brnsic Wordmark Logo (No Background Box) */}
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="relative flex items-center justify-center my-3 w-full max-w-[220px]">
+                <div className="absolute inset-0 bg-[#1ed760]/20 blur-2xl rounded-full scale-110 pointer-events-none"></div>
                 <img
-                  src="/brand-wordmark.png"
+                  src="/brnsic-logo-white-transparent.png"
                   alt="Brnsic"
-                  className="h-10 sm:h-12 w-auto object-contain relative z-10 drop-shadow-[0_0_25px_rgba(255,255,255,0.4)]"
+                  className="w-full h-auto max-h-14 object-contain relative z-10 drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]"
                 />
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white">Masuk ke Brnsic</h2>
