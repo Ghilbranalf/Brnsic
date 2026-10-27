@@ -3710,9 +3710,9 @@ export default function BrnsicMusicPage() {
           bottom: 0,
           right: 0,
           width: 240,
-          height: 240,
-          opacity: 0.001,
-          zIndex: 0,
+          height: 180,
+          opacity: 1,
+          zIndex: -50,
           pointerEvents: "none"
         }}
       >
