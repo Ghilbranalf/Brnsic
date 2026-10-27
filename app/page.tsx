@@ -1708,7 +1708,6 @@ export default function BrnsicMusicPage() {
   const startWebAudioKeepalive = () => {
     try {
       if (typeof window === "undefined") return;
-      if (isIOSDevice()) return; // Never run WebAudio keepalive on iOS / iPhone! iOS handles mediaSession natively and mutes if WebAudio conflicts.
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       if (!audioContextRef.current) {
@@ -1743,10 +1742,6 @@ export default function BrnsicMusicPage() {
   };
 
   useEffect(() => {
-    // Only apply Chromium-specific anti-throttle shield on Android / Desktop Chromium.
-    // NEVER apply on iOS / iPhone, as WebKit uses native visibility events for background audio routing!
-    if (isIOSDevice()) return;
-
     try {
       const blockEvent = (e: Event) => {
         e.stopImmediatePropagation();
