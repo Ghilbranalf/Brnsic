@@ -1529,27 +1529,25 @@ export default function BrnsicMusicPage() {
     }
   }, []);
 
-  // Continuous Background Audio Keepalive (Mobile screen lock / app switching)
+  // Continuous Background Audio Keepalive & Anti-Throttle Shield
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        if (isPlayingRef.current) {
-          if (silentAudioRef.current) {
-            try {
-              silentAudioRef.current.volume = 1;
-              if (silentAudioRef.current.paused) {
-                silentAudioRef.current.play().catch(() => {});
-              }
-            } catch (e) {}
-          }
-          if (ytPlayerRef.current) {
-            try {
-              ytPlayerRef.current.playVideo();
-            } catch (e) {}
-          }
+    try {
+      Object.defineProperty(document, "hidden", {
+        get: () => false,
+        configurable: true
+      });
+      Object.defineProperty(document, "visibilityState", {
+        get: () => "visible",
+        configurable: true
+      });
+    } catch (e) {}
+
+    const handleBackgroundKeepalive = () => {
+      if (isPlayingRef.current) {
+        if (silentAudioRef.current && silentAudioRef.current.paused) {
+          silentAudioRef.current.play().catch(() => {});
         }
-      } else {
-        if (isPlayingRef.current && ytPlayerRef.current) {
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
           try {
             ytPlayerRef.current.playVideo();
           } catch (e) {}
@@ -1557,9 +1555,14 @@ export default function BrnsicMusicPage() {
       }
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBackgroundKeepalive);
+    document.addEventListener("visibilitychange", handleBackgroundKeepalive);
+    window.addEventListener("pagehide", handleBackgroundKeepalive);
+
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBackgroundKeepalive);
+      document.removeEventListener("visibilitychange", handleBackgroundKeepalive);
+      window.removeEventListener("pagehide", handleBackgroundKeepalive);
     };
   }, []);
 
@@ -2275,14 +2278,16 @@ export default function BrnsicMusicPage() {
                 isPlayingRef.current = true;
                 startBackgroundKeepalive();
               } else if (event.data === 2) {
-                // If paused while document is hidden and user didn't intentionally pause (multitasking guard)
-                if (document.hidden && isPlayingRef.current) {
+                // If paused unexpectedly while isPlayingRef.current is true (e.g. mobile background throttle or screen lock)
+                if (isPlayingRef.current) {
                   startBackgroundKeepalive();
                   setTimeout(() => {
                     if (isPlayingRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
-                      ytPlayerRef.current.playVideo();
+                      try {
+                        ytPlayerRef.current.playVideo();
+                      } catch (e) {}
                     }
-                  }, 120);
+                  }, 50);
                   return;
                 }
                 setIsPlaying(false);
@@ -2310,7 +2315,7 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
-  // 6. Precise High-Frequency Audio Time & Real Duration Polling (Never gets stuck!)
+  // 6. Precise Audio Time & Real Duration Polling (Optimized 250ms, zero UI stutter)
   useEffect(() => {
     const timer = setInterval(() => {
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
@@ -2319,7 +2324,12 @@ export default function BrnsicMusicPage() {
           if (state === 1 || state === 2 || state === 3) {
             const exactSeconds = ytPlayerRef.current.getCurrentTime();
             if (typeof exactSeconds === "number" && !isNaN(exactSeconds)) {
-              setCurrentTime(exactSeconds);
+              setCurrentTime((prev) => {
+                if (Math.abs(exactSeconds - prev) >= 0.25) {
+                  return exactSeconds;
+                }
+                return prev;
+              });
             }
 
             // Sync true live duration directly from active audio player
@@ -2353,46 +2363,15 @@ export default function BrnsicMusicPage() {
           }
         } catch (e) {}
       }
-    }, 120);
+    }, 250);
 
     return () => clearInterval(timer);
   }, [currentTrack]);
 
-  // 7. Background Audio Keepalive & Anti-Freeze Visibility Listener ("Ketika Membuka App Lain")
+  // Keep isPlayingRef in sync
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
-
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.hidden) {
-        // User switched to another app (WhatsApp, Instagram, etc.) or turned screen off
-        if (isPlayingRef.current) {
-          if (silentAudioRef.current) {
-            silentAudioRef.current.play().catch(() => {});
-          }
-          setTimeout(() => {
-            if (isPlayingRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
-              try {
-                const st = ytPlayerRef.current.getPlayerState ? ytPlayerRef.current.getPlayerState() : -1;
-                if (st === 2) {
-                  ytPlayerRef.current.playVideo();
-                }
-              } catch (e) {}
-            }
-          }, 150);
-        }
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("pagehide", handleVisibility);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("pagehide", handleVisibility);
-    };
-  }, []);
 
   // 8. System MediaSession Integration (Lock screen, notifications, headsets)
   useEffect(() => {
@@ -2462,7 +2441,7 @@ export default function BrnsicMusicPage() {
         });
       } catch (e) {}
     }
-  }, [currentTime, isPlaying, currentTrack.duration]);
+  }, [isPlaying, currentTrack.title, currentTrack.duration]);
 
   // Universal Player: Plays ANY song with Stale Race-Condition Guard & Taste Intelligence
   const playAnySong = async (
@@ -3051,11 +3030,6 @@ export default function BrnsicMusicPage() {
   const togglePlay = () => {
     hasUserStartedPlaybackRef.current = true;
     setHasUserStartedPlayback(true);
-    if (isPlaying) {
-      stopBackgroundKeepalive();
-    } else {
-      startBackgroundKeepalive();
-    }
     if (!ytPlayerRef.current) {
       setIsPlaying(!isPlaying);
       isPlayingRef.current = !isPlaying;
@@ -3063,15 +3037,21 @@ export default function BrnsicMusicPage() {
     }
     try {
       if (isPlaying) {
-        ytPlayerRef.current.pauseVideo();
-        setIsPlaying(false);
         isPlayingRef.current = false;
+        setIsPlaying(false);
+        stopBackgroundKeepalive();
+        if (typeof ytPlayerRef.current.pauseVideo === "function") {
+          ytPlayerRef.current.pauseVideo();
+        }
       } else {
-        ytPlayerRef.current.unMute();
-        ytPlayerRef.current.setVolume(volume * 100);
-        ytPlayerRef.current.playVideo();
-        setIsPlaying(true);
         isPlayingRef.current = true;
+        setIsPlaying(true);
+        startBackgroundKeepalive();
+        if (typeof ytPlayerRef.current.playVideo === "function") {
+          ytPlayerRef.current.unMute();
+          ytPlayerRef.current.setVolume(volume * 100);
+          ytPlayerRef.current.playVideo();
+        }
       }
     } catch (e) {
       setIsPlaying(!isPlaying);
@@ -3095,6 +3075,15 @@ export default function BrnsicMusicPage() {
     setCurrentTime(safeSec);
     if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
       ytPlayerRef.current.seekTo(safeSec, true);
+    }
+    if (typeof window !== "undefined" && "mediaSession" in navigator && "setPositionState" in navigator.mediaSession) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: totalDuration,
+          playbackRate: isPlaying ? 1 : 0,
+          position: safeSec
+        });
+      } catch (e) {}
     }
   };
 
@@ -3208,13 +3197,21 @@ export default function BrnsicMusicPage() {
 
       {/* 
         MASTER YOUTUBE AUDIO ENGINE & CONTINUOUS BACKGROUND KEEPALIVE ANCHOR:
-        Rendered on-screen (200x200, zIndex: 1, pointerEvents: none) so mobile WebKit/Blink compositor never marks it offscreen.
+        Rendered with opacity: 1 behind the UI (zIndex: -50) so Blink/Chromium never throttles or suspends media decoding.
         Real audio stream holds OS hardware audio session so music plays uninterrupted in the background when switching apps or locking phone!
       */}
       <div
-        className="fixed bottom-0 right-0 pointer-events-none overflow-hidden"
-        style={{ position: "fixed", bottom: 0, right: 0, width: 200, height: 200, opacity: 0.01, zIndex: 1, pointerEvents: "none" }}
-        aria-hidden="true"
+        className="fixed pointer-events-none"
+        style={{
+          position: "fixed",
+          bottom: 0,
+          right: 0,
+          width: 240,
+          height: 180,
+          opacity: 1,
+          zIndex: -50,
+          pointerEvents: "none"
+        }}
       >
         <div id="master-yt-player" className="w-full h-full"></div>
         <audio

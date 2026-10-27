@@ -39,6 +39,7 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         try {
             if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().onResume();
                 bridge.getWebView().resumeTimers();
             }
         } catch (Exception ignored) {}
@@ -48,12 +49,35 @@ public class MainActivity extends BridgeActivity {
     public void onPause() {
         super.onPause();
         try {
-            // Keep timers running in background so audio playback continues uninterrupted
-            if (bridge != null && bridge.getWebView() != null) {
-                bridge.getWebView().resumeTimers();
-            }
             if (wakeLock != null && !wakeLock.isHeld()) {
                 wakeLock.acquire(180 * 60 * 1000L); // 3 hours max wake lock while playing
+            }
+            if (bridge != null && bridge.getWebView() != null) {
+                // Immediately counteract bridge.onPause() so audio decoders stay alive in background
+                bridge.getWebView().onResume();
+                bridge.getWebView().resumeTimers();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        try {
+            if (bridge != null && bridge.getWebView() != null) {
+                // Keep webview running continuously when screen locks or app is minimized
+                bridge.getWebView().onResume();
+                bridge.getWebView().resumeTimers();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        try {
+            if (!hasFocus && bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().resumeTimers();
             }
         } catch (Exception ignored) {}
     }
