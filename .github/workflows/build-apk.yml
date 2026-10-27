@@ -23,6 +23,15 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Configure Android SDK and Accept Licenses
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > ./android/local.properties
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
@@ -38,16 +47,24 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Clean Nested APK Assets Before Sync
+        run: |
+          rm -f public/Brnsic.apk
+          rm -f android/app/src/main/assets/public/Brnsic.apk
+
       - name: Sync Capacitor Android
         run: |
           npx cap sync android || ./node_modules/.bin/cap sync android || true
+          rm -f android/app/src/main/assets/public/Brnsic.apk || true
 
       - name: Make Gradle Executable
         run: chmod +x ./android/gradlew
 
       - name: Build Debug APK
         working-directory: ./android
-        run: ./gradlew assembleDebug --no-daemon
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m"
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Prepare APK Output
         run: |
@@ -75,6 +92,7 @@ jobs:
             **Fitur Versi Native APK:**
             - Musik tetap berputar saat layar HP dimatikan atau membuka aplikasi lain.
             - Kontrol musik (Play/Pause/Next) muncul di Lock Screen & status bar Android.
+            - Pengecualian optimasi baterai (Ignore Battery Optimization) untuk performa latar belakang tanpa gangguan.
             - Sinkronisasi otomatis ke website & database Supabase.
           files: output/Brnsic.apk
         env:
