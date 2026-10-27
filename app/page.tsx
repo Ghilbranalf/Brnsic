@@ -1348,11 +1348,11 @@ export default function BrnsicMusicPage() {
   const shuffleToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSyncedDurationTrackRef = useRef<string>("");
 
-  // 1. Splash Screen Timer (Optimized fast startup for instant app responsiveness)
+  // 1. Splash Screen Timer (Ultra-fast startup for instant responsiveness)
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 700);
+    }, 450);
     return () => clearTimeout(timer);
   }, []);
 
@@ -1423,8 +1423,13 @@ export default function BrnsicMusicPage() {
     checkNativeApk();
     const nativeTimer = setTimeout(checkNativeApk, 600);
 
-    // Register PWA Service Worker for Offline Cache & Background Audio Engine
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+    // Register PWA Service Worker for Offline Cache on Web Browser Only (Never inside Native APK)
+    const isNativePlatform =
+      Boolean((window as any).BrnsicNative) ||
+      (typeof navigator !== "undefined" && navigator.userAgent.includes("BrnsicNative")) ||
+      (typeof (window as any).Capacitor?.isNativePlatform === "function" && (window as any).Capacitor.isNativePlatform());
+
+    if (!isNativePlatform && typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
         .then((reg) => {
@@ -2497,20 +2502,28 @@ export default function BrnsicMusicPage() {
     loadTrendingData();
   }, []);
 
-  // 5. Initialize YouTube Iframe API Once on Root Player
+  // 5. Initialize YouTube Iframe API Lazily (Frees up 100% CPU on startup so UI renders instantly)
   useEffect(() => {
-    if (!window.YT) {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
-    }
+    let isDisposed = false;
+
+    const loadYTScript = () => {
+      if (isDisposed) return;
+      if (!window.YT) {
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName("script")[0];
+        firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+      }
+    };
+
+    // Defer loading 3MB YouTube player scripts until after initial UI is completely mounted
+    const ytTimer = setTimeout(loadYTScript, 1500);
 
     const initPlayer = () => {
       if (window.YT && window.YT.Player && !ytPlayerRef.current) {
         const targetNode = document.getElementById("master-yt-player");
         if (!targetNode) {
-          setTimeout(initPlayer, 100);
+          setTimeout(initPlayer, 150);
           return;
         }
 
@@ -2653,6 +2666,8 @@ export default function BrnsicMusicPage() {
       }
     };
 
+    (window as any).initMasterPlayer = initPlayer;
+
     if (window.YT && window.YT.Player) {
       initPlayer();
     } else {
@@ -2660,6 +2675,8 @@ export default function BrnsicMusicPage() {
     }
 
     return () => {
+      isDisposed = true;
+      clearTimeout(ytTimer);
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
   }, []);
@@ -2930,6 +2947,14 @@ export default function BrnsicMusicPage() {
         }
       } else {
         pendingVideoIdRef.current = vid;
+        if (!window.YT) {
+          const tag = document.createElement("script");
+          tag.src = "https://www.youtube.com/iframe_api";
+          const firstScriptTag = document.getElementsByTagName("script")[0];
+          firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+        } else if (typeof (window as any).initMasterPlayer === "function") {
+          (window as any).initMasterPlayer();
+        }
         setTimeout(() => setIsLoadingSong(false), 1200);
       }
     };
@@ -3704,11 +3729,11 @@ export default function BrnsicMusicPage() {
           className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center cursor-pointer select-none transition-opacity duration-700 animate-fadeIn"
         >
           <div className="relative flex flex-col items-center justify-center gap-6">
-            <div className="absolute w-80 h-80 bg-white/[0.08] rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute w-64 h-64 bg-white/5 rounded-full pointer-events-none" />
             <img
               src="/splash-logo.png"
               alt="Brnsic"
-              className="w-64 sm:w-80 object-contain relative z-10 drop-shadow-[0_0_40px_rgba(255,255,255,0.45)] transform hover:scale-105 transition"
+              className="w-56 sm:w-72 object-contain relative z-10"
             />
           </div>
         </div>
