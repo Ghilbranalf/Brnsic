@@ -3530,7 +3530,7 @@ export default function BrnsicMusicPage() {
       const elRect = el.getBoundingClientRect();
       const currentScroll = container.scrollTop;
       const targetTop =
-        currentScroll + (elRect.top - containerRect.top) - containerRect.height / 2 + elRect.height / 2;
+        currentScroll + (elRect.top - containerRect.top) - containerRect.height * 0.38 + elRect.height / 2;
       container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
     };
 
@@ -3692,28 +3692,14 @@ export default function BrnsicMusicPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760]"></span>
             <span>Update: {lastChartUpdated}</span>
           </button>
-          {!isInsideNativeApk && (
-            <button
-              onClick={handleInstallClick}
-              className="flex items-center gap-1.5 bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs px-3.5 py-2 rounded-full transition shadow-[0_0_15px_rgba(30,215,96,0.3)] hover:scale-105 active:scale-95 cursor-pointer"
-              title="Download APK Resmi Brnsic (Android)"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>Download APK</span>
-            </button>
-          )}
           <button
             onClick={() => setIsCreatePlaylistModalOpen(true)}
-            className="bg-white text-black font-bold text-xs px-4 py-2 rounded-full hover:scale-105 transition flex items-center gap-1.5 shadow"
+            className="bg-white text-black font-bold text-xs px-4 py-2 rounded-full hover:scale-105 transition flex items-center gap-1.5 shadow cursor-pointer"
           >
             <span>+ Buat Playlist</span>
           </button>
 
-          {/* Account Profile Button (Spotify Circular Initial Badge - Image 3) */}
+          {/* Account Profile Button (Spotify Circular Initial Badge) */}
           {currentUser ? (
             <div className="relative">
               <button
@@ -3729,20 +3715,36 @@ export default function BrnsicMusicPage() {
               </button>
 
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 top-12 w-48 bg-[#282828] rounded-md p-1 border border-white/10 shadow-2xl z-50 flex flex-col text-left animate-fadeIn">
+                <div className="absolute right-0 top-12 w-52 bg-[#282828] rounded-xl p-1.5 border border-white/10 shadow-2xl z-50 flex flex-col text-left animate-fadeIn">
                   <button
                     onClick={() => {
                       setIsProfileDropdownOpen(false);
                       setIsProfileModalOpen(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
+                    className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-white hover:bg-white/10 transition cursor-pointer"
                   >
-                    Profil
+                    Profil Akun
                   </button>
+                  {!isInsideNativeApk && (
+                    <button
+                      onClick={() => {
+                        setIsProfileDropdownOpen(false);
+                        handleInstallClick();
+                      }}
+                      className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-bold text-[#1ed760] hover:bg-white/10 transition flex items-center justify-between cursor-pointer"
+                    >
+                      <span>Download APK Android</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                    </button>
+                  )}
                   <div className="h-[1px] bg-white/10 my-1"></div>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
+                    className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-red-400 hover:bg-white/10 transition cursor-pointer"
                   >
                     Keluar
                   </button>
@@ -3937,19 +3939,6 @@ export default function BrnsicMusicPage() {
                 <span className="font-black text-lg text-white">Brnsic</span>
               </div>
               <div className="flex items-center gap-2">
-                {!isInsideNativeApk && (
-                  <button
-                    onClick={handleInstallClick}
-                    className="text-[11px] font-black bg-[#1ed760] text-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(30,215,96,0.4)] hover:scale-105 active:scale-95 transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                      <polyline points="7 10 12 15 17 10"></polyline>
-                      <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    <span>Download APK</span>
-                  </button>
-                )}
                 {currentUser ? (
                   <button
                     onClick={() => setIsProfileModalOpen(true)}
@@ -6940,7 +6929,7 @@ export default function BrnsicMusicPage() {
                   ref={mobileLyricsScrollRef}
                   onWheel={handleUserScroll}
                   onTouchMove={handleUserScroll}
-                  className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-7 py-20 px-6 sm:px-8 text-left"
+                  className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-6 py-24 px-6 sm:px-8 text-left"
                   style={{
                     maskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)",
                     WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)"
@@ -6948,6 +6937,7 @@ export default function BrnsicMusicPage() {
                 >
                   {currentTrack.lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIdx;
+                    const dist = Math.abs(idx - activeLyricIdx);
                     return (
                       <div
                         key={idx}
@@ -6959,13 +6949,32 @@ export default function BrnsicMusicPage() {
                           }
                           setUserIsScrollingLyrics(false);
                         }}
-                        className={`transition-all duration-300 cursor-pointer select-none leading-snug tracking-tight origin-left ${
+                        className={`group relative transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)] cursor-pointer select-none leading-snug tracking-tight origin-left rounded-2xl py-2 px-3.5 -mx-3.5 ${
                           isActive
-                            ? "text-2xl sm:text-3xl font-black text-white scale-[1.04] drop-shadow-[0_4px_25px_rgba(255,255,255,0.7)]"
-                            : "text-xl sm:text-2xl font-extrabold text-white/30 hover:text-white/70 hover:scale-[1.01]"
+                            ? "text-2xl sm:text-3xl font-black text-white scale-[1.03] bg-white/[0.08] backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.5),0_0_25px_rgba(255,255,255,0.15)] border border-white/10"
+                            : dist === 1
+                            ? "text-xl sm:text-2xl font-bold text-white/60 hover:text-white/90 hover:scale-[1.01] hover:translate-x-1"
+                            : "text-xl sm:text-2xl font-semibold text-white/30 blur-[0.4px] hover:blur-none hover:text-white/70 hover:translate-x-1"
                         }`}
                       >
-                        {line.text}
+                        <div className="flex items-center justify-between gap-3">
+                          <span
+                            className={
+                              isActive
+                                ? "drop-shadow-[0_2px_16px_rgba(255,255,255,0.75)]"
+                                : ""
+                            }
+                          >
+                            {line.text}
+                          </span>
+                          {isActive && isPlaying && (
+                            <span className="flex-shrink-0 flex items-end gap-1 h-4 px-2 py-1 bg-[#1ed760]/20 rounded-full border border-[#1ed760]/30 animate-fadeIn">
+                              <span className="w-1 bg-[#1ed760] rounded-full animate-pulse h-3"></span>
+                              <span className="w-1 bg-[#1ed760] rounded-full animate-ping h-4"></span>
+                              <span className="w-1 bg-[#1ed760] rounded-full animate-pulse h-2"></span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -7173,6 +7182,7 @@ export default function BrnsicMusicPage() {
                 >
                   {currentTrack.lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIdx;
+                    const dist = Math.abs(idx - activeLyricIdx);
                     return (
                       <div
                         key={idx}
@@ -7184,13 +7194,32 @@ export default function BrnsicMusicPage() {
                           }
                           setUserIsScrollingLyrics(false);
                         }}
-                        className={`transition-all duration-300 cursor-pointer select-none leading-snug tracking-tight origin-left ${
+                        className={`group relative transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)] cursor-pointer select-none leading-snug tracking-tight origin-left rounded-3xl py-3 px-5 -mx-5 ${
                           isActive
-                            ? "text-3xl sm:text-5xl font-black text-white scale-[1.03] drop-shadow-[0_4px_30px_rgba(255,255,255,0.8)]"
-                            : "text-2xl sm:text-3xl font-extrabold text-white/30 hover:text-white/70 hover:scale-[1.01]"
+                            ? "text-3xl sm:text-5xl font-black text-white scale-[1.03] bg-white/[0.08] backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.6),0_0_30px_rgba(255,255,255,0.18)] border border-white/10"
+                            : dist === 1
+                            ? "text-2xl sm:text-3xl font-bold text-white/60 hover:text-white/90 hover:scale-[1.01] hover:translate-x-1"
+                            : "text-2xl sm:text-3xl font-semibold text-white/30 blur-[0.4px] hover:blur-none hover:text-white/70 hover:translate-x-1"
                         }`}
                       >
-                        {line.text}
+                        <div className="flex items-center justify-between gap-4">
+                          <span
+                            className={
+                              isActive
+                                ? "drop-shadow-[0_4px_28px_rgba(255,255,255,0.8)]"
+                                : ""
+                            }
+                          >
+                            {line.text}
+                          </span>
+                          {isActive && isPlaying && (
+                            <span className="flex-shrink-0 flex items-end gap-1.5 h-6 px-3 py-1 bg-[#1ed760]/20 rounded-full border border-[#1ed760]/30 animate-fadeIn">
+                              <span className="w-1.5 bg-[#1ed760] rounded-full animate-pulse h-4"></span>
+                              <span className="w-1.5 bg-[#1ed760] rounded-full animate-ping h-6"></span>
+                              <span className="w-1.5 bg-[#1ed760] rounded-full animate-pulse h-3"></span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
