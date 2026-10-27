@@ -7,7 +7,7 @@ let ytdlInstance: Ytdl | null = null;
 function getYtdl(): Ytdl {
   if (!ytdlInstance) {
     ytdlInstance = new Ytdl({
-      clients: [Client.Tv]
+      clients: [Client.VisionOS]
     });
   }
   return ytdlInstance;
