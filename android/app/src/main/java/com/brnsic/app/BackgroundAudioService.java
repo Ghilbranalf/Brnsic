@@ -29,7 +29,7 @@ public class BackgroundAudioService extends Service implements
         MediaPlayer.OnCompletionListener,
         MediaPlayer.OnErrorListener {
 
-    public static final String CHANNEL_ID = "brnsic_background_playback";
+    public static final String CHANNEL_ID = "brnsic_media_playback_v3";
     public static final int NOTIFICATION_ID = 2026;
 
     public static final String ACTION_START = "com.brnsic.app.action.START";
@@ -456,17 +456,24 @@ public class BackgroundAudioService extends Service implements
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }
+
+        try {
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) {
+                manager.notify(NOTIFICATION_ID, notification);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Brnsic Music Playback",
+                    "Brnsic Media Player",
                     NotificationManager.IMPORTANCE_LOW
             );
             channel.setDescription("Kontrol pemutar musik di notifikasi dan layar kunci");
-            channel.setShowBadge(false);
+            channel.setShowBadge(true);
             channel.setSound(null, null);
             channel.enableVibration(false);
             channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);

@@ -87,6 +87,19 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void playAudio(String audioUrl, String title, String artist, int positionMs, String coverUrl) {
             try {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    MainActivity.this.requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+                                } catch (Exception ignored) {}
+                            }
+                        });
+                    }
+                }
+
                 Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
                 intent.setAction(BackgroundAudioService.ACTION_PLAY);
                 intent.putExtra(BackgroundAudioService.EXTRA_URL, audioUrl);
@@ -195,6 +208,68 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public boolean areNotificationsEnabled() {
+            try {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        return false;
+                    }
+                }
+                return androidx.core.app.NotificationManagerCompat.from(MainActivity.this).areNotificationsEnabled();
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public void requestNotificationPermission() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (Build.VERSION.SDK_INT >= 33) {
+                            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                MainActivity.this.requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+                                return;
+                            }
+                        }
+                        if (!androidx.core.app.NotificationManagerCompat.from(MainActivity.this).areNotificationsEnabled()) {
+                            openNotificationSettings();
+                        }
+                    } catch (Exception ignored) {}
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void openNotificationSettings() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Intent intent = new Intent();
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            intent.setAction(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                            intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+                        } else {
+                            intent.setAction(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                            intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                        }
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        try {
+                            Intent fallback = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                            fallback.setData(android.net.Uri.parse("package:" + getPackageName()));
+                            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(fallback);
+                        } catch (Exception ignored) {}
+                    }
+                }
+            });
+        }
+
+        @JavascriptInterface
         public boolean isPermissionGranted() {
             boolean notifGranted = true;
             if (Build.VERSION.SDK_INT >= 33) {
@@ -296,6 +371,17 @@ public class MainActivity extends BridgeActivity {
                 if (currentUa != null && !currentUa.contains("BrnsicNative")) {
                     webSettings.setUserAgentString(currentUa + " BrnsicNative/1.0 BrnsicMobile/1.0");
                 }
+                
+                // Hardware-accelerated 60-120fps GPU rendering & smooth touch response
+                webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+                webView.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
+                webView.setVerticalScrollBarEnabled(false);
+                webView.setHorizontalScrollBarEnabled(false);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    webSettings.setSafeBrowsingEnabled(false);
+                }
+                webSettings.setOffscreenPreRaster(true);
+
                 webView.addJavascriptInterface(new NativeAudioBridge(), "BrnsicNative");
             }
             handleDeepLink(getIntent());
@@ -337,6 +423,18 @@ public class MainActivity extends BridgeActivity {
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().onResume();
                 bridge.getWebView().resumeTimers();
+                if (Build.VERSION.SDK_INT >= 33) {
+                    bridge.getWebView().postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                    }, 1000);
+                }
             }
         } catch (Exception ignored) {}
     }
