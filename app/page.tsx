@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import type { SafeUser } from "@/lib/auth";
 import {
   buildUserTasteVector,
@@ -1186,6 +1186,7 @@ export default function BrnsicMusicPage() {
   const [currentTrack, setCurrentTrack] = useState<Track>(DEFAULT_CATALOG[0]);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
+  const currentTimeRef = useRef<number>(0);
   const [volume, setVolume] = useState<number>(0.8);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isLoadingSong, setIsLoadingSong] = useState<boolean>(false);
@@ -1307,6 +1308,33 @@ export default function BrnsicMusicPage() {
 
   // 17. Real PWA Install Step State
   const [installStep, setInstallStep] = useState<"downloading" | "ready" | "installed" | "ios_guide">("downloading");
+
+  // 18. Memoized Home ML Recommended Shelf (Zero main-thread jank during scrolling & playback)
+  const homeMlRanked = useMemo(() => {
+    const rawPool = [
+      ...DEFAULT_CATALOG,
+      ...mostPlayedIndonesia,
+      ...indonesiaTop50,
+      ...viralIndonesia,
+      ...relatedQueue
+    ];
+    const seenTitles = new Set<string>();
+    const uniquePool: any[] = [];
+    for (const s of rawPool) {
+      const cleanTitle = ((s as any).title || (s as any).trackName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (cleanTitle && !seenTitles.has(cleanTitle)) {
+        seenTitles.add(cleanTitle);
+        uniquePool.push(s);
+      }
+    }
+    return rankTracksByDeepLearning(
+      userTasteVector,
+      uniquePool,
+      recentHistoryRef.current,
+      dislikedSongIds,
+      24
+    );
+  }, [mostPlayedIndonesia, indonesiaTop50, viralIndonesia, relatedQueue, userTasteVector, dislikedSongIds]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
@@ -1684,16 +1712,6 @@ export default function BrnsicMusicPage() {
     };
 
     checkAuthSession();
-
-    // Prompt user to LOGIN first before choosing genres
-    const savedToken = typeof localStorage !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null;
-    const savedProfile = typeof localStorage !== "undefined" ? localStorage.getItem("brnsic_user_profile") : null;
-    if (!savedToken && !savedProfile && !currentUser) {
-      const authTimer = setTimeout(() => {
-        setIsAuthModalOpen(true);
-      }, 1400);
-      return () => clearTimeout(authTimer);
-    }
   }, []);
 
   // Continuous Background Audio Keepalive & Anti-Throttle Shield
@@ -2636,7 +2654,13 @@ export default function BrnsicMusicPage() {
           if (state === 1 || state === 3) {
             const exactSeconds = ytPlayerRef.current.getCurrentTime();
             if (typeof exactSeconds === "number" && !isNaN(exactSeconds)) {
-              setCurrentTime(exactSeconds);
+              currentTimeRef.current = exactSeconds;
+              // Only trigger React state re-render if user actually sees the time/seekbar!
+              // When browsing the home screen on mobile, time is updated in ref with ZERO re-render cost!
+              const isTimeVisible = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics" || (typeof window !== "undefined" && window.innerWidth >= 768);
+              if (isTimeVisible) {
+                setCurrentTime(exactSeconds);
+              }
             }
 
             // Sync true live duration directly from active audio player ONCE per track
@@ -2692,6 +2716,13 @@ export default function BrnsicMusicPage() {
 
     return () => clearInterval(timer);
   }, [currentTrack, isMobilePlayerOpen, isZoomed, mobileTab]);
+
+  // Instantly sync currentTime the moment fullscreen player or lyrics is opened
+  useEffect(() => {
+    if (isMobilePlayerOpen || isZoomed || mobileTab === "lyrics") {
+      setCurrentTime(currentTimeRef.current);
+    }
+  }, [isMobilePlayerOpen, isZoomed, mobileTab]);
 
   // Keep isPlayingRef in sync
   useEffect(() => {
@@ -5023,54 +5054,31 @@ export default function BrnsicMusicPage() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-                  {(() => {
-                    const rawPool = [
-                      ...DEFAULT_CATALOG,
-                      ...mostPlayedIndonesia,
-                      ...indonesiaTop50,
-                      ...viralIndonesia,
-                      ...relatedQueue
-                    ];
-                    const seenTitles = new Set<string>();
-                    const uniquePool: any[] = [];
-                    for (const s of rawPool) {
-                      const cleanTitle = ((s as any).title || (s as any).trackName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                      if (cleanTitle && !seenTitles.has(cleanTitle)) {
-                        seenTitles.add(cleanTitle);
-                        uniquePool.push(s);
-                      }
-                    }
-                    const mlRanked = rankTracksByDeepLearning(
-                      userTasteVector,
-                      uniquePool,
-                      recentHistoryRef.current,
-                      dislikedSongIds,
-                      24
-                    );
-                    return mlRanked.map((t: any, i) => (
-                      <div
-                        key={t.id || `${t.title}-${i}`}
-                        onClick={() => handlePlayFromList(t, mlRanked, i)}
-                        className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10"
-                      >
-                        <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-3 shadow-md">
-                          <img
-                            src={t.cover}
-                            alt={t.title}
-                            onError={handleImgError}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                          />
-                          <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition duration-300 flex items-center justify-center">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          </button>
-                        </div>
-                        <div className="font-bold text-sm text-white truncate">{t.title}</div>
-                        <div className="text-xs text-[#b3b3b3] truncate mt-1">{t.artist}</div>
+                  {homeMlRanked.map((t: any, i: number) => (
+                    <div
+                      key={t.id || `${t.title}-${i}`}
+                      onClick={() => handlePlayFromList(t, homeMlRanked, i)}
+                      className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10"
+                    >
+                      <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-3 shadow-md">
+                        <img
+                          src={t.cover}
+                          alt={t.title}
+                          loading="lazy"
+                          decoding="async"
+                          onError={handleImgError}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                        />
+                        <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition duration-300 flex items-center justify-center">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </button>
                       </div>
-                    ));
-                  })()}
+                      <div className="font-bold text-sm text-white truncate">{t.title}</div>
+                      <div className="text-xs text-[#b3b3b3] truncate mt-1">{t.artist}</div>
+                    </div>
+                  ))}
                 </div>
               </section>
 
@@ -5107,10 +5115,12 @@ export default function BrnsicMusicPage() {
                         <img
                           src={t.cover}
                           alt={t.title}
+                          loading="lazy"
+                          decoding="async"
                           onError={handleImgError}
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur text-white text-[10px] font-black px-1.5 py-0.5 rounded">
+                        <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
                           #{i + 1}
                         </span>
                         <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black hidden sm:group-hover:flex items-center justify-center transition shadow-lg hover:scale-105">
@@ -5160,6 +5170,8 @@ export default function BrnsicMusicPage() {
                           <img
                             src={t.cover}
                             alt={t.title}
+                            loading="lazy"
+                            decoding="async"
                             onError={handleImgError}
                             className="w-full h-full object-cover"
                           />
@@ -5208,10 +5220,12 @@ export default function BrnsicMusicPage() {
                         <img
                           src={t.cover}
                           alt={t.title}
+                          loading="lazy"
+                          decoding="async"
                           onError={handleImgError}
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur text-white text-[10px] font-black px-1.5 py-0.5 rounded">
+                        <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
                           #{i + 1}
                         </span>
                         <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black hidden sm:group-hover:flex items-center justify-center transition shadow-lg hover:scale-105">

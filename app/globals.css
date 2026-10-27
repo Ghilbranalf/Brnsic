@@ -79,20 +79,43 @@ button, a, input {
 }
 
 @media (max-width: 767px) {
+  /* On mobile Android, backdrop-filter forces GPU texture readbacks that cause 20-40ms frame drops */
   .liquid-glass {
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(18, 18, 18, 0.96) !important;
   }
 
-  /* Global Mobile GPU Clamp: Prevents mobile GPU frame-drops from heavy blur convolutions */
+  .liquid-glass-borderless {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(22, 22, 22, 0.98) !important;
+  }
+
+  .liquid-glass-pill {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #1f1f1f !important;
+  }
+
+  /* Global Mobile GPU Clamp: Zero blur penalty on mobile */
   .backdrop-blur-2xl,
   .backdrop-blur-xl,
   .backdrop-blur-lg,
   .backdrop-blur-md,
   .backdrop-blur {
-    backdrop-filter: blur(4px) !important;
-    -webkit-backdrop-filter: blur(4px) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
+}
+
+/* Offload image rendering and prevent full-page layout thrashing */
+img {
+  content-visibility: auto;
+}
+
+main section {
+  contain: content;
 }
 
 .liquid-glass-card {

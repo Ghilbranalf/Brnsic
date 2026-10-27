@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
+import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -254,7 +255,17 @@ public class MainActivity extends BridgeActivity {
 
             if (bridge != null && bridge.getWebView() != null) {
                 WebView webView = bridge.getWebView();
+                
+                // Hardware GPU acceleration and buttery smooth scrolling
+                webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                webView.setVerticalScrollBarEnabled(false);
+                webView.setHorizontalScrollBarEnabled(false);
+                webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
                 WebSettings webSettings = webView.getSettings();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    webSettings.setOffscreenPreRaster(true);
+                }
                 webSettings.setMediaPlaybackRequiresUserGesture(false);
                 webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
                 webSettings.setDomStorageEnabled(true);
