@@ -41,6 +41,11 @@ const VERIFIED_MAP: Record<string, string> = {
   "rumah ke rumah": "pjhOjHDX0A8",
   "hindia secukupnya": "6D59nZzG6-s",
   "secukupnya": "6D59nZzG6-s",
+  "hindia berdansalah karir ini tak ada artinya": "sx2m0ryInTk",
+  "berdansalah karir ini tak ada artinya": "sx2m0ryInTk",
+  "hindia berdansalah karir tak ada artinya": "sx2m0ryInTk",
+  "berdansalah karir tak ada artinya": "sx2m0ryInTk",
+  "berdansalah": "sx2m0ryInTk",
 
   // Juicy Luicy & Adrian Khalif
   "juicy luicy tampar": "DqJN5Pg3As4",

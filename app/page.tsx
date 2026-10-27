@@ -174,12 +174,37 @@ const DEFAULT_CATALOG: Track[] = [
     youtubeId: "z-XHpftdXEE",
     plays: "320M+ Streams",
     lyrics: [
-      { time: 0, text: "(Intro Acoustic Guitar)" },
-      { time: 7.8, text: "Belum ada satu bulan" },
+      { time: 0, text: "(Intro Gitar Akustik)" },
+      { time: 7.80, text: "Belum ada satu bulan" },
       { time: 12.91, text: "Ku yakin masih ada sisa wangiku di bajumu" },
       { time: 18.96, text: "Namun kau tampak baik saja" },
       { time: 23.04, text: "Bahkan senyummu lebih lepas" },
-      { time: 25.77, text: "Sedang aku di sini hampir gila" }
+      { time: 25.77, text: "Sedang aku di sini hampir gila" },
+      { time: 31.62, text: "Kita tak temukan jalan" },
+      { time: 37.16, text: "Sepakat akhiri setelah beribu debat panjang" },
+      { time: 43.46, text: "Namun kau tampak baik saja" },
+      { time: 48.08, text: "Bahkan senyummu lebih lepas" },
+      { time: 50.37, text: "Sedang aku di sini belum terima" },
+      { time: 56.16, text: "Bohongkah tangismu sore itu di pelukku?" },
+      { time: 62.08, text: "Nyatanya pergiku pun tak lagi mengganggumu" },
+      { time: 67.17, text: "Apa sudah ada kabar lain yang kau tunggu?" },
+      { time: 72.42, text: "Sudah adakah yang gantikanku?" },
+      { time: 77.72, text: "Yang khawatirkanmu setiap waktu?" },
+      { time: 83.76, text: "Yang cerita tentang apapun sampai hal-hal tak perlu?" },
+      { time: 89.65, text: "Kalau bisa jangan buru-buru, kalau bisa jangan ada dulu" },
+      { time: 103.98, text: "Baru lewat satu bulan" },
+      { time: 116.06, text: "Kemarin ulang tahunku tak ada pesan darimu" },
+      { time: 121.79, text: "Tak apa, mungkin kau lupa" },
+      { time: 126.52, text: "Atau sudah ada hati yang harus kau jaga?" },
+      { time: 132.48, text: "Sudah adakah yang gantikanku?" },
+      { time: 137.23, text: "Yang kau antar jemput setiap Sabtu?" },
+      { time: 142.68, text: "Yang selalu ingatkan untuk pakai sabuk pengamanmu?" },
+      { time: 148.55, text: "Kalau bisa jangan buru-buru" },
+      { time: 153.53, text: "Sudah adakah yang gantikanku?" },
+      { time: 158.68, text: "Yang khawatirkanmu setiap waktu" },
+      { time: 164.37, text: "Yang cerita tentang apapun sampai hal-hal tak perlu" },
+      { time: 170.25, text: "Kalau bisa jangan buru-buru, kalau bisa jangan ada dulu" },
+      { time: 189.97, text: "(Outro)" }
     ]
   },
   {
@@ -385,8 +410,17 @@ const POPULAR_SEARCH_CATALOG = [
     album: "Sialnya, Hidup Harus Tetap Berjalan",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
     duration: 194,
-    youtubeId: "7Jm2Il2U-c0",
+    youtubeId: "z-XHpftdXEE",
     tags: ["satu", "bulan", "berna", "bernadya", "sialnya", "hidup"]
+  },
+  {
+    title: "Berdansalah, Karir Ini Tak Ada Artinya",
+    artist: "Hindia",
+    album: "Menari Dengan Bayangan",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
+    duration: 224,
+    youtubeId: "sx2m0ryInTk",
+    tags: ["berdansa", "berdansalah", "karir", "tak", "ada", "artinya", "hindia", "baskara"]
   },
   {
     title: "Untungnya, Hidup Harus Tetap Berjalan",
@@ -886,18 +920,28 @@ const ONBOARDING_GENRES = [
   "Viral TikTok"
 ];
 
-// Quick lookup for verified official YouTube video IDs
+// Quick lookup for verified official YouTube video IDs (Strict & Safe matching)
 const getVerifiedVideoId = (title: string, artist: string): string | undefined => {
-  const normT = (title || "").toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
-  const normA = (artist || "").toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
-  const combined = `${normA} ${normT}`;
+  const normT = (title || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  const normA = (artist || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 
+  // 1. Exact title & artist match
   for (const item of POPULAR_SEARCH_CATALOG) {
-    const itemT = item.title.toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
-    if (combined.includes(itemT) || itemT.includes(normT) || normT.includes(itemT)) {
+    const itemT = item.title.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    const itemA = item.artist.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    if (itemT === normT && (normA.includes(itemA) || itemA.includes(normA))) {
       return item.youtubeId;
     }
   }
+
+  // 2. Exact title match (only if title has >= 4 characters to avoid matching short words like "Dan")
+  for (const item of POPULAR_SEARCH_CATALOG) {
+    const itemT = item.title.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    if (itemT === normT && itemT.length >= 4) {
+      return item.youtubeId;
+    }
+  }
+
   return undefined;
 };
 
@@ -2307,6 +2351,7 @@ export default function BrnsicMusicPage() {
           },
           events: {
             onReady: (event: any) => {
+              setIsLoadingSong(false);
               try {
                 event.target.unMute();
                 event.target.setVolume(volume * 100);
@@ -2321,6 +2366,7 @@ export default function BrnsicMusicPage() {
               } catch (e) {}
             },
             onError: (event: any) => {
+              setIsLoadingSong(false);
               console.warn("YouTube player event error:", event.data);
               // CRITICAL: NEVER automatically advance on initial page load before user has pressed play!
               if (!hasUserStartedPlaybackRef.current) {
@@ -2355,6 +2401,7 @@ export default function BrnsicMusicPage() {
                 });
             },
             onStateChange: (event: any) => {
+              setIsLoadingSong(false);
               if (event.data === 1) {
                 // Playing
                 setIsPlaying(true);
@@ -2629,11 +2676,14 @@ export default function BrnsicMusicPage() {
           ytPlayerRef.current.unMute();
           ytPlayerRef.current.setVolume(volume * 100);
           ytPlayerRef.current.playVideo();
+          setTimeout(() => setIsLoadingSong(false), 1500);
         } catch (e) {
           console.error("Audio playback error", e);
+          setIsLoadingSong(false);
         }
       } else {
         pendingVideoIdRef.current = vid;
+        setTimeout(() => setIsLoadingSong(false), 1500);
       }
     };
 
