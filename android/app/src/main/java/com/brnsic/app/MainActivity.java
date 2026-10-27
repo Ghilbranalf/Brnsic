@@ -27,6 +27,34 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    public static void notifyNextTrack() {
+        if (instance != null && instance.bridge != null && instance.bridge.getWebView() != null) {
+            instance.bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    instance.bridge.getWebView().evaluateJavascript(
+                        "(function(){ if (window.__handleNativeNext) { window.__handleNativeNext(); } else if (window.__handleNativeTrackCompleted) { window.__handleNativeTrackCompleted(); } })();",
+                        null
+                    );
+                }
+            });
+        }
+    }
+
+    public static void notifyPrevTrack() {
+        if (instance != null && instance.bridge != null && instance.bridge.getWebView() != null) {
+            instance.bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    instance.bridge.getWebView().evaluateJavascript(
+                        "(function(){ if (window.__handleNativePrev) { window.__handleNativePrev(); } })();",
+                        null
+                    );
+                }
+            });
+        }
+    }
+
     public static void notifyPlaybackState(boolean isPlaying) {
         if (instance != null && instance.bridge != null && instance.bridge.getWebView() != null) {
             instance.bridge.getWebView().post(new Runnable() {
@@ -43,7 +71,7 @@ public class MainActivity extends BridgeActivity {
 
     public class NativeAudioBridge {
         @JavascriptInterface
-        public void playAudio(String audioUrl, String title, String artist, int positionMs) {
+        public void playAudio(String audioUrl, String title, String artist, int positionMs, String coverUrl) {
             try {
                 Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
                 intent.setAction(BackgroundAudioService.ACTION_PLAY);
@@ -51,12 +79,18 @@ public class MainActivity extends BridgeActivity {
                 intent.putExtra(BackgroundAudioService.EXTRA_TITLE, title);
                 intent.putExtra(BackgroundAudioService.EXTRA_ARTIST, artist);
                 intent.putExtra(BackgroundAudioService.EXTRA_POSITION, positionMs);
+                intent.putExtra(BackgroundAudioService.EXTRA_COVER, coverUrl);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(intent);
                 } else {
                     startService(intent);
                 }
             } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void playAudio(String audioUrl, String title, String artist, int positionMs) {
+            playAudio(audioUrl, title, artist, positionMs, "");
         }
 
         @JavascriptInterface
@@ -107,8 +141,13 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public void startPlayback(String title, String artist, String cover) {
+            playAudio("", title, artist, 0, cover);
+        }
+
+        @JavascriptInterface
         public void startPlayback(String title, String artist) {
-            playAudio("", title, artist, 0);
+            playAudio("", title, artist, 0, "");
         }
 
         @JavascriptInterface

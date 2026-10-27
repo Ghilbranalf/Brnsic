@@ -950,7 +950,15 @@ const normalizeSong = (raw: any): Track => {
   if (!raw) return DEFAULT_CATALOG[0];
   const title = (raw.title || raw.trackName || raw.name || "Lagu Musik").toString().trim();
   const artist = (raw.artist || raw.artistName || "Brnsic Artist").toString().trim();
-  const cover = raw.cover || raw.artworkUrl100 || raw.artworkUrl60 || raw.image || raw.canvasImg || FALLBACK_COVER;
+  const cover =
+    raw.cover ||
+    raw.albumCover ||
+    raw.albumImg ||
+    raw.artworkUrl100 ||
+    raw.artworkUrl60 ||
+    raw.image ||
+    raw.canvasImg ||
+    FALLBACK_COVER;
   const album = (raw.album || raw.collectionName || "Single").toString().trim();
   const duration =
     typeof raw.duration === "number" && raw.duration > 0
@@ -1621,7 +1629,22 @@ export default function BrnsicMusicPage() {
       handleTrackEnded("native-android-completed");
     };
 
+    (window as any).__handleNativeNext = () => {
+      if (playNextSongRef.current) {
+        playNextSongRef.current(true);
+      }
+    };
+
+    (window as any).__handleNativePrev = () => {
+      handlePreviousSong();
+    };
+
     (window as any).__handleNativePlaybackState = (playing: boolean) => {
+      if (!playing) {
+        isUserExplicitlyPausedRef.current = true;
+      } else {
+        isUserExplicitlyPausedRef.current = false;
+      }
       setIsPlaying(playing);
       isPlayingRef.current = playing;
       if (ytPlayerRef.current) {
@@ -1738,7 +1761,8 @@ export default function BrnsicMusicPage() {
         if ((window as any).BrnsicNative?.startPlayback) {
           (window as any).BrnsicNative.startPlayback(
             currentTrackRef.current?.title || "Brnsic Music",
-            currentTrackRef.current?.artist || "Memutar di latar belakang"
+            currentTrackRef.current?.artist || "Memutar di latar belakang",
+            currentTrackRef.current?.cover || ""
           );
         }
       } catch (e) {}
@@ -2714,8 +2738,8 @@ export default function BrnsicMusicPage() {
       })
       .catch(() => {});
 
-    // Instant Audio Playback: Never wait for lyrics over network!
-    const directVid = song.youtubeId || getVerifiedVideoId(song.title, song.artist);
+    // Instant Audio Playback: Verified studio master priority over stale video IDs!
+    const directVid = getVerifiedVideoId(song.title, song.artist) || song.youtubeId;
     const startAudio = (vid: string) => {
       if (currentRequestId !== playRequestIdRef.current) return;
       isUserExplicitlyPausedRef.current = false;
@@ -2736,7 +2760,8 @@ export default function BrnsicMusicPage() {
             "",
             song.title || "Brnsic Music",
             song.artist || "Memutar di latar belakang",
-            0
+            0,
+            song.cover || optimisticTrack.cover || ""
           );
         } catch (e) {}
       }
@@ -3924,13 +3949,16 @@ export default function BrnsicMusicPage() {
             </div>
 
             {/* Mobile Filter Chips */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+            <div
+              className="flex items-center gap-2 w-full max-w-full overflow-x-auto no-scrollbar py-1 touch-pan-x flex-nowrap overscroll-x-contain select-none"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
               <button
                 onClick={() => {
                   setHomeFilter("all");
                   setCurrentView("home");
                 }}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
                   homeFilter === "all" && currentView === "home"
                     ? "bg-white text-black"
                     : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
@@ -3940,7 +3968,7 @@ export default function BrnsicMusicPage() {
               </button>
               <button
                 onClick={() => setCurrentView("top50-indo")}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
                   currentView === "top50-indo" ? "bg-white text-black" : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
                 }`}
               >
@@ -3948,7 +3976,7 @@ export default function BrnsicMusicPage() {
               </button>
               <button
                 onClick={() => setCurrentView("most-played-indo")}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
                   currentView === "most-played-indo" ? "bg-white text-black" : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
                 }`}
               >
@@ -3956,7 +3984,7 @@ export default function BrnsicMusicPage() {
               </button>
               <button
                 onClick={() => setCurrentView("viral-indo")}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
                   currentView === "viral-indo" ? "bg-white text-black" : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
                 }`}
               >
@@ -4790,21 +4818,25 @@ export default function BrnsicMusicPage() {
                       Berdasarkan: <strong className="text-white">{currentTrack.artist}</strong>
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+                  <div
+                    className="flex items-center gap-3 w-full min-w-0 max-w-full overflow-x-auto no-scrollbar py-1 touch-pan-x flex-nowrap overscroll-x-contain select-none cursor-grab active:cursor-grabbing"
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                  >
                     {relatedQueue.slice(0, 18).map((item, i) => (
                       <div
                         key={item.id || i}
                         onClick={() => handlePlaySingleSongWithRadio(item)}
-                        className="flex-shrink-0 w-36 sm:w-40 bg-white/5 hover:bg-white/10 p-2.5 rounded-xl cursor-pointer transition group"
+                        className="flex-shrink-0 w-36 sm:w-40 bg-white/5 hover:bg-white/10 p-2.5 rounded-xl cursor-pointer transition group select-none"
                       >
                         <img
                           src={item.cover}
                           alt={item.title}
                           onError={handleImgError}
-                          className="w-full aspect-square rounded-lg object-cover mb-2 shadow"
+                          draggable={false}
+                          className="w-full aspect-square rounded-lg object-cover mb-2 shadow pointer-events-none select-none"
                         />
-                        <div className="font-bold text-xs text-white truncate">{item.title}</div>
-                        <div className="text-[11px] text-[#b3b3b3] truncate mt-0.5">{item.artist}</div>
+                        <div className="font-bold text-xs text-white truncate select-none">{item.title}</div>
+                        <div className="text-[11px] text-[#b3b3b3] truncate mt-0.5 select-none">{item.artist}</div>
                       </div>
                     ))}
                   </div>
@@ -5821,8 +5853,9 @@ export default function BrnsicMusicPage() {
             )}
 
             {isLoadingSong && (
-              <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center z-10 backdrop-blur-md rounded-2xl p-4">
-                <BrnsicLoader size="md" text="Memuat audio..." />
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center gap-2 shadow-xl animate-fadeIn">
+                <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse"></span>
+                <span className="text-white text-[11px] font-semibold">Menyiapkan audio...</span>
               </div>
             )}
           </div>
@@ -6351,7 +6384,19 @@ export default function BrnsicMusicPage() {
           ==================================================================== */}
       {isMobilePlayerOpen && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col p-4 md:p-6 overflow-hidden animate-fadeIn border-0">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[340px] md:w-[600px] h-[340px] md:h-[600px] bg-white/[0.04] rounded-full blur-[120px] pointer-events-none" />
+          {/* DYNAMIC AMBIENT BLURRED ALBUM ARTWORK BACKDROP */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+            <img
+              src={currentTrack.canvasImg || currentTrack.cover}
+              alt="ambient-bg"
+              onError={handleImgError}
+              className="w-full h-full object-cover scale-150 blur-3xl opacity-45 brightness-75 contrast-125 transform transition-all duration-1000"
+            />
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-2xl" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/90" />
+          </div>
+
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[340px] md:w-[600px] h-[340px] md:h-[600px] bg-white/[0.04] rounded-full blur-[120px] pointer-events-none z-0" />
 
           {/* Top Bar matching Brnsic Mobile */}
           <header className="relative z-10 flex items-center justify-between pb-2 flex-shrink-0">
@@ -6613,8 +6658,9 @@ export default function BrnsicMusicPage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   {isLoadingSong && (
-                    <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center z-20 backdrop-blur-md rounded-3xl p-4">
-                      <BrnsicLoader size="lg" text="Memuat audio Brnsic..." />
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-xl border border-white/15 flex items-center gap-2 shadow-2xl animate-fadeIn">
+                      <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse"></span>
+                      <span className="text-white text-[11px] font-bold tracking-wide">Menyiapkan audio...</span>
                     </div>
                   )}
                 </div>
@@ -6972,7 +7018,18 @@ export default function BrnsicMusicPage() {
           6. DESKTOP CINEMA ZOOM (FULLSCREEN)
           ==================================================================== */}
       {isZoomed && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col p-6 animate-fadeIn">
+        <div className="fixed inset-0 z-50 bg-black flex flex-col p-6 animate-fadeIn overflow-hidden">
+          {/* DYNAMIC AMBIENT BLURRED ALBUM ARTWORK BACKDROP */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+            <img
+              src={currentTrack.canvasImg || currentTrack.cover}
+              alt="ambient-bg"
+              onError={handleImgError}
+              className="w-full h-full object-cover scale-150 blur-3xl opacity-45 brightness-75 contrast-125 transform transition-all duration-1000"
+            />
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-2xl" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/90" />
+          </div>
           <header className="relative z-10 flex items-center justify-between pb-4 border-b border-white/10 flex-shrink-0">
             {/* Left: Track Info */}
             <div className="flex items-center gap-3.5 min-w-0 max-w-[30%]">
@@ -7051,8 +7108,9 @@ export default function BrnsicMusicPage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
                   {isLoadingSong && (
-                    <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center z-20 backdrop-blur-md rounded-3xl p-4">
-                      <BrnsicLoader size="lg" text="Menyiapkan audio..." />
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-full bg-black/60 backdrop-blur-xl border border-white/15 flex items-center gap-2 shadow-2xl animate-fadeIn">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#1ed760] animate-pulse"></span>
+                      <span className="text-white text-xs font-bold tracking-wide">Menyiapkan audio...</span>
                     </div>
                   )}
                 </div>
@@ -7645,7 +7703,7 @@ export default function BrnsicMusicPage() {
                 <div className="flex items-center justify-center gap-2 text-[11px] text-[#b3b3b3] font-medium">
                   <span>Android</span>
                   <span>•</span>
-                  <span>8.8 MB</span>
+                  <span>8.6 MB</span>
                   <span>•</span>
                   <span>Gratis</span>
                 </div>
