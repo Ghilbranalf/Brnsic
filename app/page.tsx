@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { SafeUser } from "@/lib/auth";
 import {
   buildUserTasteVector,
@@ -538,24 +538,6 @@ const POPULAR_SEARCH_CATALOG = [
     duration: 251,
     youtubeId: "kPa7bsKwL-c",
     tags: ["die", "smile", "bruno", "mars", "lady", "gaga"]
-  },
-  {
-    title: "Only Siji",
-    artist: "6sentani",
-    album: "Only Siji - Single",
-    cover: "https://i.ytimg.com/vi/iQ7gbcjob3w/maxresdefault.jpg",
-    duration: 215,
-    youtubeId: "iQ7gbcjob3w",
-    tags: ["only", "siji", "6sentani", "sentani", "masdddho", "koplo", "jawa"]
-  },
-  {
-    title: "Mbak Billie",
-    artist: "6sentani",
-    album: "Mbak Billie - Single",
-    cover: "https://i.ytimg.com/vi/DeCO1sct6GI/maxresdefault.jpg",
-    duration: 200,
-    youtubeId: "DeCO1sct6GI",
-    tags: ["mbak", "billie", "6sentani", "sentani", "billie"]
   }
 ];
 
@@ -991,7 +973,7 @@ const normalizeSong = (raw: any): Track => {
   const lyrics = Array.isArray(raw.lyrics) && raw.lyrics.length > 0 ? raw.lyrics : [
     { time: 0, text: title },
     { time: 4, text: artist },
-    { time: 8, text: "Menyiapkan lirik sinkron dan streaming audio..." }
+    { time: 8, text: "Menyiapkan lirik sinkron & streaming audio..." }
   ];
 
   return {
@@ -1186,7 +1168,6 @@ export default function BrnsicMusicPage() {
   const [currentTrack, setCurrentTrack] = useState<Track>(DEFAULT_CATALOG[0]);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const currentTimeRef = useRef<number>(0);
   const [volume, setVolume] = useState<number>(0.8);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isLoadingSong, setIsLoadingSong] = useState<boolean>(false);
@@ -1268,6 +1249,7 @@ export default function BrnsicMusicPage() {
   const [installProgress, setInstallProgress] = useState<number>(0);
   const [installStatus, setInstallStatus] = useState<string>("Menyiapkan pengunduhan...");
   const [isInstallReady, setIsInstallReady] = useState<boolean>(false);
+  const [showPermissionBanner, setShowPermissionBanner] = useState<boolean>(false);
 
   // 12. Update Popup State
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
@@ -1284,15 +1266,7 @@ export default function BrnsicMusicPage() {
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
 
   // 15. User Authentication & Cloud Preference Sync (Google-Only Auth with Supabase)
-  const [currentUser, setCurrentUser] = useState<SafeUser | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("brnsic_user_profile");
-        if (cached) return JSON.parse(cached);
-      } catch (e) {}
-    }
-    return null;
-  });
+  const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [googleEmail, setGoogleEmail] = useState<string>("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -1308,33 +1282,6 @@ export default function BrnsicMusicPage() {
 
   // 17. Real PWA Install Step State
   const [installStep, setInstallStep] = useState<"downloading" | "ready" | "installed" | "ios_guide">("downloading");
-
-  // 18. Memoized Home ML Recommended Shelf (Zero main-thread jank during scrolling & playback)
-  const homeMlRanked = useMemo(() => {
-    const rawPool = [
-      ...DEFAULT_CATALOG,
-      ...mostPlayedIndonesia,
-      ...indonesiaTop50,
-      ...viralIndonesia,
-      ...relatedQueue
-    ];
-    const seenTitles = new Set<string>();
-    const uniquePool: any[] = [];
-    for (const s of rawPool) {
-      const cleanTitle = ((s as any).title || (s as any).trackName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (cleanTitle && !seenTitles.has(cleanTitle)) {
-        seenTitles.add(cleanTitle);
-        uniquePool.push(s);
-      }
-    }
-    return rankTracksByDeepLearning(
-      userTasteVector,
-      uniquePool,
-      recentHistoryRef.current,
-      dislikedSongIds,
-      24
-    );
-  }, [mostPlayedIndonesia, indonesiaTop50, viralIndonesia, relatedQueue, userTasteVector, dislikedSongIds]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
@@ -1372,13 +1319,12 @@ export default function BrnsicMusicPage() {
   const playRequestIdRef = useRef<number>(0);
   const originalQueueRef = useRef<any[]>([]);
   const shuffleToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSyncedDurationTrackRef = useRef<string>("");
 
-  // 1. Splash Screen Timer (Ultra-fast startup for instant responsiveness)
+  // 1. Splash Screen Timer
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 450);
+    }, 1800);
     return () => clearTimeout(timer);
   }, []);
 
@@ -1420,18 +1366,21 @@ export default function BrnsicMusicPage() {
         (window as any).Capacitor?.getPlatform?.() === "android";
 
       setIsInsideNativeApk(Boolean(isNative));
+      if (isNative) {
+        try {
+          const isGranted = (window as any).BrnsicNative?.isPermissionGranted?.();
+          if (isGranted === false) {
+            setShowPermissionBanner(true);
+          }
+        } catch (e) {}
+      }
     };
 
     checkNativeApk();
     const nativeTimer = setTimeout(checkNativeApk, 600);
 
-    // Register PWA Service Worker for Offline Cache on Web Browser Only (Never inside Native APK)
-    const isNativePlatform =
-      Boolean((window as any).BrnsicNative) ||
-      (typeof navigator !== "undefined" && navigator.userAgent.includes("BrnsicNative")) ||
-      (typeof (window as any).Capacitor?.isNativePlatform === "function" && (window as any).Capacitor.isNativePlatform());
-
-    if (!isNativePlatform && typeof window !== "undefined" && "serviceWorker" in navigator) {
+    // Register PWA Service Worker for Offline Cache & Background Audio Engine
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
         .then((reg) => {
@@ -1468,7 +1417,7 @@ export default function BrnsicMusicPage() {
       } catch (e) {}
     };
     checkAppVersion();
-    const updateInterval = setInterval(checkAppVersion, 300000);
+    const updateInterval = setInterval(checkAppVersion, 25000);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
@@ -1550,10 +1499,6 @@ export default function BrnsicMusicPage() {
 
     // Global touch/click unlock for background audio permission on mobile
     const unlockAudio = () => {
-      if (silentAudioRef.current) {
-        silentAudioRef.current.volume = 0.01;
-        silentAudioRef.current.play().catch(() => {});
-      }
       if (typeof window !== "undefined" && (window.AudioContext || (window as any).webkitAudioContext)) {
         try {
           const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -1583,9 +1528,6 @@ export default function BrnsicMusicPage() {
           const data = await res.json();
           if (data.authenticated && data.user) {
             setCurrentUser(data.user);
-            try {
-              localStorage.setItem("brnsic_user_profile", JSON.stringify(data.user));
-            } catch (e) {}
             setIsAuthModalOpen(false);
             if (data.user.taste) {
               setUserTaste(data.user.taste);
@@ -1699,38 +1641,94 @@ export default function BrnsicMusicPage() {
 
     (window as any).__handleNativePlaybackState = (playing: boolean) => {
       if (!playing) {
-        handleExplicitPause();
+        isUserExplicitlyPausedRef.current = true;
       } else {
-        handleExplicitPlay();
+        isUserExplicitlyPausedRef.current = false;
       }
-    };
-
-    (window as any).__handleNativeSeek = (posMs: number) => {
-      if (typeof posMs === "number" && !isNaN(posMs)) {
-        handleSeekSeconds(posMs / 1000);
+      setIsPlaying(playing);
+      isPlayingRef.current = playing;
+      if (ytPlayerRef.current) {
+        try {
+          if (playing && typeof ytPlayerRef.current.playVideo === "function") {
+            ytPlayerRef.current.playVideo();
+          } else if (!playing && typeof ytPlayerRef.current.pauseVideo === "function") {
+            ytPlayerRef.current.pauseVideo();
+          }
+        } catch (e) {}
       }
     };
 
     checkAuthSession();
+
+    // Prompt user to LOGIN first before choosing genres
+    const savedToken = typeof localStorage !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null;
+    if (!savedToken) {
+      const authTimer = setTimeout(() => {
+        setIsAuthModalOpen(true);
+      }, 1400);
+      return () => clearTimeout(authTimer);
+    }
   }, []);
 
   // Continuous Background Audio Keepalive & Anti-Throttle Shield
   const isUserExplicitlyPausedRef = useRef<boolean>(false);
   const audioContextRef = useRef<any>(null);
   const silentNodeRef = useRef<any>(null);
-  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  const isIOSDevice = () => {
-    if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-    const ua = navigator.userAgent || "";
-    const platform = navigator.platform || "";
-    return /iPad|iPhone|iPod/.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const startWebAudioKeepalive = () => {
+    try {
+      if (typeof window === "undefined") return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioCtx();
+      }
+      if (audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume().catch(() => {});
+      }
+      if (!silentNodeRef.current && audioContextRef.current) {
+        const buffer = audioContextRef.current.createBuffer(1, 22050, 22050);
+        const source = audioContextRef.current.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(audioContextRef.current.destination);
+        source.start(0);
+        silentNodeRef.current = source;
+      }
+    } catch (e) {}
   };
 
-  const startWebAudioKeepalive = () => {};
-  const stopWebAudioKeepalive = () => {};
+  const stopWebAudioKeepalive = () => {
+    try {
+      if (silentNodeRef.current) {
+        silentNodeRef.current.stop();
+        silentNodeRef.current.disconnect();
+        silentNodeRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state === "running") {
+        audioContextRef.current.suspend().catch(() => {});
+      }
+    } catch (e) {}
+  };
 
   useEffect(() => {
+    try {
+      const blockEvent = (e: Event) => {
+        e.stopImmediatePropagation();
+      };
+      window.addEventListener("visibilitychange", blockEvent, true);
+      document.addEventListener("visibilitychange", blockEvent, true);
+
+      Object.defineProperty(document, "hidden", {
+        get: () => false,
+        configurable: true
+      });
+      Object.defineProperty(document, "visibilityState", {
+        get: () => "visible",
+        configurable: true
+      });
+    } catch (e) {}
+
     const handleBackgroundKeepalive = () => {
       if (!isUserExplicitlyPausedRef.current && isPlayingRef.current && ytPlayerRef.current) {
         try {
@@ -1756,47 +1754,8 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
-  // Universal Mobile Background Audio Keepalive (When user locks phone or switches to other apps)
-  useEffect(() => {
-    const handleUniversalVisibility = () => {
-      if (document.hidden && isPlayingRef.current && !isUserExplicitlyPausedRef.current) {
-        if (silentAudioRef.current) {
-          silentAudioRef.current.volume = 0.01;
-          silentAudioRef.current.play().catch(() => {});
-        }
-        setTimeout(() => {
-          if (
-            isPlayingRef.current &&
-            !isUserExplicitlyPausedRef.current &&
-            ytPlayerRef.current &&
-            typeof ytPlayerRef.current.playVideo === "function"
-          ) {
-            try {
-              const st = ytPlayerRef.current.getPlayerState ? ytPlayerRef.current.getPlayerState() : -1;
-              if (st === 2) {
-                ytPlayerRef.current.playVideo();
-              }
-            } catch (e) {}
-          }
-        }, 150);
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleUniversalVisibility);
-    window.addEventListener("pagehide", handleUniversalVisibility);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleUniversalVisibility);
-      window.removeEventListener("pagehide", handleUniversalVisibility);
-    };
-  }, []);
-
   const startBackgroundKeepalive = () => {
     startWebAudioKeepalive();
-    if (silentAudioRef.current) {
-      silentAudioRef.current.volume = 0.01;
-      silentAudioRef.current.play().catch(() => {});
-    }
     if (typeof window !== "undefined") {
       try {
         if ((window as any).BrnsicNative?.startPlayback) {
@@ -1817,13 +1776,10 @@ export default function BrnsicMusicPage() {
 
   const stopBackgroundKeepalive = () => {
     stopWebAudioKeepalive();
-    if (silentAudioRef.current) {
-      silentAudioRef.current.pause();
-    }
     if (typeof window !== "undefined") {
       try {
-        if ((window as any).BrnsicNative?.pauseAudio) {
-          (window as any).BrnsicNative.pauseAudio();
+        if ((window as any).BrnsicNative?.stopPlayback) {
+          (window as any).BrnsicNative.stopPlayback();
         }
       } catch (e) {}
     }
@@ -2054,13 +2010,6 @@ export default function BrnsicMusicPage() {
       shuffleMode === "off" ? "standard" : shuffleMode === "standard" ? "smart" : "off";
     setShuffleMode(nextMode);
 
-    const queueContext =
-      currentView === "album" || isAlbumLoopMode
-        ? "album ini"
-        : currentView === "custom-playlist"
-        ? "playlist ini"
-        : "antrean lagu saat ini (Radio)";
-
     if (nextMode === "standard") {
       if (originalQueueRef.current.length === 0) {
         originalQueueRef.current = [...activeQueue];
@@ -2071,7 +2020,7 @@ export default function BrnsicMusicPage() {
         .filter((t) => !t.isSmartRecommendation);
       const shuffledUpcoming = balancedShuffle(upcoming, playedSongTitlesRef.current);
       setActiveQueue([...played, ...shuffledUpcoming]);
-      showToast(`Acak Standar aktif: Mengacak urutan ${queueContext}`);
+      showToast("Standard Shuffle: Mengacak playlist via Mersenne Twister & Fewer Repeats");
     } else if (nextMode === "smart") {
       if (originalQueueRef.current.length === 0) {
         originalQueueRef.current = [...activeQueue];
@@ -2111,7 +2060,7 @@ export default function BrnsicMusicPage() {
       }
 
       setActiveQueue([...played, ...woven]);
-      showToast(`Smart Shuffle aktif: Mengacak ${queueContext} dan menyisipkan rekomendasi sesuai selera`);
+      showToast("Smart Shuffle aktif: Mengacak dan menyisipkan rekomendasi sesuai selera!");
     } else {
       // Off: Restore original queue
       if (originalQueueRef.current.length > 0) {
@@ -2133,7 +2082,7 @@ export default function BrnsicMusicPage() {
       } else {
         setActiveQueue((prev) => prev.filter((t) => !t.isSmartRecommendation));
       }
-      showToast("Acak dimatikan: Kembali ke urutan antrean asli");
+      showToast("Shuffle dimatikan: Kembali ke urutan playlist asli");
     }
   };
 
@@ -2153,19 +2102,37 @@ export default function BrnsicMusicPage() {
     }
   };
 
-  // Google Auth Handler (Supports Instant Email Sign-In + Google Cloud SSO)
+  // Google Auth Handler (Supports Native Supabase Google OAuth SSO + Email Fallback)
   const handleGoogleSignIn = async (customEmail?: string) => {
     setAuthError(null);
     setIsAuthSubmitting(true);
 
     try {
+      // 1. Check if Supabase Google OAuth SSO is enabled (opens accounts.google.com account picker)
+      const isNative =
+        isInsideNativeApk ||
+        (typeof window !== "undefined" && Boolean((window as any).BrnsicNative)) ||
+        (typeof navigator !== "undefined" && navigator.userAgent.includes("BrnsicNative")) ||
+        (window as any).Capacitor?.getPlatform?.() === "android";
+
+      const oauthRes = await fetch(`/api/auth/google/oauth?platform=${isNative ? "native_apk" : "web"}`).catch(() => null);
+      if (oauthRes && oauthRes.ok) {
+        const oauthData = await oauthRes.json();
+        if (oauthData.url && oauthData.enabled) {
+          window.location.href = oauthData.url;
+          return;
+        }
+      }
+
+      // 2. If Google OAuth toggle is not enabled in Supabase yet, prompt for Gmail input
       const targetEmail = (customEmail || googleEmail).trim().toLowerCase();
       if (!targetEmail || !targetEmail.includes("@")) {
-        setAuthError("Masukkan alamat email Google / Gmail kamu.");
+        setAuthError("Masukkan alamat email Gmail kamu, atau aktifkan Google Provider di Supabase.");
         setIsAuthSubmitting(false);
         return;
       }
 
+      // 3. Direct Google Sign In with the user's REAL email (no password needed)
       const targetName = targetEmail.split("@")[0].replace(/[._-]/g, " ");
 
       const res = await fetch("/api/auth/google", {
@@ -2180,16 +2147,13 @@ export default function BrnsicMusicPage() {
 
       const data = await res.json();
       if (!res.ok || data.error) {
-        setAuthError(data.error || "Gagal masuk");
-        setIsAuthSubmitting(false);
+        setAuthError(data.error || "Gagal masuk dengan Google");
         return;
       }
 
       setCurrentUser(data.user);
-      try {
-        localStorage.setItem("brnsic_user_profile", JSON.stringify(data.user));
-      } catch (e) {}
       setIsAuthModalOpen(false);
+      setGoogleEmail("");
 
       if (data.token) {
         try {
@@ -2226,39 +2190,13 @@ export default function BrnsicMusicPage() {
         });
       } catch (e) {}
 
-      showToast(`Selamat datang, ${data.user.name || targetName}!`);
+      showToast(`Selamat datang, ${data.user.name}! Akun Google terhubung`);
 
-      if (!data.user.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
+      if (!data.user?.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
         setIsOnboardingModalOpen(true);
       }
-    } catch (e: any) {
-      setAuthError(e?.message || "Koneksi terputus saat login");
-    } finally {
-      setIsAuthSubmitting(false);
-    }
-  };
-
-  const handleGoogleSso = async () => {
-    setAuthError(null);
-    setIsAuthSubmitting(true);
-    try {
-      const isNative =
-        isInsideNativeApk ||
-        (typeof window !== "undefined" && Boolean((window as any).BrnsicNative)) ||
-        (typeof navigator !== "undefined" && navigator.userAgent.includes("BrnsicNative")) ||
-        (window as any).Capacitor?.getPlatform?.() === "android";
-
-      const oauthRes = await fetch(`/api/auth/google/oauth?platform=${isNative ? "native_apk" : "web"}`).catch(() => null);
-      if (oauthRes && oauthRes.ok) {
-        const oauthData = await oauthRes.json();
-        if (oauthData.url && oauthData.enabled) {
-          window.location.href = oauthData.url;
-          return;
-        }
-      }
-      setAuthError("Layanan Google SSO belum dikonfigurasi. Masukkan email Gmail di atas untuk masuk langsung.");
-    } catch (e) {
-      setAuthError("Gagal membuka Google SSO. Silakan ketik email di atas.");
+    } catch (err: any) {
+      setAuthError("Koneksi gagal. Coba beberapa saat lagi.");
     } finally {
       setIsAuthSubmitting(false);
     }
@@ -2271,7 +2209,6 @@ export default function BrnsicMusicPage() {
     } catch (e) {}
     try {
       localStorage.removeItem("brnsic_auth_token");
-      localStorage.removeItem("brnsic_user_profile");
     } catch (e) {}
     setCurrentUser(null);
     setIsProfileDropdownOpen(false);
@@ -2461,32 +2398,25 @@ export default function BrnsicMusicPage() {
     loadTrendingData();
   }, []);
 
-  // 5. Initialize YouTube Iframe API Lazily (Frees up 100% CPU on startup so UI renders instantly)
+  // 5. Initialize YouTube Iframe API Once on Root Player
   useEffect(() => {
-    let isDisposed = false;
-
-    const loadYTScript = () => {
-      if (isDisposed) return;
-      if (!window.YT) {
-        const tag = document.createElement("script");
-        tag.src = "https://www.youtube.com/iframe_api";
-        const firstScriptTag = document.getElementsByTagName("script")[0];
-        firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
-      }
-    };
-
-    // Defer loading 3MB YouTube player scripts until after initial UI is completely mounted
-    const ytTimer = setTimeout(loadYTScript, 1500);
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+    }
 
     const initPlayer = () => {
       if (window.YT && window.YT.Player && !ytPlayerRef.current) {
         const targetNode = document.getElementById("master-yt-player");
         if (!targetNode) {
-          setTimeout(initPlayer, 150);
+          setTimeout(initPlayer, 100);
           return;
         }
 
         ytPlayerRef.current = new window.YT.Player("master-yt-player", {
+          host: "https://www.youtube-nocookie.com",
           videoId: currentTrack.youtubeId || "kv2WIY8RLQQ",
           playerVars: {
             autoplay: 0, // Starts PAUSED! No sudden blast of sound!
@@ -2502,13 +2432,6 @@ export default function BrnsicMusicPage() {
           events: {
             onReady: (event: any) => {
               setIsLoadingSong(false);
-              try {
-                const iframeEl = document.getElementById("master-yt-player") as HTMLIFrameElement;
-                if (iframeEl) {
-                  iframeEl.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
-                  iframeEl.setAttribute("playsinline", "1");
-                }
-              } catch (e) {}
               try {
                 event.target.unMute();
                 event.target.setVolume(volume * 100);
@@ -2577,33 +2500,10 @@ export default function BrnsicMusicPage() {
                   }
                 } catch (e) {}
 
-                // If paused while document is hidden and user didn't intentionally pause (multitasking / screen lock guard on mobile & iOS)
-                if (document.hidden && isPlayingRef.current && !isUserExplicitlyPausedRef.current) {
-                  if (silentAudioRef.current) {
-                    silentAudioRef.current.volume = 0.01;
-                    silentAudioRef.current.play().catch(() => {});
-                  }
-                  setTimeout(() => {
-                    if (
-                      isPlayingRef.current &&
-                      !isUserExplicitlyPausedRef.current &&
-                      ytPlayerRef.current &&
-                      typeof ytPlayerRef.current.playVideo === "function"
-                    ) {
-                      try {
-                        ytPlayerRef.current.playVideo();
-                      } catch (e) {}
-                    }
-                  }, 120);
-                  return;
-                }
-
                 // CRITICAL SHIELD: If pause was NOT triggered by the user clicking pause
-                // (e.g. Chromium / OS paused video on screen lock or tab blur on Android):
+                // (e.g. Chromium / OS paused video on screen lock or tab blur):
                 if (!isUserExplicitlyPausedRef.current && isPlayingRef.current) {
-                  if (silentAudioRef.current && silentAudioRef.current.paused) {
-                    silentAudioRef.current.play().catch(() => {});
-                  }
+                  // Do NOT kill the background service! Immediately resume playback!
                   try {
                     ytPlayerRef.current?.playVideo?.();
                   } catch (e) {}
@@ -2625,8 +2525,6 @@ export default function BrnsicMusicPage() {
       }
     };
 
-    (window as any).initMasterPlayer = initPlayer;
-
     if (window.YT && window.YT.Player) {
       initPlayer();
     } else {
@@ -2634,50 +2532,47 @@ export default function BrnsicMusicPage() {
     }
 
     return () => {
-      isDisposed = true;
-      clearTimeout(ytTimer);
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
   }, []);
 
-  // 6. Precise Audio Time & Real Duration Polling (Intelligent Adaptive Interval)
+  // 6. Precise Audio Time & Real Duration Polling (Optimized 250ms, zero UI stutter)
   useEffect(() => {
-    // Only poll fast (150ms) if user is actively viewing lyrics or the expanded seekbar player!
-    // When browsing / scrolling the home screen, poll at 1000ms so scrolling never drops frames!
-    const isHighPrecisionNeeded = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics";
-    const pollInterval = isHighPrecisionNeeded ? 150 : 1000;
-
     const timer = setInterval(() => {
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
         try {
-          const state = ytPlayerRef.current.getPlayerState ? ytPlayerRef.current.getPlayerState() : -1;
-          if (state === 1 || state === 3) {
+          const state = ytPlayerRef.current.getPlayerState();
+          if (state === 1 || state === 2 || state === 3) {
             const exactSeconds = ytPlayerRef.current.getCurrentTime();
             if (typeof exactSeconds === "number" && !isNaN(exactSeconds)) {
-              currentTimeRef.current = exactSeconds;
-              // Only trigger React state re-render if user actually sees the time/seekbar!
-              // When browsing the home screen on mobile, time is updated in ref with ZERO re-render cost!
-              const isTimeVisible = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics" || (typeof window !== "undefined" && window.innerWidth >= 768);
-              if (isTimeVisible) {
-                setCurrentTime(exactSeconds);
-              }
+              setCurrentTime((prev) => {
+                if (Math.abs(exactSeconds - prev) >= 0.25) {
+                  return exactSeconds;
+                }
+                return prev;
+              });
             }
 
-            // Sync true live duration directly from active audio player ONCE per track
-            if (
-              lastSyncedDurationTrackRef.current !== currentTrack.title &&
-              typeof ytPlayerRef.current.getDuration === "function"
-            ) {
+            // Sync true live duration directly from active audio player
+            if (typeof ytPlayerRef.current.getDuration === "function") {
               const liveDur = ytPlayerRef.current.getDuration();
-              if (typeof liveDur === "number" && liveDur > 5) {
-                lastSyncedDurationTrackRef.current = currentTrack.title;
+              if (
+                typeof liveDur === "number" &&
+                liveDur > 5 &&
+                Math.abs(liveDur - (currentTrack.duration || 0)) > 1
+              ) {
                 const roundedDur = Math.round(liveDur);
-                if (Math.abs(roundedDur - (currentTrack.duration || 0)) > 1) {
-                  setCurrentTrack((prev) => ({
-                    ...prev,
-                    duration: roundedDur
-                  }));
-                }
+                setCurrentTrack((prev) => ({
+                  ...prev,
+                  duration: roundedDur
+                }));
+                // Real-time sync to playlists/charts so the list UI duration also updates immediately!
+                setIndonesiaTop50((prev) =>
+                  prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
+                );
+                setActiveQueue((prev) =>
+                  prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
+                );
               }
             }
 
@@ -2712,17 +2607,10 @@ export default function BrnsicMusicPage() {
           }
         } catch (e) {}
       }
-    }, pollInterval);
+    }, 250);
 
     return () => clearInterval(timer);
-  }, [currentTrack, isMobilePlayerOpen, isZoomed, mobileTab]);
-
-  // Instantly sync currentTime the moment fullscreen player or lyrics is opened
-  useEffect(() => {
-    if (isMobilePlayerOpen || isZoomed || mobileTab === "lyrics") {
-      setCurrentTime(currentTimeRef.current);
-    }
-  }, [isMobilePlayerOpen, isZoomed, mobileTab]);
+  }, [currentTrack]);
 
   // Keep isPlayingRef in sync
   useEffect(() => {
@@ -2751,21 +2639,8 @@ export default function BrnsicMusicPage() {
         ]
       });
 
-      navigator.mediaSession.setActionHandler("play", () => handleExplicitPlay());
-      navigator.mediaSession.setActionHandler("pause", () => {
-        // If the player is currently paused (e.g. background suspension by iOS Safari),
-        // tapping the button in Control Center or Lock Screen indicates user wants to RESUME playback!
-        if (ytPlayerRef.current) {
-          try {
-            const st = ytPlayerRef.current.getPlayerState ? ytPlayerRef.current.getPlayerState() : -1;
-            if (st === 2 && !isUserExplicitlyPausedRef.current) {
-              handleExplicitPlay();
-              return;
-            }
-          } catch (e) {}
-        }
-        handleExplicitPause();
-      });
+      navigator.mediaSession.setActionHandler("play", () => togglePlay());
+      navigator.mediaSession.setActionHandler("pause", () => togglePlay());
       navigator.mediaSession.setActionHandler("previoustrack", () => playPrevSong());
       navigator.mediaSession.setActionHandler("nexttrack", () => playNextSong(true));
       navigator.mediaSession.setActionHandler("seekto", (details) => {
@@ -2883,24 +2758,20 @@ export default function BrnsicMusicPage() {
       // 1. Android Native Service Audio Playback (real MediaPlayer in BackgroundAudioService)
       if (isNative) {
         try {
-          const rawCover = song.cover || optimisticTrack.cover || "";
-          const safeCover = rawCover.startsWith("http")
-            ? rawCover
-            : typeof window !== "undefined" && rawCover.startsWith("/")
-            ? `${window.location.origin}${rawCover}`
-            : rawCover;
-
+          if ((window as any).BrnsicNative?.isPermissionGranted && !(window as any).BrnsicNative.isPermissionGranted()) {
+            (window as any).BrnsicNative.requestPermissions();
+          }
           (window as any).BrnsicNative.playAudio(
             "",
             song.title || "Brnsic Music",
             song.artist || "Memutar di latar belakang",
             0,
-            safeCover
+            song.cover || optimisticTrack.cover || ""
           );
         } catch (e) {}
       }
 
-      // 2. Web Player Engine (Instant, rock-solid, zero 500 network errors)
+      // 2. Web Player / UI & Audio Sync
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
         try {
           ytPlayerRef.current.loadVideoById({
@@ -2910,22 +2781,14 @@ export default function BrnsicMusicPage() {
           ytPlayerRef.current.unMute();
           ytPlayerRef.current.setVolume(volume * 100);
           ytPlayerRef.current.playVideo();
-          setTimeout(() => setIsLoadingSong(false), 1200);
+          setTimeout(() => setIsLoadingSong(false), 1500);
         } catch (e) {
           console.error("Audio playback error", e);
           setIsLoadingSong(false);
         }
       } else {
         pendingVideoIdRef.current = vid;
-        if (!window.YT) {
-          const tag = document.createElement("script");
-          tag.src = "https://www.youtube.com/iframe_api";
-          const firstScriptTag = document.getElementsByTagName("script")[0];
-          firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
-        } else if (typeof (window as any).initMasterPlayer === "function") {
-          (window as any).initMasterPlayer();
-        }
-        setTimeout(() => setIsLoadingSong(false), 1200);
+        setTimeout(() => setIsLoadingSong(false), 1500);
       }
     };
 
@@ -3036,17 +2899,10 @@ export default function BrnsicMusicPage() {
     setRepeatMode("off");
     playAnySong(song, true);
 
-    // Immediately initialize activeQueue with the song + popular pool so shuffle works instantly without waiting for network!
-    const cleanSongTitle = (song.title || song.trackName || "").toLowerCase().trim();
-    const baseCandidates = (indonesiaTop50 && indonesiaTop50.length > 0 ? indonesiaTop50 : DEFAULT_CATALOG).filter(
-      (t) => (t.title || "").toLowerCase().trim() !== cleanSongTitle
-    );
-    const initialPool = [song, ...baseCandidates.slice(0, 24)];
-
-    activeQueueRef.current = initialPool;
+    // Initial queue starting with this song
+    activeQueueRef.current = [song];
     activeQueueIndexRef.current = 0;
-    originalQueueRef.current = [...initialPool];
-    setActiveQueue(initialPool);
+    setActiveQueue([song]);
     setActiveQueueIndex(0);
 
     try {
@@ -3489,62 +3345,50 @@ export default function BrnsicMusicPage() {
   const playSearchedSong = (song: any, index: number) => {
     hasUserStartedPlaybackRef.current = true;
     setHasUserStartedPlayback(true);
-    handlePlaySingleSongWithRadio(song);
-  };
-
-  const handleExplicitPlay = () => {
-    hasUserStartedPlaybackRef.current = true;
-    setHasUserStartedPlayback(true);
-    isUserExplicitlyPausedRef.current = false;
-    isPlayingRef.current = true;
-    setIsPlaying(true);
-    startBackgroundKeepalive();
-    if (typeof window !== "undefined" && "mediaSession" in navigator) {
-      try {
-        navigator.mediaSession.playbackState = "playing";
-      } catch (e) {}
-    }
-    if (typeof window !== "undefined" && (window as any).BrnsicNative?.resumeAudio) {
-      try {
-        (window as any).BrnsicNative.resumeAudio();
-      } catch (e) {}
-    }
-    if (ytPlayerRef.current) {
-      try {
-        ytPlayerRef.current.unMute();
-        ytPlayerRef.current.setVolume(volume * 100);
-        ytPlayerRef.current.playVideo();
-      } catch (e) {}
-    }
-  };
-
-  const handleExplicitPause = () => {
-    isUserExplicitlyPausedRef.current = true;
-    isPlayingRef.current = false;
-    setIsPlaying(false);
-    stopBackgroundKeepalive();
-    if (typeof window !== "undefined" && "mediaSession" in navigator) {
-      try {
-        navigator.mediaSession.playbackState = "paused";
-      } catch (e) {}
-    }
-    if (typeof window !== "undefined" && (window as any).BrnsicNative?.pauseAudio) {
-      try {
-        (window as any).BrnsicNative.pauseAudio();
-      } catch (e) {}
-    }
-    if (ytPlayerRef.current) {
-      try {
-        ytPlayerRef.current.pauseVideo();
-      } catch (e) {}
-    }
+    handlePlayFromList(song, searchResults, index);
   };
 
   const togglePlay = () => {
-    if (isPlaying) {
-      handleExplicitPause();
-    } else {
-      handleExplicitPlay();
+    hasUserStartedPlaybackRef.current = true;
+    setHasUserStartedPlayback(true);
+    if (!ytPlayerRef.current) {
+      setIsPlaying(!isPlaying);
+      isPlayingRef.current = !isPlaying;
+      return;
+    }
+    try {
+      if (isPlaying) {
+        isUserExplicitlyPausedRef.current = true;
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+        stopBackgroundKeepalive();
+        if (typeof window !== "undefined" && (window as any).BrnsicNative?.pauseAudio) {
+          try {
+            (window as any).BrnsicNative.pauseAudio();
+          } catch (e) {}
+        }
+        if (typeof ytPlayerRef.current.pauseVideo === "function") {
+          ytPlayerRef.current.pauseVideo();
+        }
+      } else {
+        isUserExplicitlyPausedRef.current = false;
+        isPlayingRef.current = true;
+        setIsPlaying(true);
+        startBackgroundKeepalive();
+        if (typeof window !== "undefined" && (window as any).BrnsicNative?.resumeAudio) {
+          try {
+            (window as any).BrnsicNative.resumeAudio();
+          } catch (e) {}
+        }
+        if (typeof ytPlayerRef.current.playVideo === "function") {
+          ytPlayerRef.current.unMute();
+          ytPlayerRef.current.setVolume(volume * 100);
+          ytPlayerRef.current.playVideo();
+        }
+      }
+    } catch (e) {
+      setIsPlaying(!isPlaying);
+      isPlayingRef.current = !isPlaying;
     }
   };
 
@@ -3586,7 +3430,10 @@ export default function BrnsicMusicPage() {
     const pct = clickX / rect.width;
     const totalDuration = getActiveDuration();
     const targetSeconds = Math.round(pct * totalDuration);
-    handleSeekSeconds(targetSeconds);
+    setCurrentTime(targetSeconds);
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+      ytPlayerRef.current.seekTo(targetSeconds, true);
+    }
   };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -3639,22 +3486,10 @@ export default function BrnsicMusicPage() {
 
   // Precise lyric index with calibrated vocal anticipation offset (perfect vocal sync, no delay)
   let activeLyricIdx = 0;
-  const vocalTime = currentTime + 0.05;
+  const vocalTime = currentTime + 0.30;
   currentTrack.lyrics.forEach((line, idx) => {
     if (vocalTime >= line.time) activeLyricIdx = idx;
   });
-
-  // Dynamic radiant white fill percentage following time (stops when paused)
-  const activeLineObj = currentTrack.lyrics[activeLyricIdx];
-  const nextLineObj = currentTrack.lyrics[activeLyricIdx + 1];
-  const activeLineStart = activeLineObj ? activeLineObj.time : 0;
-  const activeLineEnd = nextLineObj ? nextLineObj.time : (activeLineStart + 4.2);
-  const wordCount = (activeLineObj?.text || "").split(/\s+/).filter(Boolean).length;
-  // Natural phonetic singing speed: ~0.42s per word + 0.7s hold time, bounded so it never drags through interludes
-  const naturalDuration = Math.min(6.5, Math.max(1.5, wordCount * 0.42 + 0.7));
-  const activeLineDuration = Math.min(naturalDuration, Math.max(0.6, activeLineEnd - activeLineStart));
-  const activeLineElapsed = Math.max(0, currentTime - activeLineStart);
-  const activeLineFillPct = Math.min(100, Math.max(0, (activeLineElapsed / activeLineDuration) * 100));
 
   // Smoothly center active lyric line WITHOUT rapid 100ms jitter/glitching
   useEffect(() => {
@@ -3666,7 +3501,7 @@ export default function BrnsicMusicPage() {
       const elRect = el.getBoundingClientRect();
       const currentScroll = container.scrollTop;
       const targetTop =
-        currentScroll + (elRect.top - containerRect.top) - containerRect.height * 0.38 + elRect.height / 2;
+        currentScroll + (elRect.top - containerRect.top) - containerRect.height / 2 + elRect.height / 2;
       container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
     };
 
@@ -3699,11 +3534,11 @@ export default function BrnsicMusicPage() {
           className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center cursor-pointer select-none transition-opacity duration-700 animate-fadeIn"
         >
           <div className="relative flex flex-col items-center justify-center gap-6">
-            <div className="absolute w-64 h-64 bg-white/5 rounded-full pointer-events-none" />
+            <div className="absolute w-80 h-80 bg-white/[0.08] rounded-full blur-[100px] pointer-events-none" />
             <img
               src="/splash-logo.png"
               alt="Brnsic"
-              className="w-56 sm:w-72 object-contain relative z-10"
+              className="w-64 sm:w-80 object-contain relative z-10 drop-shadow-[0_0_40px_rgba(255,255,255,0.45)] transform hover:scale-105 transition"
             />
           </div>
         </div>
@@ -3720,22 +3555,14 @@ export default function BrnsicMusicPage() {
           position: "fixed",
           bottom: 0,
           right: 0,
-          width: 1,
-          height: 1,
-          opacity: 0.01,
+          width: 240,
+          height: 180,
+          opacity: 1,
           zIndex: -50,
-          pointerEvents: "none",
-          overflow: "hidden"
+          pointerEvents: "none"
         }}
       >
-        <div id="master-yt-player" style={{ width: 1, height: 1 }}></div>
-        <audio
-          ref={silentAudioRef}
-          src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"
-          loop
-          preload="none"
-          playsInline
-        />
+        <div id="master-yt-player" className="w-full h-full"></div>
       </div>
 
       {/* ====================================================================
@@ -3836,14 +3663,28 @@ export default function BrnsicMusicPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760]"></span>
             <span>Update: {lastChartUpdated}</span>
           </button>
+          {!isInsideNativeApk && (
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center gap-1.5 bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs px-3.5 py-2 rounded-full transition shadow-[0_0_15px_rgba(30,215,96,0.3)] hover:scale-105 active:scale-95 cursor-pointer"
+              title="Download APK Resmi Brnsic (Android)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Download APK</span>
+            </button>
+          )}
           <button
             onClick={() => setIsCreatePlaylistModalOpen(true)}
-            className="bg-white text-black font-bold text-xs px-4 py-2 rounded-full hover:scale-105 transition flex items-center gap-1.5 shadow cursor-pointer"
+            className="bg-white text-black font-bold text-xs px-4 py-2 rounded-full hover:scale-105 transition flex items-center gap-1.5 shadow"
           >
             <span>+ Buat Playlist</span>
           </button>
 
-          {/* Account Profile Button (Spotify Circular Initial Badge) */}
+          {/* Account Profile Button (Spotify Circular Initial Badge - Image 3) */}
           {currentUser ? (
             <div className="relative">
               <button
@@ -3859,36 +3700,20 @@ export default function BrnsicMusicPage() {
               </button>
 
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 top-12 w-52 bg-[#282828] rounded-xl p-1.5 border border-white/10 shadow-2xl z-50 flex flex-col text-left animate-fadeIn">
+                <div className="absolute right-0 top-12 w-48 bg-[#282828] rounded-md p-1 border border-white/10 shadow-2xl z-50 flex flex-col text-left animate-fadeIn">
                   <button
                     onClick={() => {
                       setIsProfileDropdownOpen(false);
                       setIsProfileModalOpen(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-white hover:bg-white/10 transition cursor-pointer"
+                    className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
-                    Profil Akun
+                    Profil
                   </button>
-                  {!isInsideNativeApk && (
-                    <button
-                      onClick={() => {
-                        setIsProfileDropdownOpen(false);
-                        handleInstallClick();
-                      }}
-                      className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-bold text-[#1ed760] hover:bg-white/10 transition flex items-center justify-between cursor-pointer"
-                    >
-                      <span>Download APK Android</span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                      </svg>
-                    </button>
-                  )}
                   <div className="h-[1px] bg-white/10 my-1"></div>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-red-400 hover:bg-white/10 transition cursor-pointer"
+                    className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
                     Keluar
                   </button>
@@ -4075,14 +3900,27 @@ export default function BrnsicMusicPage() {
         {/* --- CENTER MAIN CONTENT --- */}
         <main className="bg-black md:bg-[#121212] md:rounded-lg overflow-y-auto custom-scrollbar flex flex-col relative pb-32 md:pb-6 overflow-x-hidden">
           
-          {/* MOBILE HEADER (BRNSIC MOBILE BRANDING - 60-120fps optimized) */}
-          <div className="md:hidden flex flex-col gap-2.5 p-3.5 sticky top-0 z-30 bg-[#0a0a0e] border-b border-white/5">
+          {/* MOBILE HEADER (BRNSIC MOBILE BRANDING) */}
+          <div className="md:hidden flex flex-col gap-3 p-4 sticky top-0 z-30 bg-black/95 backdrop-blur-xl border-b border-white/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <img src="/app-icon.png" alt="Brnsic" className="w-8 h-8 rounded-lg object-contain shadow" />
                 <span className="font-black text-lg text-white">Brnsic</span>
               </div>
               <div className="flex items-center gap-2">
+                {!isInsideNativeApk && (
+                  <button
+                    onClick={handleInstallClick}
+                    className="text-[11px] font-black bg-[#1ed760] text-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(30,215,96,0.4)] hover:scale-105 active:scale-95 transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Download APK</span>
+                  </button>
+                )}
                 {currentUser ? (
                   <button
                     onClick={() => setIsProfileModalOpen(true)}
@@ -4928,6 +4766,49 @@ export default function BrnsicMusicPage() {
           {/* VIEW: HOME VIEW */}
           {currentView === "home" && (
             <div className="p-4 sm:p-6 flex flex-col gap-8">
+              
+              {/* NATIVE APK BACKGROUND PERMISSION BANNER */}
+              {showPermissionBanner && (
+                <div className="bg-[#181818] border border-[#1ed760]/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 flex items-center justify-center text-[#1ed760] flex-shrink-0 mt-0.5">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                      </svg>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-white font-bold text-xs tracking-wide">
+                        Aktifkan Izin Latar Belakang & Notifikasi
+                      </span>
+                      <span className="text-[#b3b3b3] text-[11px] leading-relaxed max-w-xl">
+                        Agar audio terus menyala saat layar HP terkunci atau membuka aplikasi lain, izinkan notifikasi pemutar dan kecualikan Brnsic dari penghemat baterai sistem.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
+                    <button
+                      onClick={() => {
+                        try {
+                          (window as any).BrnsicNative?.requestPermissions?.();
+                        } catch (e) {}
+                        setShowPermissionBanner(false);
+                      }}
+                      className="bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs px-4 py-2 rounded-full transition shadow hover:scale-105 active:scale-95 cursor-pointer"
+                    >
+                      Izinkan Sekarang
+                    </button>
+                    <button
+                      onClick={() => setShowPermissionBanner(false)}
+                      className="text-[#b3b3b3] hover:text-white text-xs px-2.5 py-2 transition cursor-pointer font-medium"
+                    >
+                      Nanti
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               {/* SMART RECOMMENDATION BANNER */}
               {relatedQueue.length > 0 && (
                 <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3 border border-white/10">
@@ -5054,31 +4935,54 @@ export default function BrnsicMusicPage() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-                  {homeMlRanked.map((t: any, i: number) => (
-                    <div
-                      key={t.id || `${t.title}-${i}`}
-                      onClick={() => handlePlayFromList(t, homeMlRanked, i)}
-                      className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10"
-                    >
-                      <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-3 shadow-md">
-                        <img
-                          src={t.cover}
-                          alt={t.title}
-                          loading="lazy"
-                          decoding="async"
-                          onError={handleImgError}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                        />
-                        <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition duration-300 flex items-center justify-center">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </button>
+                  {(() => {
+                    const rawPool = [
+                      ...DEFAULT_CATALOG,
+                      ...mostPlayedIndonesia,
+                      ...indonesiaTop50,
+                      ...viralIndonesia,
+                      ...relatedQueue
+                    ];
+                    const seenTitles = new Set<string>();
+                    const uniquePool: any[] = [];
+                    for (const s of rawPool) {
+                      const cleanTitle = ((s as any).title || (s as any).trackName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                      if (cleanTitle && !seenTitles.has(cleanTitle)) {
+                        seenTitles.add(cleanTitle);
+                        uniquePool.push(s);
+                      }
+                    }
+                    const mlRanked = rankTracksByDeepLearning(
+                      userTasteVector,
+                      uniquePool,
+                      recentHistoryRef.current,
+                      dislikedSongIds,
+                      24
+                    );
+                    return mlRanked.map((t: any, i) => (
+                      <div
+                        key={t.id || `${t.title}-${i}`}
+                        onClick={() => handlePlayFromList(t, mlRanked, i)}
+                        className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10"
+                      >
+                        <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-3 shadow-md">
+                          <img
+                            src={t.cover}
+                            alt={t.title}
+                            onError={handleImgError}
+                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          />
+                          <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition duration-300 flex items-center justify-center">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="font-bold text-sm text-white truncate">{t.title}</div>
+                        <div className="text-xs text-[#b3b3b3] truncate mt-1">{t.artist}</div>
                       </div>
-                      <div className="font-bold text-sm text-white truncate">{t.title}</div>
-                      <div className="text-xs text-[#b3b3b3] truncate mt-1">{t.artist}</div>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
               </section>
 
@@ -5115,12 +5019,10 @@ export default function BrnsicMusicPage() {
                         <img
                           src={t.cover}
                           alt={t.title}
-                          loading="lazy"
-                          decoding="async"
                           onError={handleImgError}
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
+                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur text-white text-[10px] font-black px-1.5 py-0.5 rounded">
                           #{i + 1}
                         </span>
                         <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black hidden sm:group-hover:flex items-center justify-center transition shadow-lg hover:scale-105">
@@ -5170,8 +5072,6 @@ export default function BrnsicMusicPage() {
                           <img
                             src={t.cover}
                             alt={t.title}
-                            loading="lazy"
-                            decoding="async"
                             onError={handleImgError}
                             className="w-full h-full object-cover"
                           />
@@ -5220,12 +5120,10 @@ export default function BrnsicMusicPage() {
                         <img
                           src={t.cover}
                           alt={t.title}
-                          loading="lazy"
-                          decoding="async"
                           onError={handleImgError}
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
+                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur text-white text-[10px] font-black px-1.5 py-0.5 rounded">
                           #{i + 1}
                         </span>
                         <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black hidden sm:group-hover:flex items-center justify-center transition shadow-lg hover:scale-105">
@@ -6016,12 +5914,8 @@ export default function BrnsicMusicPage() {
             {currentTrack.lyrics.slice(0, 4).map((l, idx) => (
               <div
                 key={idx}
-                className={`text-sm leading-snug transition-all duration-200 ${
-                  idx === activeLyricIdx
-                    ? "text-white font-black text-base drop-shadow-[0_0_12px_rgba(255,255,255,0.85)] scale-[1.02] origin-left"
-                    : idx < activeLyricIdx
-                    ? "text-white/60 font-semibold"
-                    : "text-white/35 font-medium"
+                className={`text-sm leading-snug ${
+                  idx === activeLyricIdx ? "text-white font-extrabold text-base" : "text-white/60"
                 }`}
               >
                 {l.text}
@@ -7017,16 +6911,10 @@ export default function BrnsicMusicPage() {
                   ref={mobileLyricsScrollRef}
                   onWheel={handleUserScroll}
                   onTouchMove={handleUserScroll}
-                  className="flex-1 overflow-y-auto no-scrollbar scroll-smooth flex flex-col gap-6 py-28 px-6 sm:px-8 text-left"
-                  style={{
-                    maskImage: "linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)",
-                    WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)"
-                  }}
+                  className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-6 py-12 px-4 text-center"
                 >
                   {currentTrack.lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIdx;
-                    const isPast = idx < activeLyricIdx;
-                    const dist = Math.abs(idx - activeLyricIdx);
                     return (
                       <div
                         key={idx}
@@ -7036,58 +6924,15 @@ export default function BrnsicMusicPage() {
                           if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
                             ytPlayerRef.current.seekTo(line.time, true);
                           }
-                          if (!isPlaying && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
-                            ytPlayerRef.current.playVideo();
-                            setIsPlaying(true);
-                            isPlayingRef.current = true;
-                          }
                           setUserIsScrollingLyrics(false);
                         }}
-                        className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
+                        className={`transition-colors duration-300 cursor-pointer select-none leading-relaxed text-xl sm:text-2xl font-bold ${
                           isActive
-                            ? "text-2xl sm:text-3xl font-black scale-[1.04] drop-shadow-[0_2px_14px_rgba(255,255,255,0.7)]"
-                            : dist === 1
-                            ? "text-xl sm:text-2xl font-bold hover:scale-[1.01]"
-                            : "text-xl sm:text-2xl font-semibold"
+                            ? "text-white font-black opacity-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.85)]"
+                            : "text-white/35 opacity-40 hover:opacity-75"
                         }`}
                       >
-                        {line.text === "•••" ? (
-                          <div className="flex items-center gap-2 py-1">
-                            <span
-                              className={`w-2.5 h-2.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_8px_white]" : "bg-white/30"}`}
-                              style={{ animationDelay: "0ms", animationPlayState: isPlaying ? "running" : "paused" }}
-                            ></span>
-                            <span
-                              className={`w-2.5 h-2.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_8px_white]" : "bg-white/30"}`}
-                              style={{ animationDelay: "180ms", animationPlayState: isPlaying ? "running" : "paused" }}
-                            ></span>
-                            <span
-                              className={`w-2.5 h-2.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_8px_white]" : "bg-white/30"}`}
-                              style={{ animationDelay: "360ms", animationPlayState: isPlaying ? "running" : "paused" }}
-                            ></span>
-                          </div>
-                        ) : isActive ? (
-                          <span
-                            className="inline transition-all duration-75 ease-linear"
-                            style={{
-                              backgroundImage: `linear-gradient(90deg, #ffffff 0%, #ffffff ${activeLineFillPct}%, rgba(255, 255, 255, 0.35) ${Math.min(100, activeLineFillPct + 4)}%, rgba(255, 255, 255, 0.35) 100%)`,
-                              WebkitBackgroundClip: "text",
-                              backgroundClip: "text",
-                              WebkitTextFillColor: "transparent",
-                              color: "transparent"
-                            }}
-                          >
-                            {line.text}
-                          </span>
-                        ) : isPast ? (
-                          <span className="text-white/70 font-bold transition-colors duration-200">
-                            {line.text}
-                          </span>
-                        ) : (
-                          <span className="text-white/30 font-medium hover:text-white/70 transition-colors duration-200">
-                            {line.text}
-                          </span>
-                        )}
+                        {line.text}
                       </div>
                     );
                   })}
@@ -7287,16 +7132,10 @@ export default function BrnsicMusicPage() {
                   ref={zoomedLyricsScrollRef}
                   onWheel={handleUserScroll}
                   onTouchMove={handleUserScroll}
-                  className="flex-1 overflow-y-auto no-scrollbar scroll-smooth flex flex-col gap-8 px-8 sm:px-12 py-28 text-left"
-                  style={{
-                    maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
-                    WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)"
-                  }}
+                  className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-8 px-8 py-16 text-left"
                 >
                   {currentTrack.lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIdx;
-                    const isPast = idx < activeLyricIdx;
-                    const dist = Math.abs(idx - activeLyricIdx);
                     return (
                       <div
                         key={idx}
@@ -7306,58 +7145,15 @@ export default function BrnsicMusicPage() {
                           if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
                             ytPlayerRef.current.seekTo(line.time, true);
                           }
-                          if (!isPlaying && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
-                            ytPlayerRef.current.playVideo();
-                            setIsPlaying(true);
-                            isPlayingRef.current = true;
-                          }
                           setUserIsScrollingLyrics(false);
                         }}
-                        className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
+                        className={`transition-colors duration-300 cursor-pointer select-none leading-relaxed text-2xl sm:text-4xl font-bold ${
                           isActive
-                            ? "text-3xl sm:text-5xl font-black scale-[1.04] drop-shadow-[0_4px_24px_rgba(255,255,255,0.75)]"
-                            : dist === 1
-                            ? "text-2xl sm:text-3xl font-bold hover:scale-[1.01]"
-                            : "text-2xl sm:text-3xl font-semibold"
+                            ? "text-white font-black opacity-100 drop-shadow-[0_0_30px_rgba(255,255,255,0.9)]"
+                            : "text-white/30 opacity-40 hover:opacity-75"
                         }`}
                       >
-                        {line.text === "•••" ? (
-                          <div className="flex items-center gap-2.5 py-2">
-                            <span
-                              className={`w-3.5 h-3.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_10px_white]" : "bg-white/30"}`}
-                              style={{ animationDelay: "0ms", animationPlayState: isPlaying ? "running" : "paused" }}
-                            ></span>
-                            <span
-                              className={`w-3.5 h-3.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_10px_white]" : "bg-white/30"}`}
-                              style={{ animationDelay: "180ms", animationPlayState: isPlaying ? "running" : "paused" }}
-                            ></span>
-                            <span
-                              className={`w-3.5 h-3.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_10px_white]" : "bg-white/30"}`}
-                              style={{ animationDelay: "360ms", animationPlayState: isPlaying ? "running" : "paused" }}
-                            ></span>
-                          </div>
-                        ) : isActive ? (
-                          <span
-                            className="inline transition-all duration-75 ease-linear"
-                            style={{
-                              backgroundImage: `linear-gradient(90deg, #ffffff 0%, #ffffff ${activeLineFillPct}%, rgba(255, 255, 255, 0.35) ${Math.min(100, activeLineFillPct + 4)}%, rgba(255, 255, 255, 0.35) 100%)`,
-                              WebkitBackgroundClip: "text",
-                              backgroundClip: "text",
-                              WebkitTextFillColor: "transparent",
-                              color: "transparent"
-                            }}
-                          >
-                            {line.text}
-                          </span>
-                        ) : isPast ? (
-                          <span className="text-white/70 font-bold transition-colors duration-200">
-                            {line.text}
-                          </span>
-                        ) : (
-                          <span className="text-white/30 font-medium hover:text-white/70 transition-colors duration-200">
-                            {line.text}
-                          </span>
-                        )}
+                        {line.text}
                       </div>
                     );
                   })}
@@ -7687,54 +7483,23 @@ export default function BrnsicMusicPage() {
               </div>
             )}
 
-            {/* Direct Google/Gmail Email Login Form (Rock-Solid & Instant) */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleGoogleSignIn(googleEmail);
-              }}
-              className="flex flex-col gap-3 my-1 text-left"
-            >
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-bold text-white/80">Masukkan Email Google / Gmail</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="nama.kamu@gmail.com"
-                  value={googleEmail}
-                  onChange={(e) => setGoogleEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-white text-xs placeholder-white/30 focus:border-[#1ed760] focus:bg-white/10 outline-none transition"
-                />
-              </div>
-
+            {/* Official Google Cloud 1-Click SSO Action */}
+            <div className="flex flex-col gap-3 my-2">
               <button
-                type="submit"
+                type="button"
+                onClick={() => handleGoogleSignIn()}
                 disabled={isAuthSubmitting}
-                className="w-full py-3.5 px-6 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-extrabold text-sm flex items-center justify-center gap-2 transition shadow-[0_0_20px_rgba(30,215,96,0.3)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                className="w-full py-4 px-6 rounded-full bg-white hover:bg-neutral-100 text-neutral-900 font-black text-sm flex items-center justify-center gap-3 transition shadow-[0_0_25px_rgba(255,255,255,0.25)] hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
               >
-                <span>{isAuthSubmitting ? "Menghubungkan Akun..." : "Masuk dengan Email"}</span>
+                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span>{isAuthSubmitting ? "Membuka Akun Google..." : "Lanjutkan dengan Google"}</span>
               </button>
-            </form>
-
-            <div className="relative flex items-center justify-center my-1">
-              <div className="border-t border-white/10 w-full"></div>
-              <span className="bg-[#16161c] px-3 text-[10px] uppercase font-bold text-white/40 tracking-wider absolute">atau</span>
             </div>
-
-            <button
-              type="button"
-              onClick={() => handleGoogleSso()}
-              disabled={isAuthSubmitting}
-              className="w-full py-3 px-6 rounded-full bg-white hover:bg-neutral-100 text-neutral-900 font-bold text-xs flex items-center justify-center gap-2.5 transition shadow hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-            >
-              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-              </svg>
-              <span>Lanjutkan dengan Akun Google</span>
-            </button>
           </div>
         </div>
       )}

@@ -9,16 +9,12 @@ export async function GET(req: NextRequest) {
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
     ""
   ).trim();
-  const GOOGLE_CLIENT_SECRET = (
-    process.env.GOOGLE_CLIENT_SECRET ||
-    ""
-  ).trim();
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
 
   const platform = req.nextUrl.searchParams.get("platform") || "web";
 
-  // 1. Direct Official Google Cloud OAuth Account Chooser (requires both Client ID AND Client Secret)
-  if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+  // 1. Direct Official Google Cloud OAuth Account Chooser
+  if (GOOGLE_CLIENT_ID) {
     const callbackUrl = `${origin}/api/auth/google/callback`;
     const stateParam = platform === "native_apk" ? "&state=native_apk" : "";
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(

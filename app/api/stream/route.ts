@@ -1,31 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Ytdl } from "@distube/ytdl-core";
+import { Ytdl, Client } from "@distube/ytdl-core";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
 
 let ytdlInstance: Ytdl | null = null;
 function getYtdl(): Ytdl {
   if (!ytdlInstance) {
-    ytdlInstance = new Ytdl();
+    ytdlInstance = new Ytdl({
+      clients: [Client.VisionOS]
+    });
   }
   return ytdlInstance;
 }
 
 // Memory cache to avoid re-extracting the same video within 3 hours
-const streamCache = new Map<string, { url: string; mimeType: string; expires: number }>();
-
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-      "Access-Control-Allow-Headers": "Range, Content-Type, Accept",
-      "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges"
-    }
-  });
-}
+const streamCache = new Map<string, { url: string; expires: number }>();
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -36,83 +25,56 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing or invalid videoId" }, { status: 400 });
   }
 
-  try {
-    let chosenUrl = "";
-    let chosenMime = "audio/mp4";
-
-    // 1. Check in-memory cache
-    const cached = streamCache.get(videoId);
-    if (cached && cached.expires > Date.now()) {
-      chosenUrl = cached.url;
-      chosenMime = cached.mimeType || "audio/mp4";
-    } else {
-      const ytdl = getYtdl();
-      const info = await ytdl.getInfo(`https://www.youtube.com/watch?v=${videoId}`);
-
-      // Filter audio formats, prefer audio/mp4 (m4a) for universal Apple iOS & Android compatibility
-      const audioFormats = (info.formats || []).filter(
-        (f: any) => f.hasAudio && !f.hasVideo && f.url
-      );
-
-      let chosen = audioFormats.find((f: any) => (f.mimeType || "").includes("mp4"));
-      if (!chosen && audioFormats.length > 0) {
-        chosen = audioFormats[0];
-      }
-
-      if (!chosen) {
-        const anyAudio = (info.formats || []).filter((f: any) => f.hasAudio && f.url);
-        chosen = anyAudio[0];
-      }
-
-      if (!chosen || !chosen.url) {
-        return NextResponse.json(
-          { error: "No streamable audio found for this track" },
-          { status: 404 }
-        );
-      }
-
-      chosenUrl = chosen.url;
-      chosenMime = chosen.mimeType || "audio/mp4";
-      streamCache.set(videoId, {
-        url: chosenUrl,
-        mimeType: chosenMime,
-        expires: Date.now() + 3 * 3600 * 1000
-      });
+  // 1. Check in-memory cache
+  const cached = streamCache.get(videoId);
+  if (cached && cached.expires > Date.now()) {
+    if (format === "json") {
+      return NextResponse.json({ streamUrl: cached.url, cached: true });
     }
+    return NextResponse.redirect(cached.url, 302);
+  }
+
+  try {
+    const ytdl = getYtdl();
+    const info = await ytdl.getInfo(`https://www.youtube.com/watch?v=${videoId}`);
+
+    // Filter audio formats, prefer audio/mp4 (m4a) for universal Android MediaPlayer compatibility
+    const audioFormats = (info.formats || []).filter(
+      (f: any) => f.hasAudio && !f.hasVideo && f.url
+    );
+
+    let chosen = audioFormats.find((f: any) => (f.mimeType || "").includes("mp4"));
+    if (!chosen && audioFormats.length > 0) {
+      chosen = audioFormats[0];
+    }
+
+    // Fallback: any format with audio
+    if (!chosen) {
+      const anyAudio = (info.formats || []).filter((f: any) => f.hasAudio && f.url);
+      chosen = anyAudio[0];
+    }
+
+    if (!chosen || !chosen.url) {
+      return NextResponse.json(
+        { error: "No streamable audio found for this track" },
+        { status: 404 }
+      );
+    }
+
+    const streamUrl = chosen.url;
+    // Cache for 3 hours (YouTube CDN URLs typically expire after 6 hours)
+    streamCache.set(videoId, { url: streamUrl, expires: Date.now() + 3 * 3600 * 1000 });
 
     if (format === "json") {
       return NextResponse.json({
-        streamUrl: chosenUrl,
-        mimeType: chosenMime
+        streamUrl,
+        mimeType: chosen.mimeType,
+        bitrate: chosen.bitrate,
+        title: info.videoDetails?.title
       });
     }
 
-    // 2. Stream Audio with HTTP 206 Range support for seamless iPhone & mobile background play
-    const rangeHeader = req.headers.get("range") || "bytes=0-";
-    const upstreamRes = await fetch(chosenUrl, {
-      headers: {
-        Range: rangeHeader,
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15"
-      }
-    });
-
-    const responseHeaders = new Headers();
-    responseHeaders.set("Content-Type", chosenMime);
-    responseHeaders.set("Accept-Ranges", "bytes");
-    responseHeaders.set("Access-Control-Allow-Origin", "*");
-    responseHeaders.set("Cache-Control", "public, max-age=10800, s-maxage=10800");
-
-    if (upstreamRes.headers.get("content-range")) {
-      responseHeaders.set("Content-Range", upstreamRes.headers.get("content-range")!);
-    }
-    if (upstreamRes.headers.get("content-length")) {
-      responseHeaders.set("Content-Length", upstreamRes.headers.get("content-length")!);
-    }
-
-    return new Response(upstreamRes.body, {
-      status: upstreamRes.status,
-      headers: responseHeaders
-    });
+    return NextResponse.redirect(streamUrl, 302);
   } catch (err: any) {
     console.error("Stream extraction error:", err);
     return NextResponse.json(
