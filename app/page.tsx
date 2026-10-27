@@ -988,7 +988,11 @@ const normalizeSong = (raw: any): Track => {
   const youtubeId = raw.youtubeId || getVerifiedVideoId(title, artist);
   const plays = raw.plays;
   const collectionId = raw.collectionId;
-  const lyrics = Array.isArray(raw.lyrics) && raw.lyrics.length > 0 ? raw.lyrics : [];
+  const lyrics = Array.isArray(raw.lyrics) && raw.lyrics.length > 0 ? raw.lyrics : [
+    { time: 0, text: title },
+    { time: 4, text: artist },
+    { time: 8, text: "Menyiapkan lirik sinkron dan streaming audio..." }
+  ];
 
   return {
     id,
@@ -2561,21 +2565,16 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
-  // 6. Precise Audio Time & Real Duration Polling (Optimized 250ms, zero UI stutter)
+  // 6. Precise Audio Time & Real Duration Polling (Smooth 50ms fluid karaoke & zero latency)
   useEffect(() => {
     const timer = setInterval(() => {
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
         try {
           const state = ytPlayerRef.current.getPlayerState();
-          if (state === 1 || state === 2 || state === 3) {
+          if (state === 1 || state === 3) {
             const exactSeconds = ytPlayerRef.current.getCurrentTime();
             if (typeof exactSeconds === "number" && !isNaN(exactSeconds)) {
-              setCurrentTime((prev) => {
-                if (Math.abs(exactSeconds - prev) >= 0.25) {
-                  return exactSeconds;
-                }
-                return prev;
-              });
+              setCurrentTime(exactSeconds);
             }
 
             // Sync true live duration directly from active audio player
@@ -2632,7 +2631,7 @@ export default function BrnsicMusicPage() {
           }
         } catch (e) {}
       }
-    }, 250);
+    }, 50);
 
     return () => clearInterval(timer);
   }, [currentTrack]);
@@ -3511,10 +3510,19 @@ export default function BrnsicMusicPage() {
 
   // Precise lyric index with calibrated vocal anticipation offset (perfect vocal sync, no delay)
   let activeLyricIdx = 0;
-  const vocalTime = currentTime + 0.30;
+  const vocalTime = currentTime + 0.05;
   currentTrack.lyrics.forEach((line, idx) => {
     if (vocalTime >= line.time) activeLyricIdx = idx;
   });
+
+  // Dynamic radiant white fill percentage following time (stops when paused)
+  const activeLineObj = currentTrack.lyrics[activeLyricIdx];
+  const nextLineObj = currentTrack.lyrics[activeLyricIdx + 1];
+  const activeLineStart = activeLineObj ? activeLineObj.time : 0;
+  const activeLineEnd = nextLineObj ? nextLineObj.time : (activeLineStart + 4.2);
+  const activeLineDuration = Math.max(0.6, activeLineEnd - activeLineStart);
+  const activeLineElapsed = Math.max(0, currentTime - activeLineStart);
+  const activeLineFillPct = Math.min(100, Math.max(0, (activeLineElapsed / activeLineDuration) * 100));
 
   // Smoothly center active lyric line WITHOUT rapid 100ms jitter/glitching
   useEffect(() => {
@@ -5928,8 +5936,12 @@ export default function BrnsicMusicPage() {
             {currentTrack.lyrics.slice(0, 4).map((l, idx) => (
               <div
                 key={idx}
-                className={`text-sm leading-snug ${
-                  idx === activeLyricIdx ? "text-white font-extrabold text-base" : "text-white/60"
+                className={`text-sm leading-snug transition-all duration-200 ${
+                  idx === activeLyricIdx
+                    ? "text-white font-black text-base drop-shadow-[0_0_12px_rgba(255,255,255,0.85)] scale-[1.02] origin-left"
+                    : idx < activeLyricIdx
+                    ? "text-white/60 font-semibold"
+                    : "text-white/35 font-medium"
                 }`}
               >
                 {l.text}
@@ -6921,59 +6933,84 @@ export default function BrnsicMusicPage() {
                   </button>
                 </div>
 
-                {currentTrack.lyrics && currentTrack.lyrics.length > 0 ? (
-                  <div
-                    ref={mobileLyricsScrollRef}
-                    onWheel={handleUserScroll}
-                    onTouchMove={handleUserScroll}
-                    className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-6 py-24 px-6 sm:px-8 text-left"
-                    style={{
-                      maskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)",
-                      WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)"
-                    }}
-                  >
-                    {currentTrack.lyrics.map((line, idx) => {
-                      const isActive = idx === activeLyricIdx;
-                      const dist = Math.abs(idx - activeLyricIdx);
-                      return (
-                        <div
-                          key={idx}
-                          ref={isActive ? mobileActiveLyricRef : null}
-                          onClick={() => {
-                            setCurrentTime(line.time);
-                            if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
-                              ytPlayerRef.current.seekTo(line.time, true);
-                            }
-                            setUserIsScrollingLyrics(false);
-                          }}
-                          className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
-                            isActive
-                              ? "text-2xl sm:text-3xl font-black text-white scale-[1.04] drop-shadow-[0_2px_24px_rgba(255,255,255,0.85)] opacity-100"
-                              : dist === 1
-                              ? "text-xl sm:text-2xl font-bold text-white/50 hover:text-white/80"
-                              : "text-xl sm:text-2xl font-semibold text-white/25 hover:text-white/60"
-                          }`}
-                        >
-                          {line.text}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto animate-fadeIn">
-                    <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4 text-white/40 shadow-inner">
-                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M9 18V5l12-2v13" />
-                        <circle cx="6" cy="18" r="3" />
-                        <circle cx="18" cy="16" r="3" />
-                      </svg>
-                    </div>
-                    <h3 className="text-base font-bold text-white mb-1 tracking-tight">Lirik Belum Tersedia</h3>
-                    <p className="text-xs text-[#b3b3b3] max-w-xs leading-relaxed">
-                      Lirik tersinkronisasi untuk lagu ini sedang disiapkan. Nikmati alunan audionya!
-                    </p>
-                  </div>
-                )}
+                <div
+                  ref={mobileLyricsScrollRef}
+                  onWheel={handleUserScroll}
+                  onTouchMove={handleUserScroll}
+                  className="flex-1 overflow-y-auto no-scrollbar scroll-smooth flex flex-col gap-6 py-28 px-6 sm:px-8 text-left"
+                  style={{
+                    maskImage: "linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)",
+                    WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)"
+                  }}
+                >
+                  {currentTrack.lyrics.map((line, idx) => {
+                    const isActive = idx === activeLyricIdx;
+                    const isPast = idx < activeLyricIdx;
+                    const dist = Math.abs(idx - activeLyricIdx);
+                    return (
+                      <div
+                        key={idx}
+                        ref={isActive ? mobileActiveLyricRef : null}
+                        onClick={() => {
+                          setCurrentTime(line.time);
+                          if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+                            ytPlayerRef.current.seekTo(line.time, true);
+                          }
+                          if (!isPlaying && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
+                            ytPlayerRef.current.playVideo();
+                            setIsPlaying(true);
+                            isPlayingRef.current = true;
+                          }
+                          setUserIsScrollingLyrics(false);
+                        }}
+                        className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
+                          isActive
+                            ? "text-2xl sm:text-3xl font-black scale-[1.04]"
+                            : dist === 1
+                            ? "text-xl sm:text-2xl font-bold hover:scale-[1.01]"
+                            : "text-xl sm:text-2xl font-semibold"
+                        }`}
+                      >
+                        {line.text === "•••" ? (
+                          <div className="flex items-center gap-2 py-1">
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_8px_white]" : "bg-white/30"}`}
+                              style={{ animationDelay: "0ms", animationPlayState: isPlaying ? "running" : "paused" }}
+                            ></span>
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_8px_white]" : "bg-white/30"}`}
+                              style={{ animationDelay: "180ms", animationPlayState: isPlaying ? "running" : "paused" }}
+                            ></span>
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_8px_white]" : "bg-white/30"}`}
+                              style={{ animationDelay: "360ms", animationPlayState: isPlaying ? "running" : "paused" }}
+                            ></span>
+                          </div>
+                        ) : isActive ? (
+                          <span
+                            className="inline-block transition-[background] duration-100 ease-linear origin-left"
+                            style={{
+                              background: `linear-gradient(90deg, #ffffff 0%, #ffffff ${activeLineFillPct}%, rgba(255, 255, 255, 0.35) ${Math.min(100, activeLineFillPct + 3)}%, rgba(255, 255, 255, 0.30) 100%)`,
+                              WebkitBackgroundClip: "text",
+                              WebkitTextFillColor: "transparent",
+                              filter: `drop-shadow(0 0 16px rgba(255, 255, 255, ${0.45 + (activeLineFillPct / 100) * 0.45})) drop-shadow(0 0 32px rgba(255, 255, 255, 0.25))`
+                            }}
+                          >
+                            {line.text}
+                          </span>
+                        ) : isPast ? (
+                          <span className="text-white/70 font-bold transition-colors duration-200">
+                            {line.text}
+                          </span>
+                        ) : (
+                          <span className="text-white/30 font-medium hover:text-white/70 transition-colors duration-200">
+                            {line.text}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
 
                 <div className="liquid-glass-pill rounded-full py-2 px-6 flex items-center justify-around mt-2 max-w-xs mx-auto w-full">
                   <button onClick={playPrevSong} className="text-white hover:scale-110">
@@ -7165,59 +7202,84 @@ export default function BrnsicMusicPage() {
                   zoomMode === "lyrics-only" ? "md:col-span-12 max-w-3xl mx-auto" : "md:col-span-7"
                 } flex flex-col h-full relative overflow-hidden`}
               >
-                {currentTrack.lyrics && currentTrack.lyrics.length > 0 ? (
-                  <div
-                    ref={zoomedLyricsScrollRef}
-                    onWheel={handleUserScroll}
-                    onTouchMove={handleUserScroll}
-                    className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-8 px-8 sm:px-12 py-24 text-left"
-                    style={{
-                      maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
-                      WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)"
-                    }}
-                  >
-                    {currentTrack.lyrics.map((line, idx) => {
-                      const isActive = idx === activeLyricIdx;
-                      const dist = Math.abs(idx - activeLyricIdx);
-                      return (
-                        <div
-                          key={idx}
-                          ref={isActive ? zoomedActiveLyricRef : null}
-                          onClick={() => {
-                            setCurrentTime(line.time);
-                            if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
-                              ytPlayerRef.current.seekTo(line.time, true);
-                            }
-                            setUserIsScrollingLyrics(false);
-                          }}
-                          className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
-                            isActive
-                              ? "text-3xl sm:text-5xl font-black text-white scale-[1.03] drop-shadow-[0_4px_30px_rgba(255,255,255,0.85)] opacity-100"
-                              : dist === 1
-                              ? "text-2xl sm:text-3xl font-bold text-white/50 hover:text-white/80"
-                              : "text-2xl sm:text-3xl font-semibold text-white/25 hover:text-white/60"
-                          }`}
-                        >
-                          {line.text}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-center my-auto animate-fadeIn">
-                    <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4 text-white/40 shadow-inner">
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M9 18V5l12-2v13" />
-                        <circle cx="6" cy="18" r="3" />
-                        <circle cx="18" cy="16" r="3" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-2 tracking-tight">Lirik Belum Tersedia</h3>
-                    <p className="text-sm text-[#b3b3b3] max-w-sm leading-relaxed">
-                      Lirik tersinkronisasi untuk lagu ini sedang disiapkan. Nikmati alunan audionya!
-                    </p>
-                  </div>
-                )}
+                <div
+                  ref={zoomedLyricsScrollRef}
+                  onWheel={handleUserScroll}
+                  onTouchMove={handleUserScroll}
+                  className="flex-1 overflow-y-auto no-scrollbar scroll-smooth flex flex-col gap-8 px-8 sm:px-12 py-28 text-left"
+                  style={{
+                    maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
+                    WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)"
+                  }}
+                >
+                  {currentTrack.lyrics.map((line, idx) => {
+                    const isActive = idx === activeLyricIdx;
+                    const isPast = idx < activeLyricIdx;
+                    const dist = Math.abs(idx - activeLyricIdx);
+                    return (
+                      <div
+                        key={idx}
+                        ref={isActive ? zoomedActiveLyricRef : null}
+                        onClick={() => {
+                          setCurrentTime(line.time);
+                          if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+                            ytPlayerRef.current.seekTo(line.time, true);
+                          }
+                          if (!isPlaying && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
+                            ytPlayerRef.current.playVideo();
+                            setIsPlaying(true);
+                            isPlayingRef.current = true;
+                          }
+                          setUserIsScrollingLyrics(false);
+                        }}
+                        className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
+                          isActive
+                            ? "text-3xl sm:text-5xl font-black scale-[1.04]"
+                            : dist === 1
+                            ? "text-2xl sm:text-3xl font-bold hover:scale-[1.01]"
+                            : "text-2xl sm:text-3xl font-semibold"
+                        }`}
+                      >
+                        {line.text === "•••" ? (
+                          <div className="flex items-center gap-2.5 py-2">
+                            <span
+                              className={`w-3.5 h-3.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_10px_white]" : "bg-white/30"}`}
+                              style={{ animationDelay: "0ms", animationPlayState: isPlaying ? "running" : "paused" }}
+                            ></span>
+                            <span
+                              className={`w-3.5 h-3.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_10px_white]" : "bg-white/30"}`}
+                              style={{ animationDelay: "180ms", animationPlayState: isPlaying ? "running" : "paused" }}
+                            ></span>
+                            <span
+                              className={`w-3.5 h-3.5 rounded-full ${isActive ? "bg-white animate-bounce drop-shadow-[0_0_10px_white]" : "bg-white/30"}`}
+                              style={{ animationDelay: "360ms", animationPlayState: isPlaying ? "running" : "paused" }}
+                            ></span>
+                          </div>
+                        ) : isActive ? (
+                          <span
+                            className="inline-block transition-[background] duration-100 ease-linear origin-left"
+                            style={{
+                              background: `linear-gradient(90deg, #ffffff 0%, #ffffff ${activeLineFillPct}%, rgba(255, 255, 255, 0.35) ${Math.min(100, activeLineFillPct + 3)}%, rgba(255, 255, 255, 0.30) 100%)`,
+                              WebkitBackgroundClip: "text",
+                              WebkitTextFillColor: "transparent",
+                              filter: `drop-shadow(0 0 20px rgba(255, 255, 255, ${0.5 + (activeLineFillPct / 100) * 0.45})) drop-shadow(0 0 40px rgba(255, 255, 255, 0.3))`
+                            }}
+                          >
+                            {line.text}
+                          </span>
+                        ) : isPast ? (
+                          <span className="text-white/70 font-bold transition-colors duration-200">
+                            {line.text}
+                          </span>
+                        ) : (
+                          <span className="text-white/30 font-medium hover:text-white/70 transition-colors duration-200">
+                            {line.text}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
