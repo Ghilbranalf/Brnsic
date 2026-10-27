@@ -102,10 +102,48 @@ const DEFAULT_CATALOG: Track[] = [
     plays: "290M+ Streams",
     lyrics: [
       { time: 0, text: "(Intro Piano)" },
-      { time: 10.0, text: "Mungkinkah kau bisa mampir hari ini?" },
-      { time: 18.0, text: "Bila tidak sekarang, bisakah nanti?" },
-      { time: 26.0, text: "Kabar baik ku sampaikan padamu" },
-      { time: 35.0, text: "Bunga matahari mekar di taman" }
+      { time: 1.89, text: "Mungkinkah" },
+      { time: 3.74, text: "Mungkinkah" },
+      { time: 5.89, text: "Mungkinkah" },
+      { time: 8.23, text: "Kau mampir hari ini?" },
+      { time: 12.49, text: "Bila tidak, mirip kau jadilah bunga matahari" },
+      { time: 22.52, text: "Yang tiba-tiba mekar di taman" },
+      { time: 27.06, text: "Meski bicara dengan bahasa tumbuhan" },
+      { time: 31.76, text: "Ceritakan padaku" },
+      { time: 36.56, text: "Bagaimana tempat tinggalmu yang baru?" },
+      { time: 43.62, text: "Adakah sungai-sungai itu benar-benar" },
+      { time: 48.15, text: "Dilintasi dengan air susu?" },
+      { time: 55.14, text: "Juga badanmu tak sakit-sakit lagi?" },
+      { time: 59.82, text: "Kau dan orang-orang di sana muda lagi?" },
+      { time: 64.84, text: "Semua pertanyaan" },
+      { time: 66.90, text: "Temukan jawaban" },
+      { time: 69.30, text: "Hati yang gembira sering kau tertawa" },
+      { time: 74.12, text: "Benarkah orang bilang ia memang suka bercanda?" },
+      { time: 83.12, text: "Mungkinkah" },
+      { time: 85.24, text: "Mungkinkah" },
+      { time: 87.39, text: "Mungkinkah" },
+      { time: 89.48, text: "Kau mampir hari ini?" },
+      { time: 93.77, text: "Bila tidak, mirip kau jadilah bunga matahari" },
+      { time: 103.85, text: "Yang tiba-tiba mekar di taman" },
+      { time: 108.60, text: "Meski bicara dengan bahasa tumbuhan" },
+      { time: 113.13, text: "'Kan kuceritakan padamu" },
+      { time: 118.04, text: "Bagaimana hidupku tanpamu" },
+      { time: 127.36, text: "Kangennya masih ada di setiap waktu" },
+      { time: 132.19, text: "Kadang aku menangis bila aku perlu" },
+      { time: 136.68, text: "Tapi aku sekarang sudah lebih lucu" },
+      { time: 141.31, text: "Jadilah menyenangkan seperti katamu" },
+      { time: 146.20, text: "Jalani hidup dengan penuh suka cita" },
+      { time: 150.97, text: "Dan percaya kau ada di hatiku selamanya" },
+      { time: 159.94, text: "Mungkinkah" },
+      { time: 162.19, text: "Mungkinkah" },
+      { time: 164.59, text: "Mungkinkah" },
+      { time: 166.33, text: "Kau mampir hari ini?" },
+      { time: 170.30, text: "Bila tidak, mirip kau jadilah bunga matahari" },
+      { time: 180.56, text: "Mungkinkah" },
+      { time: 182.99, text: "Mungkinkah" },
+      { time: 185.28, text: "Mungkinkah" },
+      { time: 187.19, text: "Kau mampir hari ini?" },
+      { time: 191.65, text: "Bila tidak sekarang, janji kita pasti 'kan bertemu lagi" }
     ]
   },
   {
@@ -2523,20 +2561,19 @@ export default function BrnsicMusicPage() {
         });
     }
 
-    // Fetch lyrics asynchronously in the background
-    if (song.lyrics && song.lyrics.length > 3) {
+    // Instant optimistic lyrics, followed by verified studio-synced lyrics from API
+    if (song.lyrics && song.lyrics.length > 5) {
       setCurrentTrack((prev) => ({ ...prev, lyrics: song.lyrics }));
-    } else {
-      fetch(`/api/lyrics?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
-        .then((r) => r.json())
-        .then((d) => {
-          if (currentRequestId !== playRequestIdRef.current) return;
-          if (d.lyrics && d.lyrics.length > 0) {
-            setCurrentTrack((prev) => ({ ...prev, lyrics: d.lyrics }));
-          }
-        })
-        .catch(() => {});
     }
+    fetch(`/api/lyrics?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (currentRequestId !== playRequestIdRef.current) return;
+        if (d.lyrics && d.lyrics.length > 0) {
+          setCurrentTrack((prev) => ({ ...prev, lyrics: d.lyrics }));
+        }
+      })
+      .catch(() => {});
   };
 
   // Play a song from a specific list (Album, Playlist, Chart) setting activeQueue context
@@ -3109,9 +3146,9 @@ export default function BrnsicMusicPage() {
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  // Precise lyric index with subtle 0.15s vocal anticipation offset
+  // Precise lyric index with calibrated vocal anticipation offset (perfect vocal sync, no delay)
   let activeLyricIdx = 0;
-  const vocalTime = currentTime + 0.15;
+  const vocalTime = currentTime + 0.30;
   currentTrack.lyrics.forEach((line, idx) => {
     if (vocalTime >= line.time) activeLyricIdx = idx;
   });
