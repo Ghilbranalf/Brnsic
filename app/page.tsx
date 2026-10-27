@@ -2622,8 +2622,13 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
-  // 6. Precise Audio Time & Real Duration Polling (Optimized 150ms interval for silky 60-120fps UI)
+  // 6. Precise Audio Time & Real Duration Polling (Intelligent Adaptive Interval)
   useEffect(() => {
+    // Only poll fast (150ms) if user is actively viewing lyrics or the expanded seekbar player!
+    // When browsing / scrolling the home screen, poll at 1000ms so scrolling never drops frames!
+    const isHighPrecisionNeeded = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics";
+    const pollInterval = isHighPrecisionNeeded ? 150 : 1000;
+
     const timer = setInterval(() => {
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
         try {
@@ -2683,10 +2688,10 @@ export default function BrnsicMusicPage() {
           }
         } catch (e) {}
       }
-    }, 150);
+    }, pollInterval);
 
     return () => clearInterval(timer);
-  }, [currentTrack]);
+  }, [currentTrack, isMobilePlayerOpen, isZoomed, mobileTab]);
 
   // Keep isPlayingRef in sync
   useEffect(() => {
