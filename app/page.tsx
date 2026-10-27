@@ -1767,23 +1767,6 @@ export default function BrnsicMusicPage() {
   };
 
   useEffect(() => {
-    try {
-      const blockEvent = (e: Event) => {
-        e.stopImmediatePropagation();
-      };
-      window.addEventListener("visibilitychange", blockEvent, true);
-      document.addEventListener("visibilitychange", blockEvent, true);
-
-      Object.defineProperty(document, "hidden", {
-        get: () => false,
-        configurable: true
-      });
-      Object.defineProperty(document, "visibilityState", {
-        get: () => "visible",
-        configurable: true
-      });
-    } catch (e) {}
-
     const handleBackgroundKeepalive = () => {
       if (!isUserExplicitlyPausedRef.current && isPlayingRef.current && ytPlayerRef.current) {
         try {

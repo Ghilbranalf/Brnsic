@@ -265,7 +265,12 @@ public class BackgroundAudioService extends Service implements
                     Bitmap bitmap = BitmapFactory.decodeStream(input);
                     if (bitmap != null) {
                         currentCoverBitmap = bitmap;
-                        startForegroundNotification(currentTitle, currentArtist, isCurrentPlaying);
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                startForegroundNotification(currentTitle, currentArtist, isCurrentPlaying);
+                            }
+                        });
                     }
                 } catch (Exception ignored) {}
             }
@@ -274,35 +279,12 @@ public class BackgroundAudioService extends Service implements
 
     private void playAudioSource(String url, int positionMs) {
         try {
-            initMediaPlayer();
-            if (wifiLock != null && !wifiLock.isHeld()) {
-                wifiLock.acquire();
-            }
-
             if (url != null && url.startsWith("http")) {
+                initMediaPlayer();
                 seekOnPrepared = positionMs;
                 mediaPlayer.reset();
                 mediaPlayer.setDataSource(getApplicationContext(), Uri.parse(url));
                 mediaPlayer.prepareAsync();
-            } else {
-                playFallbackAudio();
-            }
-        } catch (Exception e) {
-            playFallbackAudio();
-        }
-    }
-
-    private void playFallbackAudio() {
-        try {
-            initMediaPlayer();
-            mediaPlayer.reset();
-            AssetFileDescriptor afd = getResources().openRawResourceFd(R.raw.silence);
-            if (afd != null) {
-                mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-                afd.close();
-                mediaPlayer.setLooping(true);
-                mediaPlayer.prepare();
-                mediaPlayer.start();
             }
         } catch (Exception ignored) {}
     }
@@ -320,10 +302,8 @@ public class BackgroundAudioService extends Service implements
     private void resumePlayback() {
         try {
             isCurrentPlaying = true;
-            if (mediaPlayer != null) {
+            if (mediaPlayer != null && !mediaPlayer.isPlaying()) {
                 mediaPlayer.start();
-            } else {
-                playFallbackAudio();
             }
             startForegroundNotification(currentTitle, currentArtist, true);
         } catch (Exception ignored) {}
@@ -387,7 +367,6 @@ public class BackgroundAudioService extends Service implements
 
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
-        playFallbackAudio();
         return true;
     }
 

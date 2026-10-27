@@ -371,16 +371,6 @@ public class MainActivity extends BridgeActivity {
                 if (currentUa != null && !currentUa.contains("BrnsicNative")) {
                     webSettings.setUserAgentString(currentUa + " BrnsicNative/1.0 BrnsicMobile/1.0");
                 }
-                
-                // Hardware-accelerated 60-120fps GPU rendering & smooth touch response
-                webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
-                webView.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
-                webView.setVerticalScrollBarEnabled(false);
-                webView.setHorizontalScrollBarEnabled(false);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    webSettings.setSafeBrowsingEnabled(false);
-                }
-                webSettings.setOffscreenPreRaster(true);
 
                 webView.addJavascriptInterface(new NativeAudioBridge(), "BrnsicNative");
             }
@@ -417,65 +407,12 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        try {
-            if (bridge != null && bridge.getWebView() != null) {
-                bridge.getWebView().onResume();
-                bridge.getWebView().resumeTimers();
-            }
-        } catch (Exception ignored) {}
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        try {
-            if (wakeLock != null && !wakeLock.isHeld()) {
-                wakeLock.acquire(180 * 60 * 1000L); // 3 hours max wake lock while playing
-            }
-            if (bridge != null && bridge.getWebView() != null) {
-                bridge.getWebView().onResume();
-                bridge.getWebView().resumeTimers();
-            }
-        } catch (Exception ignored) {}
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        try {
-            if (wakeLock != null && !wakeLock.isHeld()) {
-                wakeLock.acquire(180 * 60 * 1000L);
-            }
-            if (bridge != null && bridge.getWebView() != null) {
-                bridge.getWebView().onResume();
-                bridge.getWebView().resumeTimers();
-            }
-        } catch (Exception ignored) {}
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        try {
-            if (!hasFocus && bridge != null && bridge.getWebView() != null) {
-                bridge.getWebView().resumeTimers();
-            }
-        } catch (Exception ignored) {}
-    }
-
-    @Override
     public void onDestroy() {
-        super.onDestroy();
         try {
-            Intent intent = new Intent(this, BackgroundAudioService.class);
-            intent.setAction(BackgroundAudioService.ACTION_STOP);
-            startService(intent);
-
             if (wakeLock != null && wakeLock.isHeld()) {
                 wakeLock.release();
             }
         } catch (Exception ignored) {}
+        super.onDestroy();
     }
 }
