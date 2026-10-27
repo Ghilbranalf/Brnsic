@@ -1341,7 +1341,7 @@ export default function BrnsicMusicPage() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        showToast("Mengunduh Brnsic.apk... Buka notifikasi setelah selesai.");
+        showToast("Mengunduh Brnsic.apk...");
       } catch (e) {}
     }
   };
@@ -6943,7 +6943,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className="w-full py-2.5 px-4 rounded-xl bg-[#1ed760]/10 hover:bg-[#1ed760]/20 text-[#1ed760] font-bold text-xs transition flex items-center justify-between cursor-pointer"
               >
-                <span>Download APK Android Resmi</span>
+                <span>Download APK Android</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="7 10 12 15 17 10"></polyline>
@@ -7242,7 +7242,7 @@ export default function BrnsicMusicPage() {
       )}
 
       {/* ====================================================================
-          10. MODAL: PWA DOWNLOAD & INSTALL DENGAN LOADING JELAS (USER REQUEST)
+          10. MODAL: DOWNLOAD APK RESMI (CLEAN, MINIMALIST & CONCISE)
           ==================================================================== */}
       {isInstallModalOpen && (
         <div
@@ -7251,97 +7251,91 @@ export default function BrnsicMusicPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm liquid-glass rounded-3xl p-6 flex flex-col items-center gap-5 border border-white/10 shadow-2xl relative text-center"
+            className="w-full max-w-xs sm:max-w-sm bg-[#181818] border border-white/10 rounded-3xl p-6 flex flex-col items-center gap-4 shadow-2xl relative text-center"
           >
             <button
               onClick={() => setIsInstallModalOpen(false)}
-              className="absolute top-4 right-4 text-white/60 hover:text-white text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition"
+              className="absolute top-4 right-4 text-white/50 hover:text-white text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition"
+              aria-label="Tutup"
             >
               &times;
             </button>
 
             {/* Ambient Logo Header */}
-            <div className="relative flex items-center justify-center my-1">
-              <div className="absolute inset-0 rounded-full bg-[#1ed760]/25 blur-2xl animate-pulse"></div>
+            <div className="relative flex items-center justify-center pt-2">
+              <div className="absolute inset-0 rounded-full bg-[#1ed760]/20 blur-xl"></div>
               <img
                 src="/brnsic-loader-logo.png"
                 alt="Brnsic"
-                className="w-16 h-16 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+                className="w-16 h-16 object-contain relative z-10"
               />
             </div>
 
-            {/* ANDROID NATIVE APK DOWNLOAD (BUKAN PWA) */}
+            {/* ANDROID APK DOWNLOAD */}
             {installStep === "ready" && (
               <div className="w-full flex flex-col gap-4">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1ed760] bg-[#1ed760]/10 border border-[#1ed760]/30 px-3 py-1 rounded-full inline-block mb-2">
-                    Aplikasi Native Android • BUKAN PWA
-                  </span>
-                  <h2 className="text-xl font-black text-white">Download Brnsic APK Resmi</h2>
-                  <p className="text-xs text-[#b3b3b3] mt-1 leading-relaxed">
-                    Aplikasi Android native murni. Musik tetap berputar di latar belakang saat layar mati atau membuka aplikasi lain!
+                  <h2 className="text-xl font-bold text-white">Download Brnsic</h2>
+                  <p className="text-xs text-[#b3b3b3] mt-1.5 leading-relaxed">
+                    Putar musik di latar belakang dan kontrol dari layar kunci.
                   </p>
                 </div>
 
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 text-left flex flex-col gap-2.5 text-xs text-white/90">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full bg-[#1ed760]/20 text-[#1ed760] flex items-center justify-center font-bold text-[10px]">✓</span>
-                    <span>Musik tetap jalan di latar belakang saat layar HP dimatikan</span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full bg-[#1ed760]/20 text-[#1ed760] flex items-center justify-center font-bold text-[10px]">✓</span>
-                    <span>Widget kontrol player &amp; cover lagu di Layar Kunci (Lock Screen)</span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full bg-[#1ed760]/20 text-[#1ed760] flex items-center justify-center font-bold text-[10px]">✓</span>
-                    <span>Kualitas studio master 120 FPS tanpa batasan browser</span>
-                  </div>
+                <div className="flex items-center justify-center gap-2 text-[11px] text-[#b3b3b3] font-medium">
+                  <span>Android</span>
+                  <span>•</span>
+                  <span>8.5 MB</span>
+                  <span>•</span>
+                  <span>Gratis</span>
                 </div>
 
-                <div className="flex flex-col gap-2.5 w-full mt-1">
+                <div className="flex flex-col gap-2 w-full pt-1">
                   <a
                     href="/Brnsic.apk"
                     download="Brnsic.apk"
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => {
-                      showToast("Mengunduh Brnsic.apk... Buka file setelah selesai.");
+                      showToast("Mengunduh Brnsic.apk...");
                     }}
-                    className="w-full py-4 px-4 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_25px_rgba(30,215,96,0.4)] flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-3.5 px-5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-extrabold text-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2 shadow-lg shadow-[#1ed760]/20 cursor-pointer"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                       <polyline points="7 10 12 15 17 10"></polyline>
                       <line x1="12" y1="15" x2="12" y2="3"></line>
                     </svg>
-                    <span>Download Brnsic.apk (APK Asli)</span>
+                    <span>Download APK</span>
                   </a>
 
-                  <p className="text-[11px] text-white/50 text-center leading-relaxed">
-                    Setelah file <strong>Brnsic.apk</strong> selesai diunduh, klik notifikasi unduhan lalu pilih <strong>Pasang / Install</strong>.
-                  </p>
+                  <button
+                    onClick={() => setIsInstallModalOpen(false)}
+                    className="w-full py-2 text-xs text-[#b3b3b3] hover:text-white font-medium transition"
+                  >
+                    Nanti saja
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* STEP 4: INSTALLED SUCCESS CELEBRATION */}
+            {/* STEP 4: INSTALLED SUCCESS */}
             {installStep === "installed" && (
-              <div className="w-full flex flex-col gap-4">
-                <div className="w-16 h-16 rounded-full bg-[#1ed760]/20 border-2 border-[#1ed760] text-[#1ed760] text-3xl font-black flex items-center justify-center mx-auto animate-bounce shadow-[0_0_30px_rgba(30,215,96,0.5)]">
+              <div className="w-full flex flex-col gap-4 py-2">
+                <div className="w-12 h-12 rounded-full bg-[#1ed760]/20 text-[#1ed760] text-xl font-black flex items-center justify-center mx-auto">
                   ✓
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-white">Aplikasi Berhasil Dipasang!</h2>
-                  <p className="text-xs text-[#b3b3b3] mt-1.5 leading-relaxed">
-                    Ikon Brnsic sudah aktif di Layar Utama HP / Desktop kamu. Musik akan terus berputar di latar belakang saat kamu membuka aplikasi lain atau mematikan layar!
+                  <h2 className="text-lg font-bold text-white">Aplikasi Terpasang</h2>
+                  <p className="text-xs text-[#b3b3b3] mt-1 leading-relaxed">
+                    Brnsic siap digunakan di HP kamu.
                   </p>
                 </div>
 
                 <button
                   onClick={() => setIsInstallModalOpen(false)}
-                  className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-xs hover:scale-105 active:scale-95 transition shadow"
+                  className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs hover:scale-[1.02] active:scale-[0.98] transition shadow"
                 >
-                  Tutup &amp; Mulai Mendengarkan
+                  Mulai Mendengarkan
                 </button>
               </div>
             )}
