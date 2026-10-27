@@ -1705,6 +1705,9 @@ export default function BrnsicMusicPage() {
   const audioContextRef = useRef<any>(null);
   const silentNodeRef = useRef<any>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const directAudioRef = useRef<HTMLAudioElement | null>(null);
+  const isUsingDirectAudioRef = useRef<boolean>(false);
+  const [isUsingDirectAudio, setIsUsingDirectAudio] = useState<boolean>(false);
 
   const isIOSDevice = () => {
     if (typeof window === "undefined" || typeof navigator === "undefined") return false;
@@ -1833,6 +1836,9 @@ export default function BrnsicMusicPage() {
 
   const startBackgroundKeepalive = () => {
     startWebAudioKeepalive();
+    if (directAudioRef.current && isUsingDirectAudioRef.current && directAudioRef.current.paused) {
+      directAudioRef.current.play().catch(() => {});
+    }
     if (silentAudioRef.current) {
       silentAudioRef.current.play().catch(() => {});
     }
@@ -1856,6 +1862,9 @@ export default function BrnsicMusicPage() {
 
   const stopBackgroundKeepalive = () => {
     stopWebAudioKeepalive();
+    if (directAudioRef.current && isUsingDirectAudioRef.current) {
+      directAudioRef.current.pause();
+    }
     if (silentAudioRef.current) {
       silentAudioRef.current.pause();
     }
@@ -2875,24 +2884,61 @@ export default function BrnsicMusicPage() {
         } catch (e) {}
       }
 
-      // 2. Web Player / UI & Audio Sync
-      if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
-        try {
-          ytPlayerRef.current.loadVideoById({
-            videoId: vid,
-            startSeconds: 0
-          });
-          ytPlayerRef.current.unMute();
-          ytPlayerRef.current.setVolume(volume * 100);
-          ytPlayerRef.current.playVideo();
+      const playWithYtIframe = (targetVid: string) => {
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
+          try {
+            ytPlayerRef.current.loadVideoById({
+              videoId: targetVid,
+              startSeconds: 0
+            });
+            ytPlayerRef.current.unMute();
+            ytPlayerRef.current.setVolume(volume * 100);
+            ytPlayerRef.current.playVideo();
+            setTimeout(() => setIsLoadingSong(false), 1500);
+          } catch (e) {
+            console.error("Audio playback error", e);
+            setIsLoadingSong(false);
+          }
+        } else {
+          pendingVideoIdRef.current = targetVid;
           setTimeout(() => setIsLoadingSong(false), 1500);
+        }
+      };
+
+      // 2. Direct HTML5 Native Stream Playback:
+      // Streams native audio via /api/stream?id=...
+      // On iOS Safari, iOS PWA, Android Chrome, and Desktop:
+      // Real HTML5 audio allows 100% UNINTERRUPTED background playback on lock screen & app switching!
+      if (directAudioRef.current) {
+        try {
+          const directSrc = `/api/stream?id=${encodeURIComponent(vid)}`;
+          directAudioRef.current.src = directSrc;
+          directAudioRef.current.volume = volume;
+          directAudioRef.current
+            .play()
+            .then(() => {
+              if (currentRequestId !== playRequestIdRef.current) return;
+              isUsingDirectAudioRef.current = true;
+              setIsUsingDirectAudio(true);
+              setIsLoadingSong(false);
+              // Mute YouTube iframe when direct audio is successfully playing
+              if (ytPlayerRef.current && typeof ytPlayerRef.current.mute === "function") {
+                ytPlayerRef.current.mute();
+              }
+            })
+            .catch(() => {
+              // Fallback to YouTube IFrame if direct stream cannot autoplay or resolve
+              isUsingDirectAudioRef.current = false;
+              setIsUsingDirectAudio(false);
+              playWithYtIframe(vid);
+            });
         } catch (e) {
-          console.error("Audio playback error", e);
-          setIsLoadingSong(false);
+          isUsingDirectAudioRef.current = false;
+          setIsUsingDirectAudio(false);
+          playWithYtIframe(vid);
         }
       } else {
-        pendingVideoIdRef.current = vid;
-        setTimeout(() => setIsLoadingSong(false), 1500);
+        playWithYtIframe(vid);
       }
     };
 
@@ -3462,6 +3508,24 @@ export default function BrnsicMusicPage() {
   const togglePlay = () => {
     hasUserStartedPlaybackRef.current = true;
     setHasUserStartedPlayback(true);
+
+    if (directAudioRef.current && isUsingDirectAudioRef.current) {
+      if (isPlaying) {
+        isUserExplicitlyPausedRef.current = true;
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+        stopBackgroundKeepalive();
+        directAudioRef.current.pause();
+      } else {
+        isUserExplicitlyPausedRef.current = false;
+        isPlayingRef.current = true;
+        setIsPlaying(true);
+        startBackgroundKeepalive();
+        directAudioRef.current.play().catch(() => {});
+      }
+      return;
+    }
+
     if (!ytPlayerRef.current) {
       setIsPlaying(!isPlaying);
       isPlayingRef.current = !isPlaying;
@@ -3505,6 +3569,9 @@ export default function BrnsicMusicPage() {
 
   const getActiveDuration = () => {
     try {
+      if (directAudioRef.current && isUsingDirectAudioRef.current && directAudioRef.current.duration > 5) {
+        return Math.round(directAudioRef.current.duration);
+      }
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getDuration === "function") {
         const d = ytPlayerRef.current.getDuration();
         if (typeof d === "number" && d > 5) return Math.round(d);
@@ -3517,6 +3584,9 @@ export default function BrnsicMusicPage() {
     const totalDuration = getActiveDuration();
     const safeSec = Math.max(0, Math.min(totalDuration, targetSeconds));
     setCurrentTime(safeSec);
+    if (directAudioRef.current && isUsingDirectAudioRef.current) {
+      directAudioRef.current.currentTime = safeSec;
+    }
     if (typeof window !== "undefined" && (window as any).BrnsicNative?.seekAudio) {
       try {
         (window as any).BrnsicNative.seekAudio(Math.round(safeSec * 1000));
@@ -3542,6 +3612,9 @@ export default function BrnsicMusicPage() {
     const totalDuration = getActiveDuration();
     const targetSeconds = Math.round(pct * totalDuration);
     setCurrentTime(targetSeconds);
+    if (directAudioRef.current && isUsingDirectAudioRef.current) {
+      directAudioRef.current.currentTime = targetSeconds;
+    }
     if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
       ytPlayerRef.current.seekTo(targetSeconds, true);
     }
@@ -3563,6 +3636,10 @@ export default function BrnsicMusicPage() {
     const pct = Math.max(0, Math.min(1, clickX / rect.width));
     setVolume(pct);
     setIsMuted(false);
+    if (directAudioRef.current) {
+      directAudioRef.current.volume = pct;
+      directAudioRef.current.muted = false;
+    }
     if (typeof window !== "undefined" && (window as any).BrnsicNative?.setVolume) {
       try {
         (window as any).BrnsicNative.setVolume(pct);
@@ -3577,6 +3654,9 @@ export default function BrnsicMusicPage() {
   const toggleMute = () => {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
+    if (directAudioRef.current) {
+      directAudioRef.current.muted = nextMuted;
+    }
     if (typeof window !== "undefined" && (window as any).BrnsicNative?.setVolume) {
       try {
         (window as any).BrnsicNative.setVolume(nextMuted ? 0 : volume);
@@ -3686,6 +3766,53 @@ export default function BrnsicMusicPage() {
         }}
       >
         <div id="master-yt-player" className="w-full h-full"></div>
+        {/* Native HTML5 Audio Streaming Engine for iOS Safari, iOS PWA, Android & Desktop */}
+        <audio
+          ref={directAudioRef}
+          preload="auto"
+          playsInline
+          onTimeUpdate={() => {
+            if (isUsingDirectAudioRef.current && directAudioRef.current) {
+              const cur = directAudioRef.current.currentTime;
+              setCurrentTime(cur);
+            }
+          }}
+          onEnded={() => {
+            if (isUsingDirectAudioRef.current && hasUserStartedPlaybackRef.current) {
+              handleTrackEnded("direct-audio-ended");
+            }
+          }}
+          onPlay={() => {
+            if (isUsingDirectAudioRef.current) {
+              setIsPlaying(true);
+              isPlayingRef.current = true;
+            }
+          }}
+          onPause={() => {
+            if (isUsingDirectAudioRef.current && isUserExplicitlyPausedRef.current) {
+              setIsPlaying(false);
+              isPlayingRef.current = false;
+            }
+          }}
+          onError={() => {
+            if (isUsingDirectAudioRef.current) {
+              console.warn("Direct stream error, switching seamlessly to YouTube IFrame fallback");
+              isUsingDirectAudioRef.current = false;
+              setIsUsingDirectAudio(false);
+              if (currentTrackRef.current?.youtubeId && ytPlayerRef.current) {
+                try {
+                  ytPlayerRef.current.unMute();
+                  ytPlayerRef.current.setVolume(volume * 100);
+                  ytPlayerRef.current.loadVideoById({
+                    videoId: currentTrackRef.current.youtubeId,
+                    startSeconds: Math.round(currentTime || 0)
+                  });
+                  ytPlayerRef.current.playVideo();
+                } catch (e) {}
+              }
+            }
+          }}
+        />
         <audio
           ref={silentAudioRef}
           src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"
