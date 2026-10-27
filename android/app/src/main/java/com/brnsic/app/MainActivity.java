@@ -69,37 +69,10 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    public static void notifySeek(final int positionMs) {
-        if (instance != null && instance.bridge != null && instance.bridge.getWebView() != null) {
-            instance.bridge.getWebView().post(new Runnable() {
-                @Override
-                public void run() {
-                    instance.bridge.getWebView().evaluateJavascript(
-                        "(function(){ if (window.__handleNativeSeek) { window.__handleNativeSeek(" + positionMs + "); } })();",
-                        null
-                    );
-                }
-            });
-        }
-    }
-
     public class NativeAudioBridge {
         @JavascriptInterface
         public void playAudio(String audioUrl, String title, String artist, int positionMs, String coverUrl) {
             try {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                try {
-                                    MainActivity.this.requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
-                                } catch (Exception ignored) {}
-                            }
-                        });
-                    }
-                }
-
                 Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
                 intent.setAction(BackgroundAudioService.ACTION_PLAY);
                 intent.putExtra(BackgroundAudioService.EXTRA_URL, audioUrl);
@@ -179,11 +152,6 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void stopPlayback() {
-            pauseAudio();
-        }
-
-        @JavascriptInterface
-        public void closeNotification() {
             stopAudio();
         }
 
@@ -203,68 +171,6 @@ public class MainActivity extends BridgeActivity {
                 @Override
                 public void run() {
                     requestBackgroundAndNotificationPermissions();
-                }
-            });
-        }
-
-        @JavascriptInterface
-        public boolean areNotificationsEnabled() {
-            try {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                        return false;
-                    }
-                }
-                return androidx.core.app.NotificationManagerCompat.from(MainActivity.this).areNotificationsEnabled();
-            } catch (Exception e) {
-                return false;
-            }
-        }
-
-        @JavascriptInterface
-        public void requestNotificationPermission() {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        if (Build.VERSION.SDK_INT >= 33) {
-                            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                MainActivity.this.requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
-                                return;
-                            }
-                        }
-                        if (!androidx.core.app.NotificationManagerCompat.from(MainActivity.this).areNotificationsEnabled()) {
-                            openNotificationSettings();
-                        }
-                    } catch (Exception ignored) {}
-                }
-            });
-        }
-
-        @JavascriptInterface
-        public void openNotificationSettings() {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        Intent intent = new Intent();
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            intent.setAction(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
-                            intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
-                        } else {
-                            intent.setAction(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                            intent.setData(android.net.Uri.parse("package:" + getPackageName()));
-                        }
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(intent);
-                    } catch (Exception e) {
-                        try {
-                            Intent fallback = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                            fallback.setData(android.net.Uri.parse("package:" + getPackageName()));
-                            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(fallback);
-                        } catch (Exception ignored) {}
-                    }
                 }
             });
         }
@@ -333,9 +239,6 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 101) {
-            promptBatteryOptimization();
-        }
     }
 
     @Override
@@ -343,12 +246,6 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         instance = this;
         try {
-            if (Build.VERSION.SDK_INT >= 33) {
-                if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    MainActivity.this.requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
-                }
-            }
-
             PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
             if (powerManager != null) {
                 wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Brnsic:BackgroundAudioWakeLock");
@@ -371,7 +268,6 @@ public class MainActivity extends BridgeActivity {
                 if (currentUa != null && !currentUa.contains("BrnsicNative")) {
                     webSettings.setUserAgentString(currentUa + " BrnsicNative/1.0 BrnsicMobile/1.0");
                 }
-
                 webView.addJavascriptInterface(new NativeAudioBridge(), "BrnsicNative");
             }
             handleDeepLink(getIntent());
@@ -407,12 +303,65 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    public void onDestroy() {
+    public void onResume() {
+        super.onResume();
         try {
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().onResume();
+                bridge.getWebView().resumeTimers();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        try {
+            if (wakeLock != null && !wakeLock.isHeld()) {
+                wakeLock.acquire(180 * 60 * 1000L); // 3 hours max wake lock while playing
+            }
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().onResume();
+                bridge.getWebView().resumeTimers();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        try {
+            if (wakeLock != null && !wakeLock.isHeld()) {
+                wakeLock.acquire(180 * 60 * 1000L);
+            }
+            if (bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().onResume();
+                bridge.getWebView().resumeTimers();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        try {
+            if (!hasFocus && bridge != null && bridge.getWebView() != null) {
+                bridge.getWebView().resumeTimers();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try {
+            Intent intent = new Intent(this, BackgroundAudioService.class);
+            intent.setAction(BackgroundAudioService.ACTION_STOP);
+            startService(intent);
+
             if (wakeLock != null && wakeLock.isHeld()) {
                 wakeLock.release();
             }
         } catch (Exception ignored) {}
-        super.onDestroy();
     }
 }

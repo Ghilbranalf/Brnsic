@@ -1267,8 +1267,6 @@ export default function BrnsicMusicPage() {
   const [installProgress, setInstallProgress] = useState<number>(0);
   const [installStatus, setInstallStatus] = useState<string>("Menyiapkan pengunduhan...");
   const [isInstallReady, setIsInstallReady] = useState<boolean>(false);
-  const [showPermissionBanner, setShowPermissionBanner] = useState<boolean>(false);
-  const [isPermissionModalOpen, setIsPermissionModalOpen] = useState<boolean>(false);
 
   // 12. Update Popup State
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
@@ -1394,30 +1392,6 @@ export default function BrnsicMusicPage() {
         (window as any).Capacitor?.getPlatform?.() === "android";
 
       setIsInsideNativeApk(Boolean(isNative));
-      if (isNative) {
-        try {
-          const notifsAllowed =
-            typeof (window as any).BrnsicNative?.areNotificationsEnabled === "function"
-              ? (window as any).BrnsicNative.areNotificationsEnabled()
-              : (window as any).BrnsicNative?.isPermissionGranted?.();
-
-          if (notifsAllowed === false) {
-            setShowPermissionBanner(true);
-            const hasSeenPrompt = sessionStorage.getItem("brnsic_notif_modal_shown");
-            if (!hasSeenPrompt) {
-              sessionStorage.setItem("brnsic_notif_modal_shown", "true");
-              setIsPermissionModalOpen(true);
-              setTimeout(() => {
-                try {
-                  (window as any).BrnsicNative?.requestNotificationPermission?.();
-                } catch (e) {}
-              }, 700);
-            }
-          } else {
-            setShowPermissionBanner(false);
-          }
-        } catch (e) {}
-      }
     };
 
     checkNativeApk();
@@ -1735,41 +1709,8 @@ export default function BrnsicMusicPage() {
     return /iPad|iPhone|iPod/.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
   };
 
-  const startWebAudioKeepalive = () => {
-    try {
-      if (typeof window === "undefined") return;
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioCtx();
-      }
-      if (audioContextRef.current.state === "suspended") {
-        audioContextRef.current.resume().catch(() => {});
-      }
-      if (!silentNodeRef.current && audioContextRef.current) {
-        const buffer = audioContextRef.current.createBuffer(1, 22050, 22050);
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = buffer;
-        source.loop = true;
-        source.connect(audioContextRef.current.destination);
-        source.start(0);
-        silentNodeRef.current = source;
-      }
-    } catch (e) {}
-  };
-
-  const stopWebAudioKeepalive = () => {
-    try {
-      if (silentNodeRef.current) {
-        silentNodeRef.current.stop();
-        silentNodeRef.current.disconnect();
-        silentNodeRef.current = null;
-      }
-      if (audioContextRef.current && audioContextRef.current.state === "running") {
-        audioContextRef.current.suspend().catch(() => {});
-      }
-    } catch (e) {}
-  };
+  const startWebAudioKeepalive = () => {};
+  const stopWebAudioKeepalive = () => {};
 
   useEffect(() => {
     const handleBackgroundKeepalive = () => {
@@ -2906,13 +2847,6 @@ export default function BrnsicMusicPage() {
       // 1. Android Native Service Audio Playback (real MediaPlayer in BackgroundAudioService)
       if (isNative) {
         try {
-          if (
-            typeof (window as any).BrnsicNative?.areNotificationsEnabled === "function" &&
-            !(window as any).BrnsicNative.areNotificationsEnabled()
-          ) {
-            (window as any).BrnsicNative.requestNotificationPermission?.();
-          }
-
           const rawCover = song.cover || optimisticTrack.cover || "";
           const safeCover = rawCover.startsWith("http")
             ? rawCover
@@ -3761,9 +3695,9 @@ export default function BrnsicMusicPage() {
         <div id="master-yt-player" style={{ width: 1, height: 1 }}></div>
         <audio
           ref={silentAudioRef}
-          src="/audio/keepalive.wav"
+          src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"
           loop
-          preload="auto"
+          preload="none"
           playsInline
         />
       </div>
@@ -4144,24 +4078,6 @@ export default function BrnsicMusicPage() {
                 )}
               </div>
             </div>
-
-            {/* Native APK Permission Alert Pill */}
-            {isInsideNativeApk && showPermissionBanner && (
-              <div
-                onClick={() => setIsPermissionModalOpen(true)}
-                className="bg-emerald-500/10 border border-[#1ed760]/30 rounded-xl px-3 py-2 flex items-center justify-between cursor-pointer active:scale-[0.98] transition shadow"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse flex-shrink-0"></span>
-                  <span className="text-white text-[11px] font-semibold truncate">
-                    Akses Notifikasi & Layar Kunci Belum Aktif
-                  </span>
-                </div>
-                <span className="text-[#1ed760] text-[11px] font-bold flex-shrink-0 pl-2">
-                  Izinkan &rsaquo;
-                </span>
-              </div>
-            )}
 
             {/* Mobile Filter Chips */}
             <div
@@ -4976,49 +4892,6 @@ export default function BrnsicMusicPage() {
           {/* VIEW: HOME VIEW */}
           {currentView === "home" && (
             <div className="p-4 sm:p-6 flex flex-col gap-8">
-              
-              {/* NATIVE APK BACKGROUND PERMISSION BANNER */}
-              {showPermissionBanner && (
-                <div className="bg-[#181818] border border-[#1ed760]/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 flex items-center justify-center text-[#1ed760] flex-shrink-0 mt-0.5">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-                      </svg>
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-white font-bold text-xs tracking-wide">
-                        Aktifkan Izin Latar Belakang & Notifikasi
-                      </span>
-                      <span className="text-[#b3b3b3] text-[11px] leading-relaxed max-w-xl">
-                        Agar audio terus menyala saat layar HP terkunci atau membuka aplikasi lain, izinkan notifikasi pemutar dan kecualikan Brnsic dari penghemat baterai sistem.
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
-                    <button
-                      onClick={() => {
-                        try {
-                          (window as any).BrnsicNative?.requestPermissions?.();
-                        } catch (e) {}
-                        setShowPermissionBanner(false);
-                      }}
-                      className="bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs px-4 py-2 rounded-full transition shadow hover:scale-105 active:scale-95 cursor-pointer"
-                    >
-                      Izinkan Sekarang
-                    </button>
-                    <button
-                      onClick={() => setShowPermissionBanner(false)}
-                      className="text-[#b3b3b3] hover:text-white text-xs px-2.5 py-2 transition cursor-pointer font-medium"
-                    >
-                      Nanti
-                    </button>
-                  </div>
-                </div>
-              )}
-              
               {/* SMART RECOMMENDATION BANNER */}
               {relatedQueue.length > 0 && (
                 <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3 border border-white/10">
@@ -8111,91 +7984,7 @@ export default function BrnsicMusicPage() {
       )}
 
       {/* ====================================================================
-          11. MODAL: SYSTEM PERMISSION & NOTIFICATION ACCESS (NATIVE APK)
-          ==================================================================== */}
-      {isPermissionModalOpen && (
-        <div
-          onClick={() => setIsPermissionModalOpen(false)}
-          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-[#16161c] border border-white/10 rounded-3xl p-6 flex flex-col items-center gap-4 shadow-2xl relative text-center"
-          >
-            <button
-              onClick={() => setIsPermissionModalOpen(false)}
-              className="absolute top-4 right-4 text-white/50 hover:text-white text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition cursor-pointer"
-              aria-label="Tutup"
-            >
-              &times;
-            </button>
-
-            {/* Glowing Bell Icon */}
-            <div className="relative flex items-center justify-center pt-2 pb-1">
-              <div className="absolute inset-0 rounded-full bg-[#1ed760]/20 blur-xl scale-125"></div>
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#1ed760]/20 to-white/10 border border-[#1ed760]/40 flex items-center justify-center text-[#1ed760] relative z-10 shadow-lg">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                </svg>
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Izin Notifikasi & Layar Kunci</h2>
-              <p className="text-xs text-[#b3b3b3] mt-2 leading-relaxed px-1">
-                Agar pemutar musik, tombol jeda/next, dan visual liquid glass muncul di bilah notifikasi dan layar kunci HP, berikan akses notifikasi ke Brnsic.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2.5 w-full pt-2">
-              <button
-                onClick={() => {
-                  try {
-                    if ((window as any).BrnsicNative?.requestNotificationPermission) {
-                      (window as any).BrnsicNative.requestNotificationPermission();
-                    } else if ((window as any).BrnsicNative?.requestPermissions) {
-                      (window as any).BrnsicNative.requestPermissions();
-                    }
-                  } catch (e) {}
-                  setIsPermissionModalOpen(false);
-                  setShowPermissionBanner(false);
-                }}
-                className="w-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-sm py-3 px-4 rounded-full transition shadow-lg hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-              >
-                Minta Izin Sistem (Popup)
-              </button>
-
-              <button
-                onClick={() => {
-                  try {
-                    if ((window as any).BrnsicNative?.openNotificationSettings) {
-                      (window as any).BrnsicNative.openNotificationSettings();
-                    } else if ((window as any).BrnsicNative?.openAppSettings) {
-                      (window as any).BrnsicNative.openAppSettings();
-                    }
-                  } catch (e) {}
-                  setIsPermissionModalOpen(false);
-                  setShowPermissionBanner(false);
-                }}
-                className="w-full bg-white/10 hover:bg-white/15 text-white font-medium text-xs py-2.5 px-4 rounded-full transition border border-white/10 cursor-pointer"
-              >
-                Buka Pengaturan Notifikasi HP
-              </button>
-
-              <button
-                onClick={() => setIsPermissionModalOpen(false)}
-                className="text-xs text-[#b3b3b3] hover:text-white py-1 font-medium transition cursor-pointer"
-              >
-                Nanti Saja
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ====================================================================
-          12. MODAL: NOTIFIKASI UPDATE / PEMBARUAN APLIKASI (USER REQUEST)
+          11. MODAL: NOTIFIKASI UPDATE / PEMBARUAN APLIKASI (USER REQUEST)
           ==================================================================== */}
       {isUpdateModalOpen && updateInfo && (
         <div
