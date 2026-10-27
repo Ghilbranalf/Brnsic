@@ -1526,6 +1526,7 @@ export default function BrnsicMusicPage() {
     // Global touch/click unlock for background audio permission on mobile
     const unlockAudio = () => {
       if (silentAudioRef.current) {
+        silentAudioRef.current.volume = 0.01;
         silentAudioRef.current.play().catch(() => {});
       }
       if (typeof window !== "undefined" && (window.AudioContext || (window as any).webkitAudioContext)) {
@@ -1789,6 +1790,7 @@ export default function BrnsicMusicPage() {
     const handleUniversalVisibility = () => {
       if (document.hidden && isPlayingRef.current && !isUserExplicitlyPausedRef.current) {
         if (silentAudioRef.current) {
+          silentAudioRef.current.volume = 0.01;
           silentAudioRef.current.play().catch(() => {});
         }
         setTimeout(() => {
@@ -1821,6 +1823,7 @@ export default function BrnsicMusicPage() {
   const startBackgroundKeepalive = () => {
     startWebAudioKeepalive();
     if (silentAudioRef.current) {
+      silentAudioRef.current.volume = 0.01;
       silentAudioRef.current.play().catch(() => {});
     }
     if (typeof window !== "undefined") {
@@ -2497,7 +2500,6 @@ export default function BrnsicMusicPage() {
         }
 
         ytPlayerRef.current = new window.YT.Player("master-yt-player", {
-          host: "https://www.youtube-nocookie.com",
           videoId: currentTrack.youtubeId || "kv2WIY8RLQQ",
           playerVars: {
             autoplay: 0, // Starts PAUSED! No sudden blast of sound!
@@ -2591,6 +2593,7 @@ export default function BrnsicMusicPage() {
                 // If paused while document is hidden and user didn't intentionally pause (multitasking / screen lock guard on mobile & iOS)
                 if (document.hidden && isPlayingRef.current && !isUserExplicitlyPausedRef.current) {
                   if (silentAudioRef.current) {
+                    silentAudioRef.current.volume = 0.01;
                     silentAudioRef.current.play().catch(() => {});
                   }
                   setTimeout(() => {
@@ -3711,7 +3714,7 @@ export default function BrnsicMusicPage() {
         <div id="master-yt-player" className="w-full h-full"></div>
         <audio
           ref={silentAudioRef}
-          src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"
+          src="/audio/keepalive.wav"
           loop
           preload="auto"
           playsInline
