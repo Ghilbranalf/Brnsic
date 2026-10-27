@@ -69,6 +69,20 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    public static void notifySeek(final int positionMs) {
+        if (instance != null && instance.bridge != null && instance.bridge.getWebView() != null) {
+            instance.bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    instance.bridge.getWebView().evaluateJavascript(
+                        "(function(){ if (window.__handleNativeSeek) { window.__handleNativeSeek(" + positionMs + "); } })();",
+                        null
+                    );
+                }
+            });
+        }
+    }
+
     public class NativeAudioBridge {
         @JavascriptInterface
         public void playAudio(String audioUrl, String title, String artist, int positionMs, String coverUrl) {
@@ -152,6 +166,11 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void stopPlayback() {
+            pauseAudio();
+        }
+
+        @JavascriptInterface
+        public void closeNotification() {
             stopAudio();
         }
 
@@ -249,6 +268,12 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         instance = this;
         try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+                }
+            }
+
             PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
             if (powerManager != null) {
                 wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Brnsic:BackgroundAudioWakeLock");

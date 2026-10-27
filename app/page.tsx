@@ -1680,6 +1680,12 @@ export default function BrnsicMusicPage() {
       }
     };
 
+    (window as any).__handleNativeSeek = (posMs: number) => {
+      if (typeof posMs === "number" && !isNaN(posMs)) {
+        handleSeekSeconds(posMs / 1000);
+      }
+    };
+
     checkAuthSession();
 
     // Prompt user to LOGIN first before choosing genres
@@ -1851,8 +1857,8 @@ export default function BrnsicMusicPage() {
     }
     if (typeof window !== "undefined") {
       try {
-        if ((window as any).BrnsicNative?.stopPlayback) {
-          (window as any).BrnsicNative.stopPlayback();
+        if ((window as any).BrnsicNative?.pauseAudio) {
+          (window as any).BrnsicNative.pauseAudio();
         }
       } catch (e) {}
     }
@@ -2879,15 +2885,19 @@ export default function BrnsicMusicPage() {
       // 1. Android Native Service Audio Playback (real MediaPlayer in BackgroundAudioService)
       if (isNative) {
         try {
-          if ((window as any).BrnsicNative?.isPermissionGranted && !(window as any).BrnsicNative.isPermissionGranted()) {
-            (window as any).BrnsicNative.requestPermissions();
-          }
+          const rawCover = song.cover || optimisticTrack.cover || "";
+          const safeCover = rawCover.startsWith("http")
+            ? rawCover
+            : typeof window !== "undefined" && rawCover.startsWith("/")
+            ? `${window.location.origin}${rawCover}`
+            : rawCover;
+
           (window as any).BrnsicNative.playAudio(
             "",
             song.title || "Brnsic Music",
             song.artist || "Memutar di latar belakang",
             0,
-            song.cover || optimisticTrack.cover || ""
+            safeCover
           );
         } catch (e) {}
       }

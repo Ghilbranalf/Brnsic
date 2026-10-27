@@ -18,7 +18,11 @@ import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.media.app.NotificationCompat.MediaStyle;
 
 public class BackgroundAudioService extends Service implements
         MediaPlayer.OnPreparedListener,
@@ -46,17 +50,20 @@ public class BackgroundAudioService extends Service implements
     public static final String EXTRA_COVER = "extra_cover";
 
     private MediaPlayer mediaPlayer;
+    private MediaSessionCompat mediaSession;
     private WifiManager.WifiLock wifiLock;
     private String currentTitle = "Brnsic Music";
     private String currentArtist = "Memutar di latar belakang";
     private String currentCoverUrl = "";
     private Bitmap currentCoverBitmap = null;
     private int seekOnPrepared = 0;
+    private boolean isCurrentPlaying = false;
 
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
+        initMediaSession();
         initMediaPlayer();
 
         try {
@@ -65,6 +72,92 @@ public class BackgroundAudioService extends Service implements
                 wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Brnsic:WifiLock");
                 wifiLock.setReferenceCounted(false);
             }
+        } catch (Exception ignored) {}
+    }
+
+    private void initMediaSession() {
+        try {
+            mediaSession = new MediaSessionCompat(this, "BrnsicMediaSession");
+            mediaSession.setFlags(
+                    MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS |
+                    MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+            );
+            mediaSession.setCallback(new MediaSessionCompat.Callback() {
+                @Override
+                public void onPlay() {
+                    resumePlayback();
+                    MainActivity.notifyPlaybackState(true);
+                }
+
+                @Override
+                public void onPause() {
+                    pausePlayback();
+                    MainActivity.notifyPlaybackState(false);
+                }
+
+                @Override
+                public void onSkipToNext() {
+                    MainActivity.notifyNextTrack();
+                }
+
+                @Override
+                public void onSkipToPrevious() {
+                    MainActivity.notifyPrevTrack();
+                }
+
+                @Override
+                public void onStop() {
+                    pausePlayback();
+                    MainActivity.notifyPlaybackState(false);
+                }
+
+                @Override
+                public void onSeekTo(long pos) {
+                    seekPlayback((int) pos);
+                    MainActivity.notifySeek((int) pos);
+                }
+            });
+            mediaSession.setActive(true);
+        } catch (Exception ignored) {}
+    }
+
+    private void updateMediaSession(boolean isPlaying) {
+        if (mediaSession == null) return;
+        try {
+            long actions = PlaybackStateCompat.ACTION_PLAY |
+                    PlaybackStateCompat.ACTION_PAUSE |
+                    PlaybackStateCompat.ACTION_PLAY_PAUSE |
+                    PlaybackStateCompat.ACTION_SKIP_TO_NEXT |
+                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS |
+                    PlaybackStateCompat.ACTION_SEEK_TO |
+                    PlaybackStateCompat.ACTION_STOP;
+
+            long position = 0;
+            if (mediaPlayer != null) {
+                try { position = mediaPlayer.getCurrentPosition(); } catch (Exception ignored) {}
+            }
+
+            PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
+                    .setActions(actions)
+                    .setState(
+                            isPlaying ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED,
+                            position,
+                            1.0f
+                    );
+            mediaSession.setPlaybackState(stateBuilder.build());
+
+            MediaMetadataCompat.Builder metaBuilder = new MediaMetadataCompat.Builder()
+                    .putString(MediaMetadataCompat.METADATA_KEY_TITLE, currentTitle)
+                    .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentArtist)
+                    .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "Brnsic")
+                    .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, currentTitle)
+                    .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, currentArtist);
+
+            if (currentCoverBitmap != null) {
+                metaBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, currentCoverBitmap);
+                metaBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, currentCoverBitmap);
+            }
+            mediaSession.setMetadata(metaBuilder.build());
         } catch (Exception ignored) {}
     }
 
@@ -136,35 +229,43 @@ public class BackgroundAudioService extends Service implements
                 if (title != null && !title.trim().isEmpty()) currentTitle = title;
                 if (artist != null && !artist.trim().isEmpty()) currentArtist = artist;
 
+                isCurrentPlaying = true;
+
                 if (cover != null && !cover.trim().isEmpty() && !cover.equals(currentCoverUrl)) {
                     currentCoverUrl = cover;
                     loadCoverBitmapAsync(cover);
                 }
 
                 startForegroundNotification(currentTitle, currentArtist, true);
-
                 playAudioSource(url, positionMs);
             }
         }
         return START_STICKY;
     }
 
-    private void loadCoverBitmapAsync(final String urlString) {
+    private void loadCoverBitmapAsync(final String rawUrl) {
+        if (rawUrl == null || rawUrl.trim().isEmpty()) return;
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
+                    String urlString = rawUrl.trim();
+                    if (urlString.startsWith("//")) {
+                        urlString = "https:" + urlString;
+                    } else if (urlString.startsWith("/")) {
+                        urlString = "https://brnsic.vercel.app" + urlString;
+                    }
                     java.net.URL url = new java.net.URL(urlString);
                     java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
                     connection.setDoInput(true);
-                    connection.setConnectTimeout(6000);
-                    connection.setReadTimeout(6000);
+                    connection.setConnectTimeout(8000);
+                    connection.setReadTimeout(8000);
                     connection.connect();
                     java.io.InputStream input = connection.getInputStream();
                     Bitmap bitmap = BitmapFactory.decodeStream(input);
                     if (bitmap != null) {
                         currentCoverBitmap = bitmap;
-                        startForegroundNotification(currentTitle, currentArtist, mediaPlayer != null && mediaPlayer.isPlaying());
+                        startForegroundNotification(currentTitle, currentArtist, isCurrentPlaying);
                     }
                 } catch (Exception ignored) {}
             }
@@ -208,6 +309,7 @@ public class BackgroundAudioService extends Service implements
 
     private void pausePlayback() {
         try {
+            isCurrentPlaying = false;
             if (mediaPlayer != null && mediaPlayer.isPlaying()) {
                 mediaPlayer.pause();
             }
@@ -217,6 +319,7 @@ public class BackgroundAudioService extends Service implements
 
     private void resumePlayback() {
         try {
+            isCurrentPlaying = true;
             if (mediaPlayer != null) {
                 mediaPlayer.start();
             } else {
@@ -245,6 +348,7 @@ public class BackgroundAudioService extends Service implements
 
     private void stopPlayback() {
         try {
+            isCurrentPlaying = false;
             if (mediaPlayer != null) {
                 if (mediaPlayer.isPlaying()) {
                     mediaPlayer.stop();
@@ -269,24 +373,26 @@ public class BackgroundAudioService extends Service implements
                 seekOnPrepared = 0;
             }
             mp.start();
+            isCurrentPlaying = true;
             startForegroundNotification(currentTitle, currentArtist, true);
         } catch (Exception ignored) {}
     }
 
     @Override
     public void onCompletion(MediaPlayer mp) {
+        isCurrentPlaying = false;
         startForegroundNotification(currentTitle, currentArtist, false);
         MainActivity.notifyTrackCompleted();
     }
 
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
-        // Fallback to native silence loop to maintain active media playback
         playFallbackAudio();
         return true;
     }
 
     private void startForegroundNotification(String title, String artist, boolean isPlaying) {
+        this.isCurrentPlaying = isPlaying;
         Intent notificationIntent = new Intent(this, MainActivity.class);
         notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
@@ -308,22 +414,34 @@ public class BackgroundAudioService extends Service implements
         nextIntent.setAction(ACTION_NEXT);
         PendingIntent nextPendingIntent = PendingIntent.getService(this, 3, nextIntent, flags);
 
+        updateMediaSession(isPlaying);
+
+        MediaStyle mediaStyle = new MediaStyle()
+                .setShowActionsInCompactView(0, 1, 2);
+
+        if (mediaSession != null) {
+            mediaStyle.setMediaSession(mediaSession.getSessionToken());
+        }
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(title)
                 .setContentText(artist)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSubText("Brnsic")
+                .setSmallIcon(R.drawable.ic_notification)
                 .setContentIntent(pendingIntent)
-                .addAction(android.R.drawable.ic_media_previous, "Sebelumnya", prevPendingIntent)
+                .addAction(R.drawable.ic_prev, "Sebelumnya", prevPendingIntent)
                 .addAction(
-                        isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
+                        isPlaying ? R.drawable.ic_pause : R.drawable.ic_play,
                         isPlaying ? "Jeda" : "Putar",
                         togglePendingIntent
                 )
-                .addAction(android.R.drawable.ic_media_next, "Berikutnya", nextPendingIntent)
-                .setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
-                        .setShowActionsInCompactView(0, 1, 2))
+                .addAction(R.drawable.ic_next, "Berikutnya", nextPendingIntent)
+                .setStyle(mediaStyle)
+                .setColorized(true)
+                .setColor(0xFF13111C)
                 .setOngoing(isPlaying)
                 .setOnlyAlertOnce(true)
+                .setShowWhen(false)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
@@ -345,10 +463,12 @@ public class BackgroundAudioService extends Service implements
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
                     "Brnsic Music Playback",
-                    NotificationManager.IMPORTANCE_DEFAULT
+                    NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Menjaga musik tetap berjalan di latar belakang dan kontrol pemutar di layar kunci");
+            channel.setDescription("Kontrol pemutar musik di notifikasi dan layar kunci");
             channel.setShowBadge(false);
+            channel.setSound(null, null);
+            channel.enableVibration(false);
             channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager != null) {
@@ -359,6 +479,13 @@ public class BackgroundAudioService extends Service implements
 
     @Override
     public void onDestroy() {
+        if (mediaSession != null) {
+            try {
+                mediaSession.setActive(false);
+                mediaSession.release();
+            } catch (Exception ignored) {}
+            mediaSession = null;
+        }
         stopPlayback();
         super.onDestroy();
     }
