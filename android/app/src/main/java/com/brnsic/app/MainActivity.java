@@ -345,7 +345,7 @@ public class MainActivity extends BridgeActivity {
         try {
             if (Build.VERSION.SDK_INT >= 33) {
                 if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+                    MainActivity.this.requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
                 }
             }
 
@@ -423,18 +423,6 @@ public class MainActivity extends BridgeActivity {
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().onResume();
                 bridge.getWebView().resumeTimers();
-                if (Build.VERSION.SDK_INT >= 33) {
-                    bridge.getWebView().postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                    requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
-                                }
-                            } catch (Exception ignored) {}
-                        }
-                    }, 1000);
-                }
             }
         } catch (Exception ignored) {}
     }

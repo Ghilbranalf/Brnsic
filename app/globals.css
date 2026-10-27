@@ -79,6 +79,16 @@ button, a, input {
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
   }
+
+  /* Global Mobile GPU Clamp: Prevents mobile GPU frame-drops from heavy blur convolutions */
+  .backdrop-blur-2xl,
+  .backdrop-blur-xl,
+  .backdrop-blur-lg,
+  .backdrop-blur-md,
+  .backdrop-blur {
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+  }
 }
 
 .liquid-glass-card {
