@@ -2573,19 +2573,15 @@ export default function BrnsicMusicPage() {
         } catch (e) {}
       }
 
-      // 2. Web Player fallback / UI & Lyrics Sync
+      // 2. Web Player / UI & Audio Sync
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
         try {
           ytPlayerRef.current.loadVideoById({
             videoId: vid,
             startSeconds: 0
           });
-          if (isNative) {
-            ytPlayerRef.current.mute(); // Mute web iframe in APK so Android Background MediaPlayer owns audio
-          } else {
-            ytPlayerRef.current.unMute();
-            ytPlayerRef.current.setVolume(volume * 100);
-          }
+          ytPlayerRef.current.unMute();
+          ytPlayerRef.current.setVolume(volume * 100);
           ytPlayerRef.current.playVideo();
         } catch (e) {
           console.error("Audio playback error", e);
@@ -3131,13 +3127,8 @@ export default function BrnsicMusicPage() {
           } catch (e) {}
         }
         if (typeof ytPlayerRef.current.playVideo === "function") {
-          const isNative = typeof window !== "undefined" && Boolean((window as any).BrnsicNative?.playAudio);
-          if (isNative) {
-            ytPlayerRef.current.mute();
-          } else {
-            ytPlayerRef.current.unMute();
-            ytPlayerRef.current.setVolume(volume * 100);
-          }
+          ytPlayerRef.current.unMute();
+          ytPlayerRef.current.setVolume(volume * 100);
           ytPlayerRef.current.playVideo();
         }
       }
