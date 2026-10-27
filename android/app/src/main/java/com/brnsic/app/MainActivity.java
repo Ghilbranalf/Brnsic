@@ -27,6 +27,20 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    public static void notifyPlaybackState(boolean isPlaying) {
+        if (instance != null && instance.bridge != null && instance.bridge.getWebView() != null) {
+            instance.bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    instance.bridge.getWebView().evaluateJavascript(
+                        "(function(){ if (window.__handleNativePlaybackState) { window.__handleNativePlaybackState(" + isPlaying + "); } })();",
+                        null
+                    );
+                }
+            });
+        }
+    }
+
     public class NativeAudioBridge {
         @JavascriptInterface
         public void playAudio(String audioUrl, String title, String artist, int positionMs) {
@@ -69,6 +83,16 @@ public class MainActivity extends BridgeActivity {
                 Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
                 intent.setAction(BackgroundAudioService.ACTION_SEEK);
                 intent.putExtra(BackgroundAudioService.EXTRA_POSITION, positionMs);
+                startService(intent);
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void setVolume(float volume) {
+            try {
+                Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
+                intent.setAction(BackgroundAudioService.ACTION_VOLUME);
+                intent.putExtra(BackgroundAudioService.EXTRA_VOLUME, volume);
                 startService(intent);
             } catch (Exception ignored) {}
         }

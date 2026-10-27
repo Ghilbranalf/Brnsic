@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Ytdl } from "@distube/ytdl-core";
+import { Ytdl, Client } from "@distube/ytdl-core";
 
 export const dynamic = "force-dynamic";
 
 let ytdlInstance: Ytdl | null = null;
 function getYtdl(): Ytdl {
   if (!ytdlInstance) {
-    ytdlInstance = new Ytdl();
+    ytdlInstance = new Ytdl({
+      clients: [Client.VisionOS]
+    });
   }
   return ytdlInstance;
 }

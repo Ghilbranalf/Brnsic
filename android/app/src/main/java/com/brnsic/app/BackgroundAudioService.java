@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.IBinder;
@@ -28,12 +29,14 @@ public class BackgroundAudioService extends Service implements
     public static final String ACTION_PAUSE = "com.brnsic.app.action.PAUSE";
     public static final String ACTION_RESUME = "com.brnsic.app.action.RESUME";
     public static final String ACTION_SEEK = "com.brnsic.app.action.SEEK";
+    public static final String ACTION_VOLUME = "com.brnsic.app.action.VOLUME";
     public static final String ACTION_STOP = "com.brnsic.app.action.STOP";
 
     public static final String EXTRA_URL = "extra_url";
     public static final String EXTRA_TITLE = "extra_title";
     public static final String EXTRA_ARTIST = "extra_artist";
     public static final String EXTRA_POSITION = "extra_position";
+    public static final String EXTRA_VOLUME = "extra_volume";
 
     private MediaPlayer mediaPlayer;
     private WifiManager.WifiLock wifiLock;
@@ -82,17 +85,25 @@ public class BackgroundAudioService extends Service implements
 
             if (ACTION_PAUSE.equals(action)) {
                 pausePlayback();
+                MainActivity.notifyPlaybackState(false);
                 return START_STICKY;
             }
 
             if (ACTION_RESUME.equals(action)) {
                 resumePlayback();
+                MainActivity.notifyPlaybackState(true);
                 return START_STICKY;
             }
 
             if (ACTION_SEEK.equals(action)) {
                 int pos = intent.getIntExtra(EXTRA_POSITION, 0);
                 seekPlayback(pos);
+                return START_STICKY;
+            }
+
+            if (ACTION_VOLUME.equals(action)) {
+                float vol = intent.getFloatExtra(EXTRA_VOLUME, 1.0f);
+                setVolumePlayback(vol);
                 return START_STICKY;
             }
 
@@ -125,7 +136,7 @@ public class BackgroundAudioService extends Service implements
             seekOnPrepared = positionMs;
 
             mediaPlayer.reset();
-            mediaPlayer.setDataSource(url);
+            mediaPlayer.setDataSource(getApplicationContext(), Uri.parse(url));
             mediaPlayer.prepareAsync();
         } catch (Exception e) {
             e.printStackTrace();
@@ -136,8 +147,8 @@ public class BackgroundAudioService extends Service implements
         try {
             if (mediaPlayer != null && mediaPlayer.isPlaying()) {
                 mediaPlayer.pause();
-                startForegroundNotification(currentTitle, currentArtist, false);
             }
+            startForegroundNotification(currentTitle, currentArtist, false);
         } catch (Exception ignored) {}
     }
 
@@ -145,8 +156,8 @@ public class BackgroundAudioService extends Service implements
         try {
             if (mediaPlayer != null) {
                 mediaPlayer.start();
-                startForegroundNotification(currentTitle, currentArtist, true);
             }
+            startForegroundNotification(currentTitle, currentArtist, true);
         } catch (Exception ignored) {}
     }
 
@@ -154,6 +165,15 @@ public class BackgroundAudioService extends Service implements
         try {
             if (mediaPlayer != null) {
                 mediaPlayer.seekTo(positionMs);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void setVolumePlayback(float vol) {
+        try {
+            if (mediaPlayer != null) {
+                float clamped = Math.max(0.0f, Math.min(1.0f, vol));
+                mediaPlayer.setVolume(clamped, clamped);
             }
         } catch (Exception ignored) {}
     }
@@ -209,11 +229,21 @@ public class BackgroundAudioService extends Service implements
         }
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, flags);
 
+        // Interactive Play/Pause action button on Notification
+        Intent toggleIntent = new Intent(this, BackgroundAudioService.class);
+        toggleIntent.setAction(isPlaying ? ACTION_PAUSE : ACTION_RESUME);
+        PendingIntent togglePendingIntent = PendingIntent.getService(this, 1, toggleIntent, flags);
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(title)
                 .setContentText(artist)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pendingIntent)
+                .addAction(
+                        isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
+                        isPlaying ? "Jeda" : "Putar",
+                        togglePendingIntent
+                )
                 .setOngoing(isPlaying)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
