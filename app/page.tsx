@@ -538,6 +538,24 @@ const POPULAR_SEARCH_CATALOG = [
     duration: 251,
     youtubeId: "kPa7bsKwL-c",
     tags: ["die", "smile", "bruno", "mars", "lady", "gaga"]
+  },
+  {
+    title: "Only Siji",
+    artist: "6sentani",
+    album: "Only Siji - Single",
+    cover: "https://i.ytimg.com/vi/iQ7gbcjob3w/maxresdefault.jpg",
+    duration: 215,
+    youtubeId: "iQ7gbcjob3w",
+    tags: ["only", "siji", "6sentani", "sentani", "masdddho", "koplo", "jawa"]
+  },
+  {
+    title: "Mbak Billie",
+    artist: "6sentani",
+    album: "Mbak Billie - Single",
+    cover: "https://i.ytimg.com/vi/DeCO1sct6GI/maxresdefault.jpg",
+    duration: 200,
+    youtubeId: "DeCO1sct6GI",
+    tags: ["mbak", "billie", "6sentani", "sentani", "billie"]
   }
 ];
 
@@ -1266,7 +1284,15 @@ export default function BrnsicMusicPage() {
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
 
   // 15. User Authentication & Cloud Preference Sync (Google-Only Auth with Supabase)
-  const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<SafeUser | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("brnsic_user_profile");
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return null;
+  });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [googleEmail, setGoogleEmail] = useState<string>("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -1528,6 +1554,9 @@ export default function BrnsicMusicPage() {
           const data = await res.json();
           if (data.authenticated && data.user) {
             setCurrentUser(data.user);
+            try {
+              localStorage.setItem("brnsic_user_profile", JSON.stringify(data.user));
+            } catch (e) {}
             setIsAuthModalOpen(false);
             if (data.user.taste) {
               setUserTaste(data.user.taste);
@@ -1662,7 +1691,8 @@ export default function BrnsicMusicPage() {
 
     // Prompt user to LOGIN first before choosing genres
     const savedToken = typeof localStorage !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null;
-    if (!savedToken) {
+    const savedProfile = typeof localStorage !== "undefined" ? localStorage.getItem("brnsic_user_profile") : null;
+    if (!savedToken && !savedProfile && !currentUser) {
       const authTimer = setTimeout(() => {
         setIsAuthModalOpen(true);
       }, 1400);
@@ -2152,6 +2182,9 @@ export default function BrnsicMusicPage() {
       }
 
       setCurrentUser(data.user);
+      try {
+        localStorage.setItem("brnsic_user_profile", JSON.stringify(data.user));
+      } catch (e) {}
       setIsAuthModalOpen(false);
       setGoogleEmail("");
 
@@ -2209,6 +2242,7 @@ export default function BrnsicMusicPage() {
     } catch (e) {}
     try {
       localStorage.removeItem("brnsic_auth_token");
+      localStorage.removeItem("brnsic_user_profile");
     } catch (e) {}
     setCurrentUser(null);
     setIsProfileDropdownOpen(false);
@@ -3340,7 +3374,7 @@ export default function BrnsicMusicPage() {
   const playSearchedSong = (song: any, index: number) => {
     hasUserStartedPlaybackRef.current = true;
     setHasUserStartedPlayback(true);
-    handlePlayFromList(song, searchResults, index);
+    handlePlaySingleSongWithRadio(song);
   };
 
   const togglePlay = () => {
@@ -6906,7 +6940,11 @@ export default function BrnsicMusicPage() {
                   ref={mobileLyricsScrollRef}
                   onWheel={handleUserScroll}
                   onTouchMove={handleUserScroll}
-                  className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-6 py-12 px-4 text-center"
+                  className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-7 py-20 px-6 sm:px-8 text-left"
+                  style={{
+                    maskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)",
+                    WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)"
+                  }}
                 >
                   {currentTrack.lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIdx;
@@ -6921,10 +6959,10 @@ export default function BrnsicMusicPage() {
                           }
                           setUserIsScrollingLyrics(false);
                         }}
-                        className={`transition-colors duration-300 cursor-pointer select-none leading-relaxed text-xl sm:text-2xl font-bold ${
+                        className={`transition-all duration-300 cursor-pointer select-none leading-snug tracking-tight origin-left ${
                           isActive
-                            ? "text-white font-black opacity-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.85)]"
-                            : "text-white/35 opacity-40 hover:opacity-75"
+                            ? "text-2xl sm:text-3xl font-black text-white scale-[1.04] drop-shadow-[0_4px_25px_rgba(255,255,255,0.7)]"
+                            : "text-xl sm:text-2xl font-extrabold text-white/30 hover:text-white/70 hover:scale-[1.01]"
                         }`}
                       >
                         {line.text}
@@ -7127,7 +7165,11 @@ export default function BrnsicMusicPage() {
                   ref={zoomedLyricsScrollRef}
                   onWheel={handleUserScroll}
                   onTouchMove={handleUserScroll}
-                  className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-8 px-8 py-16 text-left"
+                  className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-9 px-8 sm:px-12 py-24 text-left"
+                  style={{
+                    maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
+                    WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)"
+                  }}
                 >
                   {currentTrack.lyrics.map((line, idx) => {
                     const isActive = idx === activeLyricIdx;
@@ -7142,10 +7184,10 @@ export default function BrnsicMusicPage() {
                           }
                           setUserIsScrollingLyrics(false);
                         }}
-                        className={`transition-colors duration-300 cursor-pointer select-none leading-relaxed text-2xl sm:text-4xl font-bold ${
+                        className={`transition-all duration-300 cursor-pointer select-none leading-snug tracking-tight origin-left ${
                           isActive
-                            ? "text-white font-black opacity-100 drop-shadow-[0_0_30px_rgba(255,255,255,0.9)]"
-                            : "text-white/30 opacity-40 hover:opacity-75"
+                            ? "text-3xl sm:text-5xl font-black text-white scale-[1.03] drop-shadow-[0_4px_30px_rgba(255,255,255,0.8)]"
+                            : "text-2xl sm:text-3xl font-extrabold text-white/30 hover:text-white/70 hover:scale-[1.01]"
                         }`}
                       >
                         {line.text}

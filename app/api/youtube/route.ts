@@ -80,6 +80,13 @@ const VERIFIED_MAP: Record<string, string> = {
   "raim laode komang": "sNqB3a8B99Q",
   "komang": "sNqB3a8B99Q",
 
+  // 6sentani & Pop Jawa Hits
+  "6sentani only siji": "iQ7gbcjob3w",
+  "only siji": "iQ7gbcjob3w",
+  "6sentani mbak billie": "DeCO1sct6GI",
+  "mbak billie": "DeCO1sct6GI",
+  "6sentani": "iQ7gbcjob3w",
+
   // Denny Caknan & Dangdut Hits
   "denny caknan sigar": "Z3E3AamV2to",
   "sigar": "Z3E3AamV2to",

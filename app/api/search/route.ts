@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { CURATED_LYRICS } from "../lyrics/route";
 
 // Curated top popular & trending tracks indexed for instant smart search
 const POPULAR_SEARCH_INDEX = [
@@ -172,6 +173,24 @@ const POPULAR_SEARCH_INDEX = [
     duration: 251,
     youtubeId: "kPa7bsKwL-c",
     tags: ["die", "smile", "bruno", "mars", "lady", "gaga"]
+  },
+  {
+    title: "Only Siji",
+    artist: "6sentani",
+    album: "Only Siji - Single",
+    cover: "https://i.ytimg.com/vi/iQ7gbcjob3w/maxresdefault.jpg",
+    duration: 215,
+    youtubeId: "iQ7gbcjob3w",
+    tags: ["only", "siji", "6sentani", "sentani", "masdddho", "koplo", "jawa"]
+  },
+  {
+    title: "Mbak Billie",
+    artist: "6sentani",
+    album: "Mbak Billie - Single",
+    cover: "https://i.ytimg.com/vi/DeCO1sct6GI/maxresdefault.jpg",
+    duration: 200,
+    youtubeId: "DeCO1sct6GI",
+    tags: ["mbak", "billie", "6sentani", "sentani", "billie"]
   }
 ];
 
@@ -186,11 +205,31 @@ export async function GET(request: Request) {
   const queryClean = q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
   const queryWords = queryClean.split(" ").filter(Boolean);
 
-  // 1. Instant match against verified popular songs (fuzzy token matching for typos & partial titles)
+  // 0. Match against Curated Synced Lyrics (e.g. searching "mungkinkah kau mampir" finds "Gala Bunga Matahari")
+  const lyricMatchedSongKeys = new Set<string>();
+  for (const [songKey, lines] of Object.entries(CURATED_LYRICS)) {
+    for (const line of lines) {
+      const lineClean = line.text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+      if (
+        (queryClean.length >= 4 && lineClean.includes(queryClean)) ||
+        (queryWords.length >= 3 && queryWords.every((w) => lineClean.includes(w)))
+      ) {
+        lyricMatchedSongKeys.add(songKey);
+        break;
+      }
+    }
+  }
+
+  // 1. Instant match against verified popular songs (fuzzy token matching for typos & partial titles + lyrics)
   const popularMatches = POPULAR_SEARCH_INDEX.filter((song) => {
     const t = song.title.toLowerCase();
     const a = song.artist.toLowerCase();
     const tags = song.tags || [];
+
+    // Lyric match boost
+    for (const lKey of lyricMatchedSongKeys) {
+      if (t.includes(lKey) || lKey.includes(t)) return true;
+    }
 
     // Direct substring in title or artist
     if (t.includes(queryClean) || a.includes(queryClean)) return true;
@@ -239,12 +278,11 @@ export async function GET(request: Request) {
       }));
     }
 
-    // 3. Fetch YouTube Indie / Local Search
+    // 3. Fetch YouTube Music / Audio & Lyric Search
     let ytItems: any[] = [];
     try {
-      const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
-        q.trim() + " audio"
-      )}`;
+      const ytQuery = queryWords.length >= 3 ? `${q.trim()} lirik official` : `${q.trim()} audio`;
+      const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(ytQuery)}`;
       const ytRes = await fetch(ytSearchUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
       });
@@ -275,9 +313,7 @@ export async function GET(request: Request) {
                 lower.includes("animasi") ||
                 lower.includes("jedag jedug") ||
                 lower.includes("dj tiktok") ||
-                lower.includes("short") ||
-                lower.includes("6sentani") ||
-                lower.includes("only siji")
+                lower.includes("short")
               ) {
                 continue;
               }
@@ -301,7 +337,7 @@ export async function GET(request: Request) {
                 source: "youtube"
               });
 
-              if (ytItems.length >= 6) break;
+              if (ytItems.length >= 8) break;
             }
           }
         }
@@ -315,12 +351,6 @@ export async function GET(request: Request) {
     const listToMerge = [...popularMatches, ...itunesItems, ...ytItems];
 
     for (const item of listToMerge) {
-      const t = (item.trackName || "").toLowerCase();
-      const a = (item.artistName || "").toLowerCase();
-      if (t.includes("6sentani") || t.includes("only siji") || a.includes("6sentani") || a.includes("only siji")) {
-        continue;
-      }
-
       const cleanKey = `${(item.artistName || "").toLowerCase()} ${(item.trackName || "").toLowerCase()}`.replace(
         /[^a-z0-9]/g,
         ""

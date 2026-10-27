@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 // High-Precision Curated Synced Lyrics (0ms instant response, studio-accurate timestamps)
-const CURATED_LYRICS: Record<string, { time: number; text: string }[]> = {
+export const CURATED_LYRICS: Record<string, { time: number; text: string }[]> = {
   "gala bunga matahari": [
     { time: 0, text: "(Intro Piano)" },
     { time: 1.89, text: "Mungkinkah" },
