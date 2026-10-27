@@ -1230,9 +1230,24 @@ export default function BrnsicMusicPage() {
   // 17. Real PWA Install Step State
   const [installStep, setInstallStep] = useState<"downloading" | "ready" | "installed" | "ios_guide">("downloading");
 
-  // Background Audio Anchor & System MediaSession Refs
-  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
+  const activeQueueRef = useRef<any[]>(DEFAULT_CATALOG);
+  const activeQueueIndexRef = useRef<number>(0);
+  const repeatModeRef = useRef<"off" | "all" | "one">("off");
+  const isAlbumLoopModeRef = useRef<boolean>(false);
+  const currentTrackRef = useRef<Track>(DEFAULT_CATALOG[0]);
+  const playNextSongRef = useRef<(userTriggered?: boolean) => void>(() => {});
+  const hasTriggeredEndRef = useRef<boolean>(false);
+
+  // Unified Bulletproof Track Completion Trigger
+  const handleTrackEnded = (source = "unknown") => {
+    if (hasTriggeredEndRef.current) return;
+    hasTriggeredEndRef.current = true;
+    if (playNextSongRef.current) {
+      playNextSongRef.current(false);
+    }
+  };
 
   // References
   const ytPlayerRef = useRef<any>(null);
@@ -1259,6 +1274,27 @@ export default function BrnsicMusicPage() {
     }, 1800);
     return () => clearTimeout(timer);
   }, []);
+
+  // Synchronize Player Engine Refs
+  useEffect(() => {
+    activeQueueRef.current = activeQueue;
+  }, [activeQueue]);
+
+  useEffect(() => {
+    activeQueueIndexRef.current = activeQueueIndex;
+  }, [activeQueueIndex]);
+
+  useEffect(() => {
+    repeatModeRef.current = repeatMode;
+  }, [repeatMode]);
+
+  useEffect(() => {
+    isAlbumLoopModeRef.current = isAlbumLoopMode;
+  }, [isAlbumLoopMode]);
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
 
   // 2. Native APK Detection & Automatic Update Checker
   useEffect(() => {
@@ -1529,7 +1565,7 @@ export default function BrnsicMusicPage() {
     };
 
     (window as any).__handleNativeTrackCompleted = () => {
-      playNextSong(false);
+      handleTrackEnded("native-android-completed");
     };
 
     (window as any).__handleNativePlaybackState = (playing: boolean) => {
@@ -1572,15 +1608,18 @@ export default function BrnsicMusicPage() {
     } catch (e) {}
 
     const handleBackgroundKeepalive = () => {
-      if (isPlayingRef.current) {
-        if (silentAudioRef.current && silentAudioRef.current.paused) {
-          silentAudioRef.current.play().catch(() => {});
-        }
-        if (ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
-          try {
+      if (isPlayingRef.current && ytPlayerRef.current) {
+        try {
+          const curr = ytPlayerRef.current.getCurrentTime?.() || 0;
+          const dur = ytPlayerRef.current.getDuration?.() || 0;
+          if (dur > 5 && curr >= dur - 1.5) {
+            handleTrackEnded("keepalive-eof");
+            return;
+          }
+          if (typeof ytPlayerRef.current.playVideo === "function") {
             ytPlayerRef.current.playVideo();
-          } catch (e) {}
-        }
+          }
+        } catch (e) {}
       }
     };
 
@@ -1600,17 +1639,9 @@ export default function BrnsicMusicPage() {
       try {
         if ((window as any).BrnsicNative?.startPlayback) {
           (window as any).BrnsicNative.startPlayback(
-            currentTrack.title || "Brnsic Music",
-            currentTrack.artist || "Memutar di latar belakang"
+            currentTrackRef.current?.title || "Brnsic Music",
+            currentTrackRef.current?.artist || "Memutar di latar belakang"
           );
-        }
-      } catch (e) {}
-    }
-    if (silentAudioRef.current) {
-      try {
-        silentAudioRef.current.volume = 1;
-        if (silentAudioRef.current.paused) {
-          silentAudioRef.current.play().catch(() => {});
         }
       } catch (e) {}
     }
@@ -1627,11 +1658,6 @@ export default function BrnsicMusicPage() {
         if ((window as any).BrnsicNative?.stopPlayback) {
           (window as any).BrnsicNative.stopPlayback();
         }
-      } catch (e) {}
-    }
-    if (silentAudioRef.current) {
-      try {
-        silentAudioRef.current.pause();
       } catch (e) {}
     }
   };
@@ -2297,57 +2323,58 @@ export default function BrnsicMusicPage() {
                 return;
               }
               // Attempt to recover by querying fresh ID for the current track first
-              const recoveringSong = currentTrack.title;
+              const recoveringSong = currentTrackRef.current?.title;
               fetch(
-                `/api/youtube?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(
-                  currentTrack.title
-                )}&q=${encodeURIComponent(`${currentTrack.artist} ${currentTrack.title}`)}`
+                `/api/youtube?artist=${encodeURIComponent(currentTrackRef.current?.artist || "")}&title=${encodeURIComponent(
+                  recoveringSong || ""
+                )}&q=${encodeURIComponent(`${currentTrackRef.current?.artist || ""} ${recoveringSong || ""}`)}`
               )
                 .then((r) => r.json())
                 .then((d) => {
-                  if (d.videoId && d.videoId !== currentTrack.youtubeId && ytPlayerRef.current) {
+                  if (d.videoId && d.videoId !== currentTrackRef.current?.youtubeId && ytPlayerRef.current) {
                     ytPlayerRef.current.loadVideoById({ videoId: d.videoId, startSeconds: 0 });
                     ytPlayerRef.current.playVideo();
                     return;
                   }
                   setTimeout(() => {
-                    if (currentTrack.title === recoveringSong) {
-                      playNextSong(false);
+                    if (currentTrackRef.current?.title === recoveringSong) {
+                      handleTrackEnded("player-error-fallback");
                     }
                   }, 800);
                 })
                 .catch(() => {
                   setTimeout(() => {
-                    if (currentTrack.title === recoveringSong) {
-                      playNextSong(false);
+                    if (currentTrackRef.current?.title === recoveringSong) {
+                      handleTrackEnded("player-error-catch");
                     }
                   }, 800);
                 });
             },
             onStateChange: (event: any) => {
               if (event.data === 1) {
+                // Playing
                 setIsPlaying(true);
                 isPlayingRef.current = true;
+                hasTriggeredEndRef.current = false;
                 startBackgroundKeepalive();
               } else if (event.data === 2) {
-                // If paused unexpectedly while isPlayingRef.current is true (e.g. mobile background throttle or screen lock)
-                if (isPlayingRef.current) {
-                  startBackgroundKeepalive();
-                  setTimeout(() => {
-                    if (isPlayingRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
-                      try {
-                        ytPlayerRef.current.playVideo();
-                      } catch (e) {}
-                    }
-                  }, 50);
-                  return;
-                }
+                // Paused - Check if paused at or near the end of track!
+                try {
+                  const curr = ytPlayerRef.current?.getCurrentTime?.() || 0;
+                  const dur = ytPlayerRef.current?.getDuration?.() || 0;
+                  if (dur > 5 && curr >= dur - 1.5) {
+                    handleTrackEnded("youtube-paused-at-eof");
+                    return;
+                  }
+                } catch (e) {}
+
                 setIsPlaying(false);
                 isPlayingRef.current = false;
                 stopBackgroundKeepalive();
               } else if (event.data === 0) {
+                // Ended
                 if (hasUserStartedPlaybackRef.current) {
-                  playNextSong(false);
+                  handleTrackEnded("youtube-ended-event");
                 }
               }
             }
@@ -2399,11 +2426,12 @@ export default function BrnsicMusicPage() {
               }
             }
 
-            // Automatically log "complete" (+3 taste boost) when listened past 80% duration
             const effectiveDur =
               (typeof ytPlayerRef.current.getDuration === "function" && ytPlayerRef.current.getDuration()) ||
               currentTrack.duration ||
               215;
+
+            // Automatically log "complete" (+3 taste boost) when listened past 80% duration
             if (
               !hasLoggedCompletionRef.current &&
               effectiveDur > 25 &&
@@ -2411,6 +2439,20 @@ export default function BrnsicMusicPage() {
             ) {
               hasLoggedCompletionRef.current = true;
               recordTasteInteraction(currentTrack, "complete");
+            }
+
+            // Bulletproof Auto-Advance: if track has reached duration threshold (within 0.75s of end)
+            if (
+              !hasTriggeredEndRef.current &&
+              hasUserStartedPlaybackRef.current &&
+              effectiveDur > 10 &&
+              exactSeconds >= effectiveDur - 0.75
+            ) {
+              handleTrackEnded("polling-dur-threshold");
+            }
+          } else if (state === 0) {
+            if (!hasTriggeredEndRef.current && hasUserStartedPlaybackRef.current) {
+              handleTrackEnded("polling-state-zero-eof");
             }
           }
         } catch (e) {}
@@ -2506,6 +2548,7 @@ export default function BrnsicMusicPage() {
     }
 
     hasLoggedCompletionRef.current = false;
+    hasTriggeredEndRef.current = false;
     const currentRequestId = ++playRequestIdRef.current;
 
     if (userInitiated) {
@@ -2534,6 +2577,7 @@ export default function BrnsicMusicPage() {
 
     const optimisticTrack: Track = { ...song };
     setCurrentTrack(optimisticTrack);
+    currentTrackRef.current = optimisticTrack;
 
     // Fetch related songs asynchronously
     fetch(`/api/related?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
@@ -2634,12 +2678,17 @@ export default function BrnsicMusicPage() {
     const targetSong = normalizedList[safeIndex] || normalizeSong(song);
 
     if (shuffleMode === "off") {
+      activeQueueRef.current = normalizedList;
+      activeQueueIndexRef.current = safeIndex;
       setActiveQueue(normalizedList);
       setActiveQueueIndex(safeIndex);
     } else if (shuffleMode === "standard") {
       const others = normalizedList.filter((_, i) => i !== safeIndex);
       const shuffledOthers = balancedShuffle(others, playedSongTitlesRef.current);
-      setActiveQueue([targetSong, ...shuffledOthers]);
+      const nextQ = [targetSong, ...shuffledOthers];
+      activeQueueRef.current = nextQ;
+      activeQueueIndexRef.current = 0;
+      setActiveQueue(nextQ);
       setActiveQueueIndex(0);
     } else if (shuffleMode === "smart") {
       const others = normalizedList.filter((_, i) => i !== safeIndex);
@@ -2669,11 +2718,15 @@ export default function BrnsicMusicPage() {
       while (cIdx < discovery.length) {
         woven.push(discovery[cIdx++]);
       }
-      setActiveQueue([targetSong, ...woven]);
+      const nextQ = [targetSong, ...woven];
+      activeQueueRef.current = nextQ;
+      activeQueueIndexRef.current = 0;
+      setActiveQueue(nextQ);
       setActiveQueueIndex(0);
     }
 
     if (!isAlbum) {
+      isAlbumLoopModeRef.current = false;
       setIsAlbumLoopMode(false);
     }
     playAnySong(targetSong, true);
@@ -2683,11 +2736,15 @@ export default function BrnsicMusicPage() {
   const handlePlaySingleSongWithRadio = async (song: any) => {
     hasUserStartedPlaybackRef.current = true;
     setHasUserStartedPlayback(true);
+    isAlbumLoopModeRef.current = false;
     setIsAlbumLoopMode(false);
+    repeatModeRef.current = "off";
     setRepeatMode("off");
     playAnySong(song, true);
 
     // Initial queue starting with this song
+    activeQueueRef.current = [song];
+    activeQueueIndexRef.current = 0;
     setActiveQueue([song]);
     setActiveQueueIndex(0);
 
@@ -2716,7 +2773,9 @@ export default function BrnsicMusicPage() {
           30
         );
 
-        setActiveQueue([song, ...rankedDiscovery]);
+        const radioQueue = [song, ...rankedDiscovery];
+        activeQueueRef.current = radioQueue;
+        setActiveQueue(radioQueue);
       }
     } catch (e) {}
   };
@@ -2747,10 +2806,14 @@ export default function BrnsicMusicPage() {
     const normalized = tracks.map((t) => normalizeSong(t));
     originalQueueRef.current = [...normalized];
     setActiveAlbumTracks(normalized);
+    isAlbumLoopModeRef.current = loop;
     setIsAlbumLoopMode(loop);
+    repeatModeRef.current = loop ? "all" : "off";
     setRepeatMode(loop ? "all" : "off");
 
     if (shuffleMode === "off") {
+      activeQueueRef.current = normalized;
+      activeQueueIndexRef.current = 0;
       setActiveQueue(normalized);
       setActiveQueueIndex(0);
       playAnySong(normalized[0]);
@@ -2758,7 +2821,10 @@ export default function BrnsicMusicPage() {
       const first = normalized[0];
       const others = normalized.slice(1);
       const shuffled = balancedShuffle(others, playedSongTitlesRef.current);
-      setActiveQueue([first, ...shuffled]);
+      const albumQ = [first, ...shuffled];
+      activeQueueRef.current = albumQ;
+      activeQueueIndexRef.current = 0;
+      setActiveQueue(albumQ);
       setActiveQueueIndex(0);
       playAnySong(first);
     } else {
@@ -2788,7 +2854,10 @@ export default function BrnsicMusicPage() {
         }
       });
       while (cIdx < discovery.length) woven.push(discovery[cIdx++]);
-      setActiveQueue([first, ...woven]);
+      const albumQ = [first, ...woven];
+      activeQueueRef.current = albumQ;
+      activeQueueIndexRef.current = 0;
+      setActiveQueue(albumQ);
       setActiveQueueIndex(0);
       playAnySong(first);
     }
@@ -2801,10 +2870,16 @@ export default function BrnsicMusicPage() {
       recordTasteInteraction(currentTrack, "skip");
     }
 
+    const currentMode = repeatModeRef.current;
+    const currentQ = activeQueueRef.current && activeQueueRef.current.length > 0 ? activeQueueRef.current : activeQueue;
+    const currentIdx = activeQueueIndexRef.current;
+    const isLoopAlbum = isAlbumLoopModeRef.current;
+
     // 1. If Repeat 1 (Single Track) is active, replay current song from 0
-    if (repeatMode === "one") {
+    if (currentMode === "one") {
       recordTasteInteraction(currentTrack, "replay");
       setCurrentTime(0);
+      hasTriggeredEndRef.current = false;
       if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
         ytPlayerRef.current.seekTo(0, true);
         ytPlayerRef.current.playVideo();
@@ -2813,20 +2888,21 @@ export default function BrnsicMusicPage() {
     }
 
     // 2. If inside active queue and not at the last track
-    if (activeQueue && activeQueue.length > 0) {
-      if (activeQueueIndex < activeQueue.length - 1) {
-        const nextIdx = activeQueueIndex + 1;
-        const candidate = activeQueue[nextIdx];
+    if (currentQ && currentQ.length > 0) {
+      if (currentIdx < currentQ.length - 1) {
+        const nextIdx = currentIdx + 1;
+        const candidate = currentQ[nextIdx];
         if (candidate) {
+          activeQueueIndexRef.current = nextIdx;
           setActiveQueueIndex(nextIdx);
           playAnySong(candidate, userTriggered);
 
           // If in Smart Shuffle mode and upcoming queue is getting low (<= 3 tracks left),
           // dynamically generate and append more smart recommendations so music never stops!
-          if (shuffleMode === "smart" && activeQueue.length - nextIdx <= 3) {
+          if (shuffleMode === "smart" && currentQ.length - nextIdx <= 3) {
             const freshSmartCandidates = getSmartShuffleCandidates(
               candidate,
-              activeQueue,
+              currentQ,
               playedSongTitlesRef.current,
               userTaste,
               {
@@ -2839,16 +2915,19 @@ export default function BrnsicMusicPage() {
               dislikedSongIds
             );
             if (freshSmartCandidates.length > 0) {
-              setActiveQueue((prev) => [...prev, ...freshSmartCandidates]);
+              const updated = [...currentQ, ...freshSmartCandidates];
+              activeQueueRef.current = updated;
+              setActiveQueue(updated);
             }
           }
           return;
         }
       } else {
         // Reached the end of activeQueue!
-        if (repeatMode === "all" || isAlbumLoopMode) {
+        if (currentMode === "all" || isLoopAlbum) {
+          activeQueueIndexRef.current = 0;
           setActiveQueueIndex(0);
-          playAnySong(activeQueue[0], userTriggered);
+          playAnySong(currentQ[0], userTriggered);
           return;
         }
       }
@@ -2867,17 +2946,18 @@ export default function BrnsicMusicPage() {
 
     // A. Pick next unplayed from related recommendations & candidate pool via Deep Learning UCB1
     const candidatePool = [
-      ...relatedQueue,
-      ...indonesiaTop50,
-      ...mostPlayedIndonesia,
-      ...viralIndonesia,
+      ...(relatedQueue || []),
+      ...(indonesiaTop50 || []),
+      ...(mostPlayedIndonesia || []),
+      ...(viralIndonesia || []),
       ...DEFAULT_CATALOG
     ];
 
+    const currentTitle = (currentTrack.title || "").toLowerCase().trim();
     const rankedCandidates = rankTracksByDeepLearning(
       userTasteVector,
       candidatePool,
-      [currentTrack.title.toLowerCase().trim(), ...recentHistoryRef.current],
+      [currentTitle, ...recentHistoryRef.current],
       dislikedSongIds,
       12
     );
@@ -2887,41 +2967,56 @@ export default function BrnsicMusicPage() {
       const topChoices = rankedCandidates.slice(0, Math.min(3, rankedCandidates.length));
       const nextSong = topChoices[Math.floor(Math.random() * topChoices.length)];
       markPlayed(nextSong);
-      setActiveQueue((prev) => [...prev, nextSong]);
-      setActiveQueueIndex(activeQueue.length);
+      const nextQ = [...currentQ, nextSong];
+      const nextIdx = nextQ.length - 1;
+      activeQueueRef.current = nextQ;
+      activeQueueIndexRef.current = nextIdx;
+      setActiveQueue(nextQ);
+      setActiveQueueIndex(nextIdx);
       playAnySong(nextSong, userTriggered);
       return;
     }
 
     // B. If all tracks played, reset session history and pick a track different from current
-    playedSongTitlesRef.current = new Set([currentTrack.title.toLowerCase().trim()]);
+    playedSongTitlesRef.current = new Set([currentTitle]);
     const fallbackList = (indonesiaTop50.length > 0 ? indonesiaTop50 : DEFAULT_CATALOG).filter(
       (t) => !dislikedSongIds.includes(t.id) && !dislikedSongIds.includes((t.title || "").toLowerCase().trim())
     );
-    const unvisited = fallbackList.filter((t) => !recentHistoryRef.current.includes(t.title.toLowerCase().trim()));
+    const unvisited = fallbackList.filter((t) => !recentHistoryRef.current.includes((t.title || "").toLowerCase().trim()));
     const validChoices = unvisited.length > 0 ? unvisited : fallbackList;
     const fallbackNext =
       validChoices[Math.floor(Math.random() * validChoices.length)] || DEFAULT_CATALOG[0];
 
     markPlayed(fallbackNext);
-    setActiveQueue((prev) => [...prev, fallbackNext]);
-    setActiveQueueIndex(activeQueue.length);
+    const fallbackQ = [...currentQ, fallbackNext];
+    const fallbackIdx = fallbackQ.length - 1;
+    activeQueueRef.current = fallbackQ;
+    activeQueueIndexRef.current = fallbackIdx;
+    setActiveQueue(fallbackQ);
+    setActiveQueueIndex(fallbackIdx);
     playAnySong(fallbackNext, userTriggered);
   };
+
+  // Keep playNextSongRef up to date across all renders
+  playNextSongRef.current = playNextSong;
 
   const playPrevSong = () => {
     if (currentTime > 4) {
       setCurrentTime(0);
+      hasTriggeredEndRef.current = false;
       if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
         ytPlayerRef.current.seekTo(0, true);
       }
       return;
     }
 
-    if (activeQueue && activeQueue.length > 0) {
-      const prevIdx = (activeQueueIndex - 1 + activeQueue.length) % activeQueue.length;
+    const currentQ = activeQueueRef.current && activeQueueRef.current.length > 0 ? activeQueueRef.current : activeQueue;
+    const currentIdx = activeQueueIndexRef.current;
+    if (currentQ && currentQ.length > 0) {
+      const prevIdx = (currentIdx - 1 + currentQ.length) % currentQ.length;
+      activeQueueIndexRef.current = prevIdx;
       setActiveQueueIndex(prevIdx);
-      playAnySong(activeQueue[prevIdx], false);
+      playAnySong(currentQ[prevIdx], false);
     }
   };
 
@@ -3308,13 +3403,6 @@ export default function BrnsicMusicPage() {
         }}
       >
         <div id="master-yt-player" className="w-full h-full"></div>
-        <audio
-          ref={silentAudioRef}
-          src="/audio/silence.wav"
-          loop
-          preload="auto"
-          playsInline
-        />
       </div>
 
       {/* ====================================================================
@@ -5782,6 +5870,8 @@ export default function BrnsicMusicPage() {
             <button
               onClick={() => {
                 const nextMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
+                repeatModeRef.current = nextMode;
+                isAlbumLoopModeRef.current = nextMode === "all";
                 setRepeatMode(nextMode);
                 setIsAlbumLoopMode(nextMode === "all");
               }}
@@ -6490,6 +6580,8 @@ export default function BrnsicMusicPage() {
                   <button
                     onClick={() => {
                       const nextMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
+                      repeatModeRef.current = nextMode;
+                      isAlbumLoopModeRef.current = nextMode === "all";
                       setRepeatMode(nextMode);
                       setIsAlbumLoopMode(nextMode === "all");
                     }}
