@@ -1695,6 +1695,8 @@ export default function BrnsicMusicPage() {
   const audioContextRef = useRef<any>(null);
   const silentNodeRef = useRef<any>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const htmlAudioRef = useRef<HTMLAudioElement | null>(null);
+  const activePlayerEngineRef = useRef<"html-audio" | "youtube">("youtube");
 
   const isIOSDevice = () => {
     if (typeof window === "undefined" || typeof navigator === "undefined") return false;
@@ -2646,6 +2648,53 @@ export default function BrnsicMusicPage() {
   // 6. Precise Audio Time & Real Duration Polling (Smooth 50ms fluid karaoke & zero latency)
   useEffect(() => {
     const timer = setInterval(() => {
+      // 6A. Native HTML5 Audio Engine (iOS & Direct Stream)
+      if (activePlayerEngineRef.current === "html-audio" && htmlAudioRef.current) {
+        try {
+          if (!htmlAudioRef.current.paused) {
+            const exactSeconds = htmlAudioRef.current.currentTime;
+            if (typeof exactSeconds === "number" && !isNaN(exactSeconds)) {
+              setCurrentTime(exactSeconds);
+            }
+            const liveDur = htmlAudioRef.current.duration;
+            if (typeof liveDur === "number" && liveDur > 5 && Math.abs(liveDur - (currentTrack.duration || 0)) > 1) {
+              const roundedDur = Math.round(liveDur);
+              setCurrentTrack((prev) => ({ ...prev, duration: roundedDur }));
+              setIndonesiaTop50((prev) =>
+                prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
+              );
+              setActiveQueue((prev) =>
+                prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
+              );
+            }
+            const effectiveDur =
+              (htmlAudioRef.current.duration > 0 && htmlAudioRef.current.duration) ||
+              currentTrack.duration ||
+              210;
+
+            if (
+              !hasLoggedCompletionRef.current &&
+              effectiveDur > 25 &&
+              exactSeconds / effectiveDur >= 0.8
+            ) {
+              hasLoggedCompletionRef.current = true;
+              recordTasteInteraction(currentTrack, "complete");
+            }
+
+            if (
+              !hasTriggeredEndRef.current &&
+              hasUserStartedPlaybackRef.current &&
+              effectiveDur > 10 &&
+              exactSeconds >= effectiveDur - 0.75
+            ) {
+              handleTrackEnded("html-audio-polling-eof");
+            }
+          }
+        } catch (e) {}
+        return;
+      }
+
+      // 6B. YouTube Player Engine (Desktop & Android Web)
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
         try {
           const state = ytPlayerRef.current.getPlayerState();
@@ -2886,7 +2935,39 @@ export default function BrnsicMusicPage() {
         } catch (e) {}
       }
 
-      // 2. Web Player / UI & Audio Sync (Instant, rock-solid, zero 500 network errors)
+      // 2. iOS Safari Direct HTML5 Audio Engine (True Uninterrupted Background Audio on Lock Screen / App Switch)
+      const isIOS = isIOSDevice();
+      if (isIOS && htmlAudioRef.current) {
+        activePlayerEngineRef.current = "html-audio";
+        try {
+          htmlAudioRef.current.pause();
+          htmlAudioRef.current.src = `/api/stream?id=${encodeURIComponent(vid)}`;
+          htmlAudioRef.current.volume = volume;
+          htmlAudioRef.current.currentTime = 0;
+          htmlAudioRef.current
+            .play()
+            .then(() => {
+              setIsLoadingSong(false);
+            })
+            .catch((err) => {
+              console.warn("HTML5 audio playback error, falling back to YouTube:", err);
+              activePlayerEngineRef.current = "youtube";
+              if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
+                ytPlayerRef.current.loadVideoById({ videoId: vid, startSeconds: 0 });
+                ytPlayerRef.current.unMute();
+                ytPlayerRef.current.setVolume(volume * 100);
+                ytPlayerRef.current.playVideo();
+                setTimeout(() => setIsLoadingSong(false), 1200);
+              }
+            });
+          return;
+        } catch (e) {
+          activePlayerEngineRef.current = "youtube";
+        }
+      }
+
+      // 3. Desktop / Chromium Web Player (Instant, rock-solid, zero 500 network errors)
+      activePlayerEngineRef.current = "youtube";
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
         try {
           ytPlayerRef.current.loadVideoById({
@@ -3159,7 +3240,10 @@ export default function BrnsicMusicPage() {
       recordTasteInteraction(currentTrack, "replay");
       setCurrentTime(0);
       hasTriggeredEndRef.current = false;
-      if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+      if (activePlayerEngineRef.current === "html-audio" && htmlAudioRef.current) {
+        htmlAudioRef.current.currentTime = 0;
+        htmlAudioRef.current.play().catch(() => {});
+      } else if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
         ytPlayerRef.current.seekTo(0, true);
         ytPlayerRef.current.playVideo();
       }
@@ -3283,7 +3367,9 @@ export default function BrnsicMusicPage() {
     if (currentTime > 4) {
       setCurrentTime(0);
       hasTriggeredEndRef.current = false;
-      if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+      if (activePlayerEngineRef.current === "html-audio" && htmlAudioRef.current) {
+        htmlAudioRef.current.currentTime = 0;
+      } else if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
         ytPlayerRef.current.seekTo(0, true);
       }
       return;
@@ -3487,7 +3573,11 @@ export default function BrnsicMusicPage() {
         (window as any).BrnsicNative.resumeAudio();
       } catch (e) {}
     }
-    if (ytPlayerRef.current) {
+    if (activePlayerEngineRef.current === "html-audio" && htmlAudioRef.current) {
+      try {
+        htmlAudioRef.current.play().catch(() => {});
+      } catch (e) {}
+    } else if (ytPlayerRef.current) {
       try {
         ytPlayerRef.current.unMute();
         ytPlayerRef.current.setVolume(volume * 100);
@@ -3511,7 +3601,11 @@ export default function BrnsicMusicPage() {
         (window as any).BrnsicNative.pauseAudio();
       } catch (e) {}
     }
-    if (ytPlayerRef.current) {
+    if (activePlayerEngineRef.current === "html-audio" && htmlAudioRef.current) {
+      try {
+        htmlAudioRef.current.pause();
+      } catch (e) {}
+    } else if (ytPlayerRef.current) {
       try {
         ytPlayerRef.current.pauseVideo();
       } catch (e) {}
@@ -3528,6 +3622,10 @@ export default function BrnsicMusicPage() {
 
   const getActiveDuration = () => {
     try {
+      if (activePlayerEngineRef.current === "html-audio" && htmlAudioRef.current) {
+        const d = htmlAudioRef.current.duration;
+        if (typeof d === "number" && !isNaN(d) && d > 5) return Math.round(d);
+      }
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getDuration === "function") {
         const d = ytPlayerRef.current.getDuration();
         if (typeof d === "number" && d > 5) return Math.round(d);
@@ -3545,7 +3643,11 @@ export default function BrnsicMusicPage() {
         (window as any).BrnsicNative.seekAudio(Math.round(safeSec * 1000));
       } catch (e) {}
     }
-    if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+    if (activePlayerEngineRef.current === "html-audio" && htmlAudioRef.current) {
+      try {
+        htmlAudioRef.current.currentTime = safeSec;
+      } catch (e) {}
+    } else if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
       ytPlayerRef.current.seekTo(safeSec, true);
     }
     if (typeof window !== "undefined" && "mediaSession" in navigator && "setPositionState" in navigator.mediaSession) {
@@ -3564,13 +3666,7 @@ export default function BrnsicMusicPage() {
     const pct = clickX / rect.width;
     const totalDuration = getActiveDuration();
     const targetSeconds = Math.round(pct * totalDuration);
-    setCurrentTime(targetSeconds);
-    if (directAudioRef.current && isUsingDirectAudioRef.current) {
-      directAudioRef.current.currentTime = targetSeconds;
-    }
-    if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
-      ytPlayerRef.current.seekTo(targetSeconds, true);
-    }
+    handleSeekSeconds(targetSeconds);
   };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -3589,6 +3685,10 @@ export default function BrnsicMusicPage() {
     const pct = Math.max(0, Math.min(1, clickX / rect.width));
     setVolume(pct);
     setIsMuted(false);
+    if (htmlAudioRef.current) {
+      htmlAudioRef.current.volume = pct;
+      htmlAudioRef.current.muted = false;
+    }
     if (typeof window !== "undefined" && (window as any).BrnsicNative?.setVolume) {
       try {
         (window as any).BrnsicNative.setVolume(pct);
@@ -3603,6 +3703,9 @@ export default function BrnsicMusicPage() {
   const toggleMute = () => {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
+    if (htmlAudioRef.current) {
+      htmlAudioRef.current.muted = nextMuted;
+    }
     if (typeof window !== "undefined" && (window as any).BrnsicNative?.setVolume) {
       try {
         (window as any).BrnsicNative.setVolume(nextMuted ? 0 : volume);
@@ -3712,6 +3815,40 @@ export default function BrnsicMusicPage() {
         }}
       >
         <div id="master-yt-player" className="w-full h-full"></div>
+        <audio
+          ref={htmlAudioRef}
+          preload="auto"
+          playsInline
+          onEnded={() => {
+            if (hasUserStartedPlaybackRef.current) {
+              handleTrackEnded("html-audio-ended-event");
+            }
+          }}
+          onPlay={() => {
+            setIsPlaying(true);
+            isPlayingRef.current = true;
+            setIsLoadingSong(false);
+          }}
+          onPause={() => {
+            if (isUserExplicitlyPausedRef.current) {
+              setIsPlaying(false);
+              isPlayingRef.current = false;
+            }
+          }}
+          onError={() => {
+            console.warn("HTML Audio error, falling back to YouTube iframe player");
+            if (currentTrackRef.current?.youtubeId && ytPlayerRef.current) {
+              activePlayerEngineRef.current = "youtube";
+              try {
+                ytPlayerRef.current.loadVideoById({
+                  videoId: currentTrackRef.current.youtubeId,
+                  startSeconds: Math.floor(currentTime || 0)
+                });
+                ytPlayerRef.current.playVideo();
+              } catch (err) {}
+            }
+          }}
+        />
         <audio
           ref={silentAudioRef}
           src="/audio/silence.wav"

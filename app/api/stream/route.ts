@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Ytdl, Client } from "@distube/ytdl-core";
+import { Ytdl } from "@distube/ytdl-core";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 let ytdlInstance: Ytdl | null = null;
 function getYtdl(): Ytdl {
   if (!ytdlInstance) {
-    ytdlInstance = new Ytdl({
-      clients: [Client.VisionOS]
-    });
+    ytdlInstance = new Ytdl();
   }
   return ytdlInstance;
 }
 
 // Memory cache to avoid re-extracting the same video within 3 hours
 const streamCache = new Map<string, { url: string; mimeType: string; expires: number }>();
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "Range, Content-Type, Accept",
+      "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges"
+    }
+  });
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
