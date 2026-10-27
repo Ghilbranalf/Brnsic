@@ -1335,7 +1335,7 @@ export default function BrnsicMusicPage() {
     if (typeof window !== "undefined") {
       try {
         const link = document.createElement("a");
-        link.href = "https://github.com/Ghilbranalf/Brnsic/releases/download/latest-apk/Brnsic.apk";
+        link.href = "/Brnsic.apk";
         link.download = "Brnsic.apk";
         link.target = "_blank";
         document.body.appendChild(link);
@@ -1348,7 +1348,7 @@ export default function BrnsicMusicPage() {
 
   const handlePerformInstall = async () => {
     if (typeof window !== "undefined") {
-      window.location.href = "https://github.com/Ghilbranalf/Brnsic/releases/download/latest-apk/Brnsic.apk";
+      window.location.href = "/Brnsic.apk";
     }
 
     if (deferredInstallPrompt) {
@@ -7300,7 +7300,7 @@ export default function BrnsicMusicPage() {
 
                 <div className="flex flex-col gap-2.5 w-full mt-1">
                   <a
-                    href="https://github.com/Ghilbranalf/Brnsic/releases/download/latest-apk/Brnsic.apk"
+                    href="/Brnsic.apk"
                     download="Brnsic.apk"
                     target="_blank"
                     rel="noopener noreferrer"
