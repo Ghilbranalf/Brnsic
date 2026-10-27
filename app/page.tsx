@@ -3607,7 +3607,10 @@ export default function BrnsicMusicPage() {
   const nextLineObj = currentTrack.lyrics[activeLyricIdx + 1];
   const activeLineStart = activeLineObj ? activeLineObj.time : 0;
   const activeLineEnd = nextLineObj ? nextLineObj.time : (activeLineStart + 4.2);
-  const activeLineDuration = Math.max(0.6, activeLineEnd - activeLineStart);
+  const wordCount = (activeLineObj?.text || "").split(/\s+/).filter(Boolean).length;
+  // Natural phonetic singing speed: ~0.42s per word + 0.7s hold time, bounded so it never drags through interludes
+  const naturalDuration = Math.min(6.5, Math.max(1.5, wordCount * 0.42 + 0.7));
+  const activeLineDuration = Math.min(naturalDuration, Math.max(0.6, activeLineEnd - activeLineStart));
   const activeLineElapsed = Math.max(0, currentTime - activeLineStart);
   const activeLineFillPct = Math.min(100, Math.max(0, (activeLineElapsed / activeLineDuration) * 100));
 
@@ -3674,11 +3677,11 @@ export default function BrnsicMusicPage() {
         style={{
           position: "fixed",
           bottom: 0,
-          left: 0,
-          width: 2,
-          height: 2,
-          opacity: 0.01,
-          zIndex: 1,
+          right: 0,
+          width: 240,
+          height: 180,
+          opacity: 1,
+          zIndex: -50,
           pointerEvents: "none"
         }}
       >
