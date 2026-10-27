@@ -127,6 +127,12 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         instance = this;
         try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+                }
+            }
+
             PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
             if (powerManager != null) {
                 wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Brnsic:BackgroundAudioWakeLock");
@@ -212,6 +218,9 @@ public class MainActivity extends BridgeActivity {
     public void onStop() {
         super.onStop();
         try {
+            if (wakeLock != null && !wakeLock.isHeld()) {
+                wakeLock.acquire(180 * 60 * 1000L);
+            }
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().onResume();
                 bridge.getWebView().resumeTimers();

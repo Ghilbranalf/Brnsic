@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.content.res.AssetFileDescriptor;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -25,6 +26,7 @@ public class BackgroundAudioService extends Service implements
     public static final String CHANNEL_ID = "brnsic_background_playback";
     public static final int NOTIFICATION_ID = 2026;
 
+    public static final String ACTION_START = "com.brnsic.app.action.START";
     public static final String ACTION_PLAY = "com.brnsic.app.action.PLAY";
     public static final String ACTION_PAUSE = "com.brnsic.app.action.PAUSE";
     public static final String ACTION_RESUME = "com.brnsic.app.action.RESUME";
@@ -107,7 +109,7 @@ public class BackgroundAudioService extends Service implements
                 return START_STICKY;
             }
 
-            if (ACTION_PLAY.equals(action)) {
+            if (ACTION_PLAY.equals(action) || ACTION_START.equals(action)) {
                 String url = intent.getStringExtra(EXTRA_URL);
                 String title = intent.getStringExtra(EXTRA_TITLE);
                 String artist = intent.getStringExtra(EXTRA_ARTIST);
@@ -118,29 +120,45 @@ public class BackgroundAudioService extends Service implements
 
                 startForegroundNotification(currentTitle, currentArtist, true);
 
-                if (url != null && !url.trim().isEmpty()) {
-                    playUrl(url, positionMs);
-                }
+                playAudioSource(url, positionMs);
             }
         }
         return START_STICKY;
     }
 
-    private void playUrl(String url, int positionMs) {
+    private void playAudioSource(String url, int positionMs) {
         try {
             initMediaPlayer();
             if (wifiLock != null && !wifiLock.isHeld()) {
                 wifiLock.acquire();
             }
 
-            seekOnPrepared = positionMs;
-
-            mediaPlayer.reset();
-            mediaPlayer.setDataSource(getApplicationContext(), Uri.parse(url));
-            mediaPlayer.prepareAsync();
+            if (url != null && url.startsWith("http")) {
+                seekOnPrepared = positionMs;
+                mediaPlayer.reset();
+                mediaPlayer.setDataSource(getApplicationContext(), Uri.parse(url));
+                mediaPlayer.prepareAsync();
+            } else {
+                playFallbackAudio();
+            }
         } catch (Exception e) {
-            e.printStackTrace();
+            playFallbackAudio();
         }
+    }
+
+    private void playFallbackAudio() {
+        try {
+            initMediaPlayer();
+            mediaPlayer.reset();
+            AssetFileDescriptor afd = getResources().openRawResourceFd(R.raw.silence);
+            if (afd != null) {
+                mediaPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+                afd.close();
+                mediaPlayer.setLooping(true);
+                mediaPlayer.prepare();
+                mediaPlayer.start();
+            }
+        } catch (Exception ignored) {}
     }
 
     private void pausePlayback() {
@@ -156,6 +174,8 @@ public class BackgroundAudioService extends Service implements
         try {
             if (mediaPlayer != null) {
                 mediaPlayer.start();
+            } else {
+                playFallbackAudio();
             }
             startForegroundNotification(currentTitle, currentArtist, true);
         } catch (Exception ignored) {}
@@ -216,6 +236,8 @@ public class BackgroundAudioService extends Service implements
 
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
+        // Fallback to native silence loop to maintain active media playback
+        playFallbackAudio();
         return true;
     }
 

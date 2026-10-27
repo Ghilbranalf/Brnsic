@@ -3,30 +3,43 @@ package com.brnsic.app;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
-import android.webkit.WebView;
+import com.getcapacitor.CapacitorWebView;
 
-public class BackgroundWebView extends WebView {
-    public BackgroundWebView(Context context) {
-        super(context);
-    }
+public class BackgroundWebView extends CapacitorWebView {
 
     public BackgroundWebView(Context context, AttributeSet attrs) {
         super(context, attrs);
     }
 
-    public BackgroundWebView(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-    }
-
     @Override
     protected void onWindowVisibilityChanged(int visibility) {
-        // Prevent Android from notifying Chromium that the window is GONE
-        // This keeps audio and video decoding active when screen is off or app is minimized
+        // ALWAYS pass View.VISIBLE to prevent Chromium from pausing HTML5 media decoders
+        // when the screen is locked or the user leaves the application.
         super.onWindowVisibilityChanged(View.VISIBLE);
     }
 
     @Override
+    protected void onVisibilityChanged(View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, View.VISIBLE);
+    }
+
+    @Override
+    public void dispatchWindowVisibilityChanged(int visibility) {
+        super.dispatchWindowVisibilityChanged(View.VISIBLE);
+    }
+
+    @Override
+    public int getWindowVisibility() {
+        return View.VISIBLE;
+    }
+
+    @Override
     public void onPause() {
-        // Suppress default onPause to keep background media playback alive
+        // Suppress onPause to keep audio decoding running continuously in background
+    }
+
+    @Override
+    public void pauseTimers() {
+        // Suppress pauseTimers so JavaScript audio loops and time polling remain active
     }
 }

@@ -1597,6 +1597,12 @@ export default function BrnsicMusicPage() {
   // Continuous Background Audio Keepalive & Anti-Throttle Shield
   useEffect(() => {
     try {
+      const blockEvent = (e: Event) => {
+        e.stopImmediatePropagation();
+      };
+      window.addEventListener("visibilitychange", blockEvent, true);
+      document.addEventListener("visibilitychange", blockEvent, true);
+
       Object.defineProperty(document, "hidden", {
         get: () => false,
         configurable: true
@@ -1624,12 +1630,10 @@ export default function BrnsicMusicPage() {
     };
 
     window.addEventListener("blur", handleBackgroundKeepalive);
-    document.addEventListener("visibilitychange", handleBackgroundKeepalive);
     window.addEventListener("pagehide", handleBackgroundKeepalive);
 
     return () => {
       window.removeEventListener("blur", handleBackgroundKeepalive);
-      document.removeEventListener("visibilitychange", handleBackgroundKeepalive);
       window.removeEventListener("pagehide", handleBackgroundKeepalive);
     };
   }, []);
@@ -2606,10 +2610,8 @@ export default function BrnsicMusicPage() {
       // 1. Android Native Service Audio Playback (real MediaPlayer in BackgroundAudioService)
       if (isNative) {
         try {
-          const origin = window.location.origin || "https://brnsic.vercel.app";
-          const streamUrl = `${origin}/api/stream?id=${encodeURIComponent(vid)}`;
           (window as any).BrnsicNative.playAudio(
-            streamUrl,
+            "",
             song.title || "Brnsic Music",
             song.artist || "Memutar di latar belakang",
             0
