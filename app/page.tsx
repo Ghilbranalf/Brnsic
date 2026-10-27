@@ -988,11 +988,7 @@ const normalizeSong = (raw: any): Track => {
   const youtubeId = raw.youtubeId || getVerifiedVideoId(title, artist);
   const plays = raw.plays;
   const collectionId = raw.collectionId;
-  const lyrics = Array.isArray(raw.lyrics) && raw.lyrics.length > 0 ? raw.lyrics : [
-    { time: 0, text: title },
-    { time: 4, text: artist },
-    { time: 8, text: "Menyiapkan lirik sinkron & streaming audio..." }
-  ];
+  const lyrics = Array.isArray(raw.lyrics) && raw.lyrics.length > 0 ? raw.lyrics : [];
 
   return {
     id,
@@ -6925,60 +6921,59 @@ export default function BrnsicMusicPage() {
                   </button>
                 </div>
 
-                <div
-                  ref={mobileLyricsScrollRef}
-                  onWheel={handleUserScroll}
-                  onTouchMove={handleUserScroll}
-                  className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-6 py-24 px-6 sm:px-8 text-left"
-                  style={{
-                    maskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)",
-                    WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)"
-                  }}
-                >
-                  {currentTrack.lyrics.map((line, idx) => {
-                    const isActive = idx === activeLyricIdx;
-                    const dist = Math.abs(idx - activeLyricIdx);
-                    return (
-                      <div
-                        key={idx}
-                        ref={isActive ? mobileActiveLyricRef : null}
-                        onClick={() => {
-                          setCurrentTime(line.time);
-                          if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
-                            ytPlayerRef.current.seekTo(line.time, true);
-                          }
-                          setUserIsScrollingLyrics(false);
-                        }}
-                        className={`group relative transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)] cursor-pointer select-none leading-snug tracking-tight origin-left rounded-2xl py-2 px-3.5 -mx-3.5 ${
-                          isActive
-                            ? "text-2xl sm:text-3xl font-black text-white scale-[1.03] bg-white/[0.08] backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.5),0_0_25px_rgba(255,255,255,0.15)] border border-white/10"
-                            : dist === 1
-                            ? "text-xl sm:text-2xl font-bold text-white/60 hover:text-white/90 hover:scale-[1.01] hover:translate-x-1"
-                            : "text-xl sm:text-2xl font-semibold text-white/30 blur-[0.4px] hover:blur-none hover:text-white/70 hover:translate-x-1"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span
-                            className={
-                              isActive
-                                ? "drop-shadow-[0_2px_16px_rgba(255,255,255,0.75)]"
-                                : ""
+                {currentTrack.lyrics && currentTrack.lyrics.length > 0 ? (
+                  <div
+                    ref={mobileLyricsScrollRef}
+                    onWheel={handleUserScroll}
+                    onTouchMove={handleUserScroll}
+                    className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-6 py-24 px-6 sm:px-8 text-left"
+                    style={{
+                      maskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)",
+                      WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)"
+                    }}
+                  >
+                    {currentTrack.lyrics.map((line, idx) => {
+                      const isActive = idx === activeLyricIdx;
+                      const dist = Math.abs(idx - activeLyricIdx);
+                      return (
+                        <div
+                          key={idx}
+                          ref={isActive ? mobileActiveLyricRef : null}
+                          onClick={() => {
+                            setCurrentTime(line.time);
+                            if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+                              ytPlayerRef.current.seekTo(line.time, true);
                             }
-                          >
-                            {line.text}
-                          </span>
-                          {isActive && isPlaying && (
-                            <span className="flex-shrink-0 flex items-end gap-1 h-4 px-2 py-1 bg-[#1ed760]/20 rounded-full border border-[#1ed760]/30 animate-fadeIn">
-                              <span className="w-1 bg-[#1ed760] rounded-full animate-pulse h-3"></span>
-                              <span className="w-1 bg-[#1ed760] rounded-full animate-ping h-4"></span>
-                              <span className="w-1 bg-[#1ed760] rounded-full animate-pulse h-2"></span>
-                            </span>
-                          )}
+                            setUserIsScrollingLyrics(false);
+                          }}
+                          className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
+                            isActive
+                              ? "text-2xl sm:text-3xl font-black text-white scale-[1.04] drop-shadow-[0_2px_24px_rgba(255,255,255,0.85)] opacity-100"
+                              : dist === 1
+                              ? "text-xl sm:text-2xl font-bold text-white/50 hover:text-white/80"
+                              : "text-xl sm:text-2xl font-semibold text-white/25 hover:text-white/60"
+                          }`}
+                        >
+                          {line.text}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center my-auto animate-fadeIn">
+                    <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4 text-white/40 shadow-inner">
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9 18V5l12-2v13" />
+                        <circle cx="6" cy="18" r="3" />
+                        <circle cx="18" cy="16" r="3" />
+                      </svg>
+                    </div>
+                    <h3 className="text-base font-bold text-white mb-1 tracking-tight">Lirik Belum Tersedia</h3>
+                    <p className="text-xs text-[#b3b3b3] max-w-xs leading-relaxed">
+                      Lirik tersinkronisasi untuk lagu ini sedang disiapkan. Nikmati alunan audionya!
+                    </p>
+                  </div>
+                )}
 
                 <div className="liquid-glass-pill rounded-full py-2 px-6 flex items-center justify-around mt-2 max-w-xs mx-auto w-full">
                   <button onClick={playPrevSong} className="text-white hover:scale-110">
@@ -7170,60 +7165,59 @@ export default function BrnsicMusicPage() {
                   zoomMode === "lyrics-only" ? "md:col-span-12 max-w-3xl mx-auto" : "md:col-span-7"
                 } flex flex-col h-full relative overflow-hidden`}
               >
-                <div
-                  ref={zoomedLyricsScrollRef}
-                  onWheel={handleUserScroll}
-                  onTouchMove={handleUserScroll}
-                  className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-9 px-8 sm:px-12 py-24 text-left"
-                  style={{
-                    maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
-                    WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)"
-                  }}
-                >
-                  {currentTrack.lyrics.map((line, idx) => {
-                    const isActive = idx === activeLyricIdx;
-                    const dist = Math.abs(idx - activeLyricIdx);
-                    return (
-                      <div
-                        key={idx}
-                        ref={isActive ? zoomedActiveLyricRef : null}
-                        onClick={() => {
-                          setCurrentTime(line.time);
-                          if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
-                            ytPlayerRef.current.seekTo(line.time, true);
-                          }
-                          setUserIsScrollingLyrics(false);
-                        }}
-                        className={`group relative transition-all duration-500 ease-[cubic-bezier(0.2,0,0,1)] cursor-pointer select-none leading-snug tracking-tight origin-left rounded-3xl py-3 px-5 -mx-5 ${
-                          isActive
-                            ? "text-3xl sm:text-5xl font-black text-white scale-[1.03] bg-white/[0.08] backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.6),0_0_30px_rgba(255,255,255,0.18)] border border-white/10"
-                            : dist === 1
-                            ? "text-2xl sm:text-3xl font-bold text-white/60 hover:text-white/90 hover:scale-[1.01] hover:translate-x-1"
-                            : "text-2xl sm:text-3xl font-semibold text-white/30 blur-[0.4px] hover:blur-none hover:text-white/70 hover:translate-x-1"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <span
-                            className={
-                              isActive
-                                ? "drop-shadow-[0_4px_28px_rgba(255,255,255,0.8)]"
-                                : ""
+                {currentTrack.lyrics && currentTrack.lyrics.length > 0 ? (
+                  <div
+                    ref={zoomedLyricsScrollRef}
+                    onWheel={handleUserScroll}
+                    onTouchMove={handleUserScroll}
+                    className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-8 px-8 sm:px-12 py-24 text-left"
+                    style={{
+                      maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
+                      WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)"
+                    }}
+                  >
+                    {currentTrack.lyrics.map((line, idx) => {
+                      const isActive = idx === activeLyricIdx;
+                      const dist = Math.abs(idx - activeLyricIdx);
+                      return (
+                        <div
+                          key={idx}
+                          ref={isActive ? zoomedActiveLyricRef : null}
+                          onClick={() => {
+                            setCurrentTime(line.time);
+                            if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+                              ytPlayerRef.current.seekTo(line.time, true);
                             }
-                          >
-                            {line.text}
-                          </span>
-                          {isActive && isPlaying && (
-                            <span className="flex-shrink-0 flex items-end gap-1.5 h-6 px-3 py-1 bg-[#1ed760]/20 rounded-full border border-[#1ed760]/30 animate-fadeIn">
-                              <span className="w-1.5 bg-[#1ed760] rounded-full animate-pulse h-4"></span>
-                              <span className="w-1.5 bg-[#1ed760] rounded-full animate-ping h-6"></span>
-                              <span className="w-1.5 bg-[#1ed760] rounded-full animate-pulse h-3"></span>
-                            </span>
-                          )}
+                            setUserIsScrollingLyrics(false);
+                          }}
+                          className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
+                            isActive
+                              ? "text-3xl sm:text-5xl font-black text-white scale-[1.03] drop-shadow-[0_4px_30px_rgba(255,255,255,0.85)] opacity-100"
+                              : dist === 1
+                              ? "text-2xl sm:text-3xl font-bold text-white/50 hover:text-white/80"
+                              : "text-2xl sm:text-3xl font-semibold text-white/25 hover:text-white/60"
+                          }`}
+                        >
+                          {line.text}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-center my-auto animate-fadeIn">
+                    <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4 text-white/40 shadow-inner">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9 18V5l12-2v13" />
+                        <circle cx="6" cy="18" r="3" />
+                        <circle cx="18" cy="16" r="3" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2 tracking-tight">Lirik Belum Tersedia</h3>
+                    <p className="text-sm text-[#b3b3b3] max-w-sm leading-relaxed">
+                      Lirik tersinkronisasi untuk lagu ini sedang disiapkan. Nikmati alunan audionya!
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
