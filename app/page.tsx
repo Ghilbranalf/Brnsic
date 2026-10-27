@@ -2935,38 +2935,7 @@ export default function BrnsicMusicPage() {
         } catch (e) {}
       }
 
-      // 2. iOS Safari Direct HTML5 Audio Engine (True Uninterrupted Background Audio on Lock Screen / App Switch)
-      const isIOS = isIOSDevice();
-      if (isIOS && htmlAudioRef.current) {
-        activePlayerEngineRef.current = "html-audio";
-        try {
-          htmlAudioRef.current.pause();
-          htmlAudioRef.current.src = `/api/stream?id=${encodeURIComponent(vid)}`;
-          htmlAudioRef.current.volume = volume;
-          htmlAudioRef.current.currentTime = 0;
-          htmlAudioRef.current
-            .play()
-            .then(() => {
-              setIsLoadingSong(false);
-            })
-            .catch((err) => {
-              console.warn("HTML5 audio playback error, falling back to YouTube:", err);
-              activePlayerEngineRef.current = "youtube";
-              if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
-                ytPlayerRef.current.loadVideoById({ videoId: vid, startSeconds: 0 });
-                ytPlayerRef.current.unMute();
-                ytPlayerRef.current.setVolume(volume * 100);
-                ytPlayerRef.current.playVideo();
-                setTimeout(() => setIsLoadingSong(false), 1200);
-              }
-            });
-          return;
-        } catch (e) {
-          activePlayerEngineRef.current = "youtube";
-        }
-      }
-
-      // 3. Desktop / Chromium Web Player (Instant, rock-solid, zero 500 network errors)
+      // 2. Web Player Engine (Instant, rock-solid, zero 500 network errors)
       activePlayerEngineRef.current = "youtube";
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
         try {
@@ -2977,14 +2946,14 @@ export default function BrnsicMusicPage() {
           ytPlayerRef.current.unMute();
           ytPlayerRef.current.setVolume(volume * 100);
           ytPlayerRef.current.playVideo();
-          setTimeout(() => setIsLoadingSong(false), 1500);
+          setTimeout(() => setIsLoadingSong(false), 1200);
         } catch (e) {
           console.error("Audio playback error", e);
           setIsLoadingSong(false);
         }
       } else {
         pendingVideoIdRef.current = vid;
-        setTimeout(() => setIsLoadingSong(false), 1500);
+        setTimeout(() => setIsLoadingSong(false), 1200);
       }
     };
 
