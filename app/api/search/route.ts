@@ -227,7 +227,7 @@ export async function GET(request: Request) {
     const tags = song.tags || [];
 
     // Lyric match boost
-    for (const lKey of lyricMatchedSongKeys) {
+    for (const lKey of Array.from(lyricMatchedSongKeys)) {
       if (t.includes(lKey) || lKey.includes(t)) return true;
     }
 

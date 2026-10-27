@@ -1244,7 +1244,7 @@ export default function BrnsicMusicPage() {
   // 8. Mobile & Fullscreen State
   const [isMobilePlayerOpen, setIsMobilePlayerOpen] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<"queue" | "now-playing" | "lyrics">("now-playing");
-  const [mobileNavTab, setMobileNavTab] = useState<"home" | "search" | "library">("home");
+  const [mobileNavTab, setMobileNavTab] = useState<"home" | "search" | "library" | "liked">("home");
   const [isZoomed, setIsZoomed] = useState<boolean>(false);
   const [zoomMode, setZoomMode] = useState<"both" | "lyrics-only" | "video-only">("both");
 
@@ -1668,7 +1668,7 @@ export default function BrnsicMusicPage() {
     };
 
     (window as any).__handleNativePrev = () => {
-      handlePreviousSong();
+      playPrevSong();
     };
 
     (window as any).__handleNativePlaybackState = (playing: boolean) => {
@@ -2396,6 +2396,11 @@ export default function BrnsicMusicPage() {
     setCurrentView("custom-playlist");
   };
 
+  const openCustomPlaylist = (pl: any) => {
+    setActiveCustomPlaylist(pl);
+    setCurrentView("custom-playlist");
+  };
+
   const handleAddSongToPlaylist = (playlistId: string) => {
     if (!currentUser) {
       setAuthError("Masuk dengan akun Google agar lagu tersimpan ke playlist di database Supabase.");
@@ -2885,7 +2890,6 @@ export default function BrnsicMusicPage() {
       }
 
       // 2. Web Player Engine (Instant, rock-solid, zero 500 network errors)
-      activePlayerEngineRef.current = "youtube";
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
         try {
           ytPlayerRef.current.loadVideoById({
@@ -3582,10 +3586,6 @@ export default function BrnsicMusicPage() {
     const pct = Math.max(0, Math.min(1, clickX / rect.width));
     setVolume(pct);
     setIsMuted(false);
-    if (htmlAudioRef.current) {
-      htmlAudioRef.current.volume = pct;
-      htmlAudioRef.current.muted = false;
-    }
     if (typeof window !== "undefined" && (window as any).BrnsicNative?.setVolume) {
       try {
         (window as any).BrnsicNative.setVolume(pct);
@@ -3600,9 +3600,6 @@ export default function BrnsicMusicPage() {
   const toggleMute = () => {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
-    if (htmlAudioRef.current) {
-      htmlAudioRef.current.muted = nextMuted;
-    }
     if (typeof window !== "undefined" && (window as any).BrnsicNative?.setVolume) {
       try {
         (window as any).BrnsicNative.setVolume(nextMuted ? 0 : volume);
