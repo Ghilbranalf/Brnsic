@@ -76,7 +76,7 @@ const MOST_PLAYED_INDONESIA = [
     title: "Evaluasi",
     artist: "Hindia",
     album: "Menari Dengan Bayangan",
-    duration: 215,
+    duration: 204,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
     plays: "310M+ Streams",
     youtubeId: "saXhrw-7rQI",
@@ -171,7 +171,7 @@ async function parseSpotifyKworb(url: string, limit = 50): Promise<any[]> {
           title,
           artist,
           album: "Spotify Top 50",
-          duration: 215,
+          duration: 210,
           cover: FALLBACK_COVER,
           plays: streams,
           rank,
@@ -182,23 +182,59 @@ async function parseSpotifyKworb(url: string, limit = 50): Promise<any[]> {
       }
     }
 
-    // Resolve high-resolution Spotify album covers in parallel for the top tracks
-    const coverPromises = tracks.slice(0, 30).map(async (t) => {
+    // Resolve exact durations & high-resolution Spotify album covers in parallel
+    const detailsPromises = tracks.map(async (t) => {
       try {
-        const oembedRes = await fetch(
-          `https://open.spotify.com/oembed?url=https://open.spotify.com/track/${t.spotifyId}`,
-          { next: { revalidate: 86400 } }
-        );
-        if (oembedRes.ok) {
-          const d = await oembedRes.json();
-          if (d.thumbnail_url) {
-            t.cover = d.thumbnail_url.replace("1e02", "b273");
+        const embedRes = await fetch(`https://open.spotify.com/embed/track/${t.spotifyId}`, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          },
+          next: { revalidate: 86400 }
+        });
+        if (embedRes.ok) {
+          const text = await embedRes.text();
+          const match = text.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+          if (match) {
+            const data = JSON.parse(match[1]);
+            const entity = data.props?.pageProps?.state?.data?.entity;
+            if (entity) {
+              if (typeof entity.duration === "number" && entity.duration > 0) {
+                t.duration = Math.round(entity.duration / 1000);
+              }
+              const bestImg =
+                entity.visualIdentity?.image?.[2]?.url ||
+                entity.visualIdentity?.image?.[0]?.url;
+              if (bestImg) {
+                t.cover = bestImg;
+              }
+              if (entity.audioPreview?.url) {
+                t.previewUrl = entity.audioPreview.url;
+              }
+              return;
+            }
           }
         }
       } catch (e) {}
+
+      // Fallback to oEmbed if embed did not complete
+      if (t.cover === FALLBACK_COVER) {
+        try {
+          const oembedRes = await fetch(
+            `https://open.spotify.com/oembed?url=https://open.spotify.com/track/${t.spotifyId}`,
+            { next: { revalidate: 86400 } }
+          );
+          if (oembedRes.ok) {
+            const d = await oembedRes.json();
+            if (d.thumbnail_url) {
+              t.cover = d.thumbnail_url.replace("1e02", "b273");
+            }
+          }
+        } catch (e) {}
+      }
     });
 
-    await Promise.allSettled(coverPromises);
+    await Promise.allSettled(detailsPromises);
     return tracks;
   } catch (e) {
     return [];
@@ -228,14 +264,34 @@ export async function GET() {
     } else if (itunesIDRes.status === "fulfilled" && itunesIDRes.value.ok) {
       const data = await itunesIDRes.value.json();
       const entries = data?.feed?.entry || [];
+      const itunesIds = entries.map((entry: any) => entry.id?.attributes?.["im:id"]).filter(Boolean);
+      let durationMap: Record<string, number> = {};
+      try {
+        if (itunesIds.length > 0) {
+          const lookupRes = await fetch(
+            `https://itunes.apple.com/lookup?id=${itunesIds.slice(0, 50).join(",")}&country=id`,
+            { next: { revalidate: 86400 } }
+          );
+          if (lookupRes.ok) {
+            const lData = await lookupRes.json();
+            for (const r of lData.results || []) {
+              if (r.trackId && r.trackTimeMillis) {
+                durationMap[r.trackId.toString()] = Math.round(r.trackTimeMillis / 1000);
+              }
+            }
+          }
+        }
+      } catch (e) {}
+
       indonesiaTop50 = entries.map((entry: any, i: number) => {
+        const trackId = (entry.id?.attributes?.["im:id"] || "").toString();
         const cover = (entry["im:image"]?.[2]?.label || "").replace("170x170bb", "600x600bb");
         return {
-          id: `itunes-id-${entry.id?.attributes?.["im:id"] || i}`,
+          id: `itunes-id-${trackId || i}`,
           title: entry["im:name"]?.label || "",
           artist: entry["im:artist"]?.label || "",
           album: entry["im:collection"]?.["im:name"]?.label || "Single",
-          duration: 215,
+          duration: durationMap[trackId] || 210,
           cover: cover,
           previewUrl: entry.link?.[1]?.attributes?.href || "",
           rank: i + 1,

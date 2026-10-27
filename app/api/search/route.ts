@@ -52,7 +52,7 @@ const POPULAR_SEARCH_INDEX = [
     artist: "Hindia",
     album: "Menari Dengan Bayangan",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
-    duration: 215,
+    duration: 204,
     youtubeId: "saXhrw-7rQI",
     tags: ["eval", "evaluasi", "hindia", "baskara", "menari"]
   },

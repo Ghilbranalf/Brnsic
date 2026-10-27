@@ -229,7 +229,7 @@ const DEFAULT_CATALOG: Track[] = [
     artist: "Hindia",
     album: "Menari Dengan Bayangan",
     year: "2019",
-    duration: 215,
+    duration: 204,
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
     collectionId: 1481804269,
     youtubeId: "cWrSjCZ5AeE",
@@ -436,7 +436,7 @@ const POPULAR_SEARCH_CATALOG = [
     artist: "Hindia",
     album: "Menari Dengan Bayangan",
     cover: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
-    duration: 215,
+    duration: 204,
     youtubeId: "saXhrw-7rQI",
     tags: ["eval", "evaluasi", "hindia", "baskara", "menari"]
   },
@@ -2470,17 +2470,25 @@ export default function BrnsicMusicPage() {
                 liveDur > 5 &&
                 Math.abs(liveDur - (currentTrack.duration || 0)) > 1
               ) {
+                const roundedDur = Math.round(liveDur);
                 setCurrentTrack((prev) => ({
                   ...prev,
-                  duration: Math.round(liveDur)
+                  duration: roundedDur
                 }));
+                // Real-time sync to playlists/charts so the list UI duration also updates immediately!
+                setIndonesiaTop50((prev) =>
+                  prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
+                );
+                setActiveQueue((prev) =>
+                  prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
+                );
               }
             }
 
             const effectiveDur =
               (typeof ytPlayerRef.current.getDuration === "function" && ytPlayerRef.current.getDuration()) ||
               currentTrack.duration ||
-              215;
+              210;
 
             // Automatically log "complete" (+3 taste boost) when listened past 80% duration
             if (
@@ -3371,6 +3379,7 @@ export default function BrnsicMusicPage() {
   };
 
   const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds) || seconds <= 0) return "--:--";
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s < 10 ? "0" : ""}${s}`;
