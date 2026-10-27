@@ -1525,6 +1525,7 @@ export default function BrnsicMusicPage() {
 
     // Global touch/click unlock for background audio permission on mobile
     const unlockAudio = () => {
+      if (isIOSDevice()) return;
       if (typeof window !== "undefined" && (window.AudioContext || (window as any).webkitAudioContext)) {
         try {
           const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -1670,20 +1671,9 @@ export default function BrnsicMusicPage() {
 
     (window as any).__handleNativePlaybackState = (playing: boolean) => {
       if (!playing) {
-        isUserExplicitlyPausedRef.current = true;
+        handleExplicitPause();
       } else {
-        isUserExplicitlyPausedRef.current = false;
-      }
-      setIsPlaying(playing);
-      isPlayingRef.current = playing;
-      if (ytPlayerRef.current) {
-        try {
-          if (playing && typeof ytPlayerRef.current.playVideo === "function") {
-            ytPlayerRef.current.playVideo();
-          } else if (!playing && typeof ytPlayerRef.current.pauseVideo === "function") {
-            ytPlayerRef.current.pauseVideo();
-          }
-        } catch (e) {}
+        handleExplicitPlay();
       }
     };
 
@@ -1797,9 +1787,12 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
-  // Universal iOS & Mobile Background Audio Keepalive (When user locks phone or switches to other apps)
+  // Universal Mobile Background Audio Keepalive (When user locks phone or switches to other apps)
   useEffect(() => {
     const handleUniversalVisibility = () => {
+      // NEVER touch silent audio on iOS! iOS enforces strict single-audio session exclusivity.
+      if (isIOSDevice()) return;
+
       if (document.hidden && isPlayingRef.current && !isUserExplicitlyPausedRef.current) {
         if (silentAudioRef.current) {
           silentAudioRef.current.play().catch(() => {});
@@ -1832,9 +1825,13 @@ export default function BrnsicMusicPage() {
   }, []);
 
   const startBackgroundKeepalive = () => {
-    startWebAudioKeepalive();
-    if (silentAudioRef.current) {
-      silentAudioRef.current.play().catch(() => {});
+    // CRITICAL: On iOS Safari, NEVER start silent audio or WebAudio keepalive.
+    // WebKit delegates hardware audio entirely to the active media engine / MediaSession.
+    if (!isIOSDevice()) {
+      startWebAudioKeepalive();
+      if (silentAudioRef.current) {
+        silentAudioRef.current.play().catch(() => {});
+      }
     }
     if (typeof window !== "undefined") {
       try {
@@ -1855,9 +1852,11 @@ export default function BrnsicMusicPage() {
   };
 
   const stopBackgroundKeepalive = () => {
-    stopWebAudioKeepalive();
-    if (silentAudioRef.current) {
-      silentAudioRef.current.pause();
+    if (!isIOSDevice()) {
+      stopWebAudioKeepalive();
+      if (silentAudioRef.current) {
+        silentAudioRef.current.pause();
+      }
     }
     if (typeof window !== "undefined") {
       try {
@@ -2522,6 +2521,13 @@ export default function BrnsicMusicPage() {
             onReady: (event: any) => {
               setIsLoadingSong(false);
               try {
+                const iframeEl = document.getElementById("master-yt-player") as HTMLIFrameElement;
+                if (iframeEl) {
+                  iframeEl.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
+                  iframeEl.setAttribute("playsinline", "1");
+                }
+              } catch (e) {}
+              try {
                 event.target.unMute();
                 event.target.setVolume(volume * 100);
                 if (pendingVideoIdRef.current) {
@@ -2589,30 +2595,22 @@ export default function BrnsicMusicPage() {
                   }
                 } catch (e) {}
 
-                // If paused while document is hidden and user didn't intentionally pause (multitasking / screen lock guard on mobile & iOS)
-                if (document.hidden && isPlayingRef.current && !isUserExplicitlyPausedRef.current) {
-                  if (silentAudioRef.current) {
+                // If pause was NOT triggered by the user clicking pause
+                // (e.g. mobile lock screen, multitasking, tab switch, or iOS/Android backgrounding):
+                if (!isUserExplicitlyPausedRef.current && isPlayingRef.current) {
+                  // Keep the background keepalive anchor alive on Android/Desktop only
+                  if (!isIOSDevice() && silentAudioRef.current && silentAudioRef.current.paused) {
                     silentAudioRef.current.play().catch(() => {});
                   }
-                  setTimeout(() => {
-                    if (
-                      isPlayingRef.current &&
-                      !isUserExplicitlyPausedRef.current &&
-                      ytPlayerRef.current &&
-                      typeof ytPlayerRef.current.playVideo === "function"
-                    ) {
-                      try {
-                        ytPlayerRef.current.playVideo();
-                      } catch (e) {}
-                    }
-                  }, 120);
-                  return;
-                }
 
-                // CRITICAL SHIELD: If pause was NOT triggered by the user clicking pause
-                // (e.g. Chromium / OS paused video on screen lock or tab blur on Android):
-                if (!isIOSDevice() && !isUserExplicitlyPausedRef.current && isPlayingRef.current) {
-                  // Do NOT kill the background service! Immediately resume playback!
+                  // On iOS Safari, tell MediaSession that the engine paused so Lock Screen displays the PLAY button
+                  if (typeof window !== "undefined" && "mediaSession" in navigator) {
+                    try {
+                      navigator.mediaSession.playbackState = "paused";
+                    } catch (e) {}
+                  }
+
+                  // Attempt immediate resumption
                   try {
                     ytPlayerRef.current?.playVideo?.();
                   } catch (e) {}
@@ -2743,8 +2741,21 @@ export default function BrnsicMusicPage() {
         ]
       });
 
-      navigator.mediaSession.setActionHandler("play", () => togglePlay());
-      navigator.mediaSession.setActionHandler("pause", () => togglePlay());
+      navigator.mediaSession.setActionHandler("play", () => handleExplicitPlay());
+      navigator.mediaSession.setActionHandler("pause", () => {
+        // If the player is currently paused (e.g. background suspension by iOS Safari),
+        // tapping the button in Control Center or Lock Screen indicates user wants to RESUME playback!
+        if (ytPlayerRef.current) {
+          try {
+            const st = ytPlayerRef.current.getPlayerState ? ytPlayerRef.current.getPlayerState() : -1;
+            if (st === 2 && !isUserExplicitlyPausedRef.current) {
+              handleExplicitPlay();
+              return;
+            }
+          } catch (e) {}
+        }
+        handleExplicitPause();
+      });
       navigator.mediaSession.setActionHandler("previoustrack", () => playPrevSong());
       navigator.mediaSession.setActionHandler("nexttrack", () => playNextSong(true));
       navigator.mediaSession.setActionHandler("seekto", (details) => {
@@ -3459,48 +3470,59 @@ export default function BrnsicMusicPage() {
     handlePlaySingleSongWithRadio(song);
   };
 
-  const togglePlay = () => {
+  const handleExplicitPlay = () => {
     hasUserStartedPlaybackRef.current = true;
     setHasUserStartedPlayback(true);
-
-    if (!ytPlayerRef.current) {
-      setIsPlaying(!isPlaying);
-      isPlayingRef.current = !isPlaying;
-      return;
+    isUserExplicitlyPausedRef.current = false;
+    isPlayingRef.current = true;
+    setIsPlaying(true);
+    startBackgroundKeepalive();
+    if (typeof window !== "undefined" && "mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.playbackState = "playing";
+      } catch (e) {}
     }
-    try {
-      if (isPlaying) {
-        isUserExplicitlyPausedRef.current = true;
-        isPlayingRef.current = false;
-        setIsPlaying(false);
-        stopBackgroundKeepalive();
-        if (typeof window !== "undefined" && (window as any).BrnsicNative?.pauseAudio) {
-          try {
-            (window as any).BrnsicNative.pauseAudio();
-          } catch (e) {}
-        }
-        if (typeof ytPlayerRef.current.pauseVideo === "function") {
-          ytPlayerRef.current.pauseVideo();
-        }
-      } else {
-        isUserExplicitlyPausedRef.current = false;
-        isPlayingRef.current = true;
-        setIsPlaying(true);
-        startBackgroundKeepalive();
-        if (typeof window !== "undefined" && (window as any).BrnsicNative?.resumeAudio) {
-          try {
-            (window as any).BrnsicNative.resumeAudio();
-          } catch (e) {}
-        }
-        if (typeof ytPlayerRef.current.playVideo === "function") {
-          ytPlayerRef.current.unMute();
-          ytPlayerRef.current.setVolume(volume * 100);
-          ytPlayerRef.current.playVideo();
-        }
-      }
-    } catch (e) {
-      setIsPlaying(!isPlaying);
-      isPlayingRef.current = !isPlaying;
+    if (typeof window !== "undefined" && (window as any).BrnsicNative?.resumeAudio) {
+      try {
+        (window as any).BrnsicNative.resumeAudio();
+      } catch (e) {}
+    }
+    if (ytPlayerRef.current) {
+      try {
+        ytPlayerRef.current.unMute();
+        ytPlayerRef.current.setVolume(volume * 100);
+        ytPlayerRef.current.playVideo();
+      } catch (e) {}
+    }
+  };
+
+  const handleExplicitPause = () => {
+    isUserExplicitlyPausedRef.current = true;
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+    stopBackgroundKeepalive();
+    if (typeof window !== "undefined" && "mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.playbackState = "paused";
+      } catch (e) {}
+    }
+    if (typeof window !== "undefined" && (window as any).BrnsicNative?.pauseAudio) {
+      try {
+        (window as any).BrnsicNative.pauseAudio();
+      } catch (e) {}
+    }
+    if (ytPlayerRef.current) {
+      try {
+        ytPlayerRef.current.pauseVideo();
+      } catch (e) {}
+    }
+  };
+
+  const togglePlay = () => {
+    if (isPlaying) {
+      handleExplicitPause();
+    } else {
+      handleExplicitPlay();
     }
   };
 
@@ -3683,16 +3705,16 @@ export default function BrnsicMusicPage() {
           bottom: 0,
           right: 0,
           width: 240,
-          height: 180,
-          opacity: 1,
-          zIndex: -50,
+          height: 240,
+          opacity: 0.001,
+          zIndex: 0,
           pointerEvents: "none"
         }}
       >
         <div id="master-yt-player" className="w-full h-full"></div>
         <audio
           ref={silentAudioRef}
-          src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"
+          src="/audio/silence.wav"
           loop
           preload="auto"
           playsInline
