@@ -1190,7 +1190,8 @@ export default function BrnsicMusicPage() {
   const [dragOverQueueIndex, setDragOverQueueIndex] = useState<number | null>(null);
   const [queueTab, setQueueTab] = useState<"queue" | "history">("queue");
 
-  // 11. PWA Install Modal & Installed State (Removes button once installed)
+  // 11. Android Native APK Detection (strictly hides download button only inside native APK)
+  const [isInsideNativeApk, setIsInsideNativeApk] = useState<boolean>(false);
   const [isAppInstalled, setIsAppInstalled] = useState<boolean>(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
   const [installProgress, setInstallProgress] = useState<number>(0);
@@ -1259,27 +1260,27 @@ export default function BrnsicMusicPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // 2. PWA Install & Standalone Detection (Hides Install button when installed) + Update Checker
+  // 2. Native APK Detection & Automatic Update Checker
   useEffect(() => {
-    const checkInstalled = () => {
-      const isNative =
-        typeof window !== "undefined" &&
-        (Boolean((window as any).BrnsicNative) ||
-          Boolean((window as any).Capacitor?.isNativePlatform?.()) ||
-          Boolean((window as any).Capacitor) ||
-          navigator.userAgent.includes("BrnsicNative") ||
-          navigator.userAgent.includes("BrnsicMobile") ||
-          navigator.userAgent.includes("wv") ||
-          navigator.userAgent.includes("Capacitor"));
+    // Clean up any old localStorage flags that might hide the button on web
+    try {
+      localStorage.removeItem("brnsic_is_installed");
+    } catch (e) {}
 
-      const isStandalone =
-        isNative ||
-        (typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches) ||
-        (typeof window !== "undefined" && (window.navigator as any).standalone === true) ||
-        localStorage.getItem("brnsic_is_installed") === "true";
-      setIsAppInstalled(Boolean(isStandalone));
+    const checkNativeApk = () => {
+      if (typeof window === "undefined") return;
+      // Strict detection: ONLY true if physically executing inside the Android APK WebView!
+      const isNative =
+        Boolean((window as any).BrnsicNative) ||
+        navigator.userAgent.includes("BrnsicNative") ||
+        (typeof (window as any).Capacitor?.isNativePlatform === "function" && (window as any).Capacitor.isNativePlatform()) ||
+        (window as any).Capacitor?.getPlatform?.() === "android";
+
+      setIsInsideNativeApk(Boolean(isNative));
     };
-    checkInstalled();
+
+    checkNativeApk();
+    const nativeTimer = setTimeout(checkNativeApk, 600);
 
     // Register PWA Service Worker for Offline Cache & Background Audio Engine
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
@@ -1298,11 +1299,7 @@ export default function BrnsicMusicPage() {
     window.addEventListener("beforeinstallprompt", handler);
 
     const onAppInstalled = () => {
-      setIsAppInstalled(true);
       setInstallStep("installed");
-      try {
-        localStorage.setItem("brnsic_is_installed", "true");
-      } catch (e) {}
     };
     window.addEventListener("appinstalled", onAppInstalled);
 
@@ -3341,7 +3338,7 @@ export default function BrnsicMusicPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760]"></span>
             <span>Update: {lastChartUpdated}</span>
           </button>
-          {!isAppInstalled && (
+          {!isInsideNativeApk && (
             <button
               onClick={handleInstallClick}
               className="flex items-center gap-1.5 bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs px-3.5 py-2 rounded-full transition shadow-[0_0_15px_rgba(30,215,96,0.3)] hover:scale-105 active:scale-95 cursor-pointer"
@@ -3586,7 +3583,7 @@ export default function BrnsicMusicPage() {
                 <span className="font-black text-lg text-white">Brnsic</span>
               </div>
               <div className="flex items-center gap-2">
-                {!isAppInstalled && (
+                {!isInsideNativeApk && (
                   <button
                     onClick={handleInstallClick}
                     className="text-[11px] font-black bg-[#1ed760] text-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(30,215,96,0.4)] hover:scale-105 active:scale-95 transition flex items-center gap-1 cursor-pointer"
@@ -6957,7 +6954,7 @@ export default function BrnsicMusicPage() {
 
             {/* Section: Pengaturan Akun */}
             <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
-              {!isAppInstalled && (
+              {!isInsideNativeApk && (
                 <button
                   onClick={() => {
                     setIsProfileModalOpen(false);
