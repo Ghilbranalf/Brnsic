@@ -1704,6 +1704,7 @@ export default function BrnsicMusicPage() {
   const isUserExplicitlyPausedRef = useRef<boolean>(false);
   const audioContextRef = useRef<any>(null);
   const silentNodeRef = useRef<any>(null);
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const isIOSDevice = () => {
     if (typeof window === "undefined" || typeof navigator === "undefined") return false;
@@ -1796,8 +1797,45 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
+  // Universal iOS & Mobile Background Audio Keepalive (When user locks phone or switches to other apps)
+  useEffect(() => {
+    const handleUniversalVisibility = () => {
+      if (document.hidden && isPlayingRef.current && !isUserExplicitlyPausedRef.current) {
+        if (silentAudioRef.current) {
+          silentAudioRef.current.play().catch(() => {});
+        }
+        setTimeout(() => {
+          if (
+            isPlayingRef.current &&
+            !isUserExplicitlyPausedRef.current &&
+            ytPlayerRef.current &&
+            typeof ytPlayerRef.current.playVideo === "function"
+          ) {
+            try {
+              const st = ytPlayerRef.current.getPlayerState ? ytPlayerRef.current.getPlayerState() : -1;
+              if (st === 2) {
+                ytPlayerRef.current.playVideo();
+              }
+            } catch (e) {}
+          }
+        }, 150);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleUniversalVisibility);
+    window.addEventListener("pagehide", handleUniversalVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleUniversalVisibility);
+      window.removeEventListener("pagehide", handleUniversalVisibility);
+    };
+  }, []);
+
   const startBackgroundKeepalive = () => {
     startWebAudioKeepalive();
+    if (silentAudioRef.current) {
+      silentAudioRef.current.play().catch(() => {});
+    }
     if (typeof window !== "undefined") {
       try {
         if ((window as any).BrnsicNative?.startPlayback) {
@@ -1818,6 +1856,9 @@ export default function BrnsicMusicPage() {
 
   const stopBackgroundKeepalive = () => {
     stopWebAudioKeepalive();
+    if (silentAudioRef.current) {
+      silentAudioRef.current.pause();
+    }
     if (typeof window !== "undefined") {
       try {
         if ((window as any).BrnsicNative?.stopPlayback) {
@@ -2052,6 +2093,13 @@ export default function BrnsicMusicPage() {
       shuffleMode === "off" ? "standard" : shuffleMode === "standard" ? "smart" : "off";
     setShuffleMode(nextMode);
 
+    const queueContext =
+      currentView === "album" || isAlbumLoopMode
+        ? "album ini"
+        : currentView === "custom-playlist"
+        ? "playlist ini"
+        : "antrean lagu saat ini (Radio)";
+
     if (nextMode === "standard") {
       if (originalQueueRef.current.length === 0) {
         originalQueueRef.current = [...activeQueue];
@@ -2062,7 +2110,7 @@ export default function BrnsicMusicPage() {
         .filter((t) => !t.isSmartRecommendation);
       const shuffledUpcoming = balancedShuffle(upcoming, playedSongTitlesRef.current);
       setActiveQueue([...played, ...shuffledUpcoming]);
-      showToast("Standard Shuffle: Mengacak playlist via Mersenne Twister & Fewer Repeats");
+      showToast(`Acak Standar aktif: Mengacak urutan ${queueContext}`);
     } else if (nextMode === "smart") {
       if (originalQueueRef.current.length === 0) {
         originalQueueRef.current = [...activeQueue];
@@ -2102,7 +2150,7 @@ export default function BrnsicMusicPage() {
       }
 
       setActiveQueue([...played, ...woven]);
-      showToast("Smart Shuffle aktif: Mengacak dan menyisipkan rekomendasi sesuai selera!");
+      showToast(`Smart Shuffle aktif: Mengacak ${queueContext} dan menyisipkan rekomendasi sesuai selera`);
     } else {
       // Off: Restore original queue
       if (originalQueueRef.current.length > 0) {
@@ -2124,7 +2172,7 @@ export default function BrnsicMusicPage() {
       } else {
         setActiveQueue((prev) => prev.filter((t) => !t.isSmartRecommendation));
       }
-      showToast("Shuffle dimatikan: Kembali ke urutan playlist asli");
+      showToast("Acak dimatikan: Kembali ke urutan antrean asli");
     }
   };
 
@@ -2541,6 +2589,26 @@ export default function BrnsicMusicPage() {
                   }
                 } catch (e) {}
 
+                // If paused while document is hidden and user didn't intentionally pause (multitasking / screen lock guard on mobile & iOS)
+                if (document.hidden && isPlayingRef.current && !isUserExplicitlyPausedRef.current) {
+                  if (silentAudioRef.current) {
+                    silentAudioRef.current.play().catch(() => {});
+                  }
+                  setTimeout(() => {
+                    if (
+                      isPlayingRef.current &&
+                      !isUserExplicitlyPausedRef.current &&
+                      ytPlayerRef.current &&
+                      typeof ytPlayerRef.current.playVideo === "function"
+                    ) {
+                      try {
+                        ytPlayerRef.current.playVideo();
+                      } catch (e) {}
+                    }
+                  }, 120);
+                  return;
+                }
+
                 // CRITICAL SHIELD: If pause was NOT triggered by the user clicking pause
                 // (e.g. Chromium / OS paused video on screen lock or tab blur on Android):
                 if (!isIOSDevice() && !isUserExplicitlyPausedRef.current && isPlayingRef.current) {
@@ -2935,10 +3003,17 @@ export default function BrnsicMusicPage() {
     setRepeatMode("off");
     playAnySong(song, true);
 
-    // Initial queue starting with this song
-    activeQueueRef.current = [song];
+    // Immediately initialize activeQueue with the song + popular pool so shuffle works instantly without waiting for network!
+    const cleanSongTitle = (song.title || song.trackName || "").toLowerCase().trim();
+    const baseCandidates = (indonesiaTop50 && indonesiaTop50.length > 0 ? indonesiaTop50 : DEFAULT_CATALOG).filter(
+      (t) => (t.title || "").toLowerCase().trim() !== cleanSongTitle
+    );
+    const initialPool = [song, ...baseCandidates.slice(0, 24)];
+
+    activeQueueRef.current = initialPool;
     activeQueueIndexRef.current = 0;
-    setActiveQueue([song]);
+    originalQueueRef.current = [...initialPool];
+    setActiveQueue(initialPool);
     setActiveQueueIndex(0);
 
     try {
@@ -3608,6 +3683,13 @@ export default function BrnsicMusicPage() {
         }}
       >
         <div id="master-yt-player" className="w-full h-full"></div>
+        <audio
+          ref={silentAudioRef}
+          src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"
+          loop
+          preload="auto"
+          playsInline
+        />
       </div>
 
       {/* ====================================================================
