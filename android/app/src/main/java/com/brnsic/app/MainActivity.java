@@ -117,6 +117,20 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public void requestBatteryOptimizationExemption() {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+                    if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                        Intent batteryIntent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                        batteryIntent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                        startActivity(batteryIntent);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
         public boolean isNativeApp() {
             return true;
         }
@@ -137,6 +151,16 @@ public class MainActivity extends BridgeActivity {
             if (powerManager != null) {
                 wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Brnsic:BackgroundAudioWakeLock");
                 wakeLock.setReferenceCounted(false);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    try {
+                        if (!powerManager.isIgnoringBatteryOptimizations(getPackageName())) {
+                            Intent batteryIntent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                            batteryIntent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                            startActivity(batteryIntent);
+                        }
+                    } catch (Exception ignored) {}
+                }
             }
 
             if (bridge != null && bridge.getWebView() != null) {
