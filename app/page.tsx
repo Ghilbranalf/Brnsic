@@ -7262,12 +7262,12 @@ export default function BrnsicMusicPage() {
             </button>
 
             {/* Ambient Logo Header */}
-            <div className="relative flex items-center justify-center pt-2">
-              <div className="absolute inset-0 rounded-full bg-[#1ed760]/20 blur-xl"></div>
+            <div className="relative flex items-center justify-center pt-3 pb-1">
+              <div className="absolute inset-0 rounded-full bg-[#1ed760]/25 blur-2xl scale-110"></div>
               <img
                 src="/brnsic-loader-logo.png"
                 alt="Brnsic"
-                className="w-16 h-16 object-contain relative z-10"
+                className="w-24 h-24 sm:w-28 sm:h-28 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)]"
               />
             </div>
 
