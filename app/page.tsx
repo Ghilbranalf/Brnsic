@@ -1241,6 +1241,7 @@ export default function BrnsicMusicPage() {
   const [installProgress, setInstallProgress] = useState<number>(0);
   const [installStatus, setInstallStatus] = useState<string>("Menyiapkan pengunduhan...");
   const [isInstallReady, setIsInstallReady] = useState<boolean>(false);
+  const [showPermissionBanner, setShowPermissionBanner] = useState<boolean>(false);
 
   // 12. Update Popup State
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
@@ -1357,6 +1358,14 @@ export default function BrnsicMusicPage() {
         (window as any).Capacitor?.getPlatform?.() === "android";
 
       setIsInsideNativeApk(Boolean(isNative));
+      if (isNative) {
+        try {
+          const isGranted = (window as any).BrnsicNative?.isPermissionGranted?.();
+          if (isGranted === false) {
+            setShowPermissionBanner(true);
+          }
+        } catch (e) {}
+      }
     };
 
     checkNativeApk();
@@ -1639,6 +1648,46 @@ export default function BrnsicMusicPage() {
   }, []);
 
   // Continuous Background Audio Keepalive & Anti-Throttle Shield
+  const isUserExplicitlyPausedRef = useRef<boolean>(false);
+  const audioContextRef = useRef<any>(null);
+  const silentNodeRef = useRef<any>(null);
+
+  const startWebAudioKeepalive = () => {
+    try {
+      if (typeof window === "undefined") return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioCtx();
+      }
+      if (audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume().catch(() => {});
+      }
+      if (!silentNodeRef.current && audioContextRef.current) {
+        const buffer = audioContextRef.current.createBuffer(1, 22050, 22050);
+        const source = audioContextRef.current.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(audioContextRef.current.destination);
+        source.start(0);
+        silentNodeRef.current = source;
+      }
+    } catch (e) {}
+  };
+
+  const stopWebAudioKeepalive = () => {
+    try {
+      if (silentNodeRef.current) {
+        silentNodeRef.current.stop();
+        silentNodeRef.current.disconnect();
+        silentNodeRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state === "running") {
+        audioContextRef.current.suspend().catch(() => {});
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
     try {
       const blockEvent = (e: Event) => {
@@ -1658,7 +1707,7 @@ export default function BrnsicMusicPage() {
     } catch (e) {}
 
     const handleBackgroundKeepalive = () => {
-      if (isPlayingRef.current && ytPlayerRef.current) {
+      if (!isUserExplicitlyPausedRef.current && isPlayingRef.current && ytPlayerRef.current) {
         try {
           const curr = ytPlayerRef.current.getCurrentTime?.() || 0;
           const dur = ytPlayerRef.current.getDuration?.() || 0;
@@ -1683,6 +1732,7 @@ export default function BrnsicMusicPage() {
   }, []);
 
   const startBackgroundKeepalive = () => {
+    startWebAudioKeepalive();
     if (typeof window !== "undefined") {
       try {
         if ((window as any).BrnsicNative?.startPlayback) {
@@ -1701,6 +1751,7 @@ export default function BrnsicMusicPage() {
   };
 
   const stopBackgroundKeepalive = () => {
+    stopWebAudioKeepalive();
     if (typeof window !== "undefined") {
       try {
         if ((window as any).BrnsicNative?.stopPlayback) {
@@ -2404,6 +2455,7 @@ export default function BrnsicMusicPage() {
               setIsLoadingSong(false);
               if (event.data === 1) {
                 // Playing
+                isUserExplicitlyPausedRef.current = false;
                 setIsPlaying(true);
                 isPlayingRef.current = true;
                 hasTriggeredEndRef.current = false;
@@ -2418,6 +2470,16 @@ export default function BrnsicMusicPage() {
                     return;
                   }
                 } catch (e) {}
+
+                // CRITICAL SHIELD: If pause was NOT triggered by the user clicking pause
+                // (e.g. Chromium / OS paused video on screen lock or tab blur):
+                if (!isUserExplicitlyPausedRef.current && isPlayingRef.current) {
+                  // Do NOT kill the background service! Immediately resume playback!
+                  try {
+                    ytPlayerRef.current?.playVideo?.();
+                  } catch (e) {}
+                  return;
+                }
 
                 setIsPlaying(false);
                 isPlayingRef.current = false;
@@ -2656,15 +2718,20 @@ export default function BrnsicMusicPage() {
     const directVid = song.youtubeId || getVerifiedVideoId(song.title, song.artist);
     const startAudio = (vid: string) => {
       if (currentRequestId !== playRequestIdRef.current) return;
+      isUserExplicitlyPausedRef.current = false;
       setCurrentTrack((prev) => ({ ...prev, youtubeId: vid }));
       setIsPlaying(true);
       isPlayingRef.current = true;
+      startWebAudioKeepalive();
 
       const isNative = typeof window !== "undefined" && Boolean((window as any).BrnsicNative?.playAudio);
 
       // 1. Android Native Service Audio Playback (real MediaPlayer in BackgroundAudioService)
       if (isNative) {
         try {
+          if ((window as any).BrnsicNative?.isPermissionGranted && !(window as any).BrnsicNative.isPermissionGranted()) {
+            (window as any).BrnsicNative.requestPermissions();
+          }
           (window as any).BrnsicNative.playAudio(
             "",
             song.title || "Brnsic Music",
@@ -3261,6 +3328,7 @@ export default function BrnsicMusicPage() {
     }
     try {
       if (isPlaying) {
+        isUserExplicitlyPausedRef.current = true;
         isPlayingRef.current = false;
         setIsPlaying(false);
         stopBackgroundKeepalive();
@@ -3273,6 +3341,7 @@ export default function BrnsicMusicPage() {
           ytPlayerRef.current.pauseVideo();
         }
       } else {
+        isUserExplicitlyPausedRef.current = false;
         isPlayingRef.current = true;
         setIsPlaying(true);
         startBackgroundKeepalive();
@@ -4664,6 +4733,48 @@ export default function BrnsicMusicPage() {
           {/* VIEW: HOME VIEW */}
           {currentView === "home" && (
             <div className="p-4 sm:p-6 flex flex-col gap-8">
+              
+              {/* NATIVE APK BACKGROUND PERMISSION BANNER */}
+              {showPermissionBanner && (
+                <div className="bg-[#181818] border border-[#1ed760]/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 flex items-center justify-center text-[#1ed760] flex-shrink-0 mt-0.5">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                      </svg>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-white font-bold text-xs tracking-wide">
+                        Aktifkan Izin Latar Belakang & Notifikasi
+                      </span>
+                      <span className="text-[#b3b3b3] text-[11px] leading-relaxed max-w-xl">
+                        Agar audio terus menyala saat layar HP terkunci atau membuka aplikasi lain, izinkan notifikasi pemutar dan kecualikan Brnsic dari penghemat baterai sistem.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
+                    <button
+                      onClick={() => {
+                        try {
+                          (window as any).BrnsicNative?.requestPermissions?.();
+                        } catch (e) {}
+                        setShowPermissionBanner(false);
+                      }}
+                      className="bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs px-4 py-2 rounded-full transition shadow hover:scale-105 active:scale-95 cursor-pointer"
+                    >
+                      Izinkan Sekarang
+                    </button>
+                    <button
+                      onClick={() => setShowPermissionBanner(false)}
+                      className="text-[#b3b3b3] hover:text-white text-xs px-2.5 py-2 transition cursor-pointer font-medium"
+                    >
+                      Nanti
+                    </button>
+                  </div>
+                </div>
+              )}
               
               {/* SMART RECOMMENDATION BANNER */}
               {relatedQueue.length > 0 && (

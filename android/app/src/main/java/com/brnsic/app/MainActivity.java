@@ -118,15 +118,46 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void requestBatteryOptimizationExemption() {
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-                    if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
-                        Intent batteryIntent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                        batteryIntent.setData(android.net.Uri.parse("package:" + getPackageName()));
-                        startActivity(batteryIntent);
-                    }
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    promptBatteryOptimization();
                 }
+            });
+        }
+
+        @JavascriptInterface
+        public void requestPermissions() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    requestBackgroundAndNotificationPermissions();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public boolean isPermissionGranted() {
+            boolean notifGranted = true;
+            if (Build.VERSION.SDK_INT >= 33) {
+                notifGranted = checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            }
+            boolean batteryGranted = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+                if (pm != null) {
+                    batteryGranted = pm.isIgnoringBatteryOptimizations(getPackageName());
+                }
+            }
+            return notifGranted && batteryGranted;
+        }
+
+        @JavascriptInterface
+        public void openAppSettings() {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
             } catch (Exception ignored) {}
         }
 
@@ -136,31 +167,53 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    public void requestBackgroundAndNotificationPermissions() {
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+                    return;
+                }
+            }
+            promptBatteryOptimization();
+        } catch (Exception ignored) {}
+    }
+
+    public void promptBatteryOptimization() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                    Intent batteryIntent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    batteryIntent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                    startActivity(batteryIntent);
+                }
+            } catch (Exception e) {
+                try {
+                    Intent fallback = new Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                    startActivity(fallback);
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 101) {
+            promptBatteryOptimization();
+        }
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         instance = this;
         try {
-            if (Build.VERSION.SDK_INT >= 33) {
-                if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
-                }
-            }
-
             PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
             if (powerManager != null) {
                 wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Brnsic:BackgroundAudioWakeLock");
                 wakeLock.setReferenceCounted(false);
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    try {
-                        if (!powerManager.isIgnoringBatteryOptimizations(getPackageName())) {
-                            Intent batteryIntent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                            batteryIntent.setData(android.net.Uri.parse("package:" + getPackageName()));
-                            startActivity(batteryIntent);
-                        }
-                    } catch (Exception ignored) {}
-                }
             }
 
             if (bridge != null && bridge.getWebView() != null) {
