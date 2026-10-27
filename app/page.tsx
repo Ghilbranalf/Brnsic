@@ -1528,6 +1528,10 @@ export default function BrnsicMusicPage() {
       }
     };
 
+    (window as any).__handleNativeTrackCompleted = () => {
+      playNextSong(false);
+    };
+
     checkAuthSession();
 
     // Prompt user to LOGIN first before choosing genres
@@ -2536,6 +2540,24 @@ export default function BrnsicMusicPage() {
     const startAudio = (vid: string) => {
       if (currentRequestId !== playRequestIdRef.current) return;
       setCurrentTrack((prev) => ({ ...prev, youtubeId: vid }));
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+
+      // 1. Android Native Service Audio Playback (real MediaPlayer in BackgroundAudioService)
+      if (typeof window !== "undefined" && (window as any).BrnsicNative?.playAudio) {
+        try {
+          const origin = window.location.origin || "https://brnsic.vercel.app";
+          const streamUrl = `${origin}/api/stream?id=${encodeURIComponent(vid)}`;
+          (window as any).BrnsicNative.playAudio(
+            streamUrl,
+            song.title || "Brnsic Music",
+            song.artist || "Memutar di latar belakang",
+            0
+          );
+        } catch (e) {}
+      }
+
+      // 2. Web Player fallback / UI sync
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
         try {
           ytPlayerRef.current.loadVideoById({
@@ -2545,9 +2567,6 @@ export default function BrnsicMusicPage() {
           ytPlayerRef.current.unMute();
           ytPlayerRef.current.setVolume(volume * 100);
           ytPlayerRef.current.playVideo();
-          setIsPlaying(true);
-          isPlayingRef.current = true;
-          startBackgroundKeepalive();
         } catch (e) {
           console.error("Audio playback error", e);
         }
@@ -3074,6 +3093,11 @@ export default function BrnsicMusicPage() {
         isPlayingRef.current = false;
         setIsPlaying(false);
         stopBackgroundKeepalive();
+        if (typeof window !== "undefined" && (window as any).BrnsicNative?.pauseAudio) {
+          try {
+            (window as any).BrnsicNative.pauseAudio();
+          } catch (e) {}
+        }
         if (typeof ytPlayerRef.current.pauseVideo === "function") {
           ytPlayerRef.current.pauseVideo();
         }
@@ -3081,6 +3105,11 @@ export default function BrnsicMusicPage() {
         isPlayingRef.current = true;
         setIsPlaying(true);
         startBackgroundKeepalive();
+        if (typeof window !== "undefined" && (window as any).BrnsicNative?.resumeAudio) {
+          try {
+            (window as any).BrnsicNative.resumeAudio();
+          } catch (e) {}
+        }
         if (typeof ytPlayerRef.current.playVideo === "function") {
           ytPlayerRef.current.unMute();
           ytPlayerRef.current.setVolume(volume * 100);
@@ -3107,6 +3136,11 @@ export default function BrnsicMusicPage() {
     const totalDuration = getActiveDuration();
     const safeSec = Math.max(0, Math.min(totalDuration, targetSeconds));
     setCurrentTime(safeSec);
+    if (typeof window !== "undefined" && (window as any).BrnsicNative?.seekAudio) {
+      try {
+        (window as any).BrnsicNative.seekAudio(Math.round(safeSec * 1000));
+      } catch (e) {}
+    }
     if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
       ytPlayerRef.current.seekTo(safeSec, true);
     }

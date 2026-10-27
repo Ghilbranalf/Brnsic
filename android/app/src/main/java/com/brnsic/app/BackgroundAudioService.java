@@ -8,23 +8,67 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import androidx.core.app.NotificationCompat;
 
-public class BackgroundAudioService extends Service {
+public class BackgroundAudioService extends Service implements
+        MediaPlayer.OnPreparedListener,
+        MediaPlayer.OnCompletionListener,
+        MediaPlayer.OnErrorListener {
+
     public static final String CHANNEL_ID = "brnsic_background_playback";
     public static final int NOTIFICATION_ID = 2026;
 
-    public static final String ACTION_START = "com.brnsic.app.action.START";
+    public static final String ACTION_PLAY = "com.brnsic.app.action.PLAY";
+    public static final String ACTION_PAUSE = "com.brnsic.app.action.PAUSE";
+    public static final String ACTION_RESUME = "com.brnsic.app.action.RESUME";
+    public static final String ACTION_SEEK = "com.brnsic.app.action.SEEK";
     public static final String ACTION_STOP = "com.brnsic.app.action.STOP";
+
+    public static final String EXTRA_URL = "extra_url";
     public static final String EXTRA_TITLE = "extra_title";
     public static final String EXTRA_ARTIST = "extra_artist";
+    public static final String EXTRA_POSITION = "extra_position";
+
+    private MediaPlayer mediaPlayer;
+    private WifiManager.WifiLock wifiLock;
+    private String currentTitle = "Brnsic Music";
+    private String currentArtist = "Memutar di latar belakang";
+    private int seekOnPrepared = 0;
 
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
+        initMediaPlayer();
+
+        try {
+            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm != null) {
+                wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Brnsic:WifiLock");
+                wifiLock.setReferenceCounted(false);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void initMediaPlayer() {
+        if (mediaPlayer == null) {
+            mediaPlayer = new MediaPlayer();
+            mediaPlayer.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
+            AudioAttributes attributes = new AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build();
+            mediaPlayer.setAudioAttributes(attributes);
+            mediaPlayer.setOnPreparedListener(this);
+            mediaPlayer.setOnCompletionListener(this);
+            mediaPlayer.setOnErrorListener(this);
+        }
     }
 
     @Override
@@ -32,26 +76,130 @@ public class BackgroundAudioService extends Service {
         if (intent != null) {
             String action = intent.getAction();
             if (ACTION_STOP.equals(action)) {
-                stopForeground(true);
-                stopSelf();
+                stopPlayback();
                 return START_NOT_STICKY;
             }
 
-            String title = intent.getStringExtra(EXTRA_TITLE);
-            String artist = intent.getStringExtra(EXTRA_ARTIST);
-            if (title == null || title.trim().isEmpty()) {
-                title = "Brnsic Music";
-            }
-            if (artist == null || artist.trim().isEmpty()) {
-                artist = "Memutar di latar belakang";
+            if (ACTION_PAUSE.equals(action)) {
+                pausePlayback();
+                return START_STICKY;
             }
 
-            startForegroundNotification(title, artist);
+            if (ACTION_RESUME.equals(action)) {
+                resumePlayback();
+                return START_STICKY;
+            }
+
+            if (ACTION_SEEK.equals(action)) {
+                int pos = intent.getIntExtra(EXTRA_POSITION, 0);
+                seekPlayback(pos);
+                return START_STICKY;
+            }
+
+            if (ACTION_PLAY.equals(action)) {
+                String url = intent.getStringExtra(EXTRA_URL);
+                String title = intent.getStringExtra(EXTRA_TITLE);
+                String artist = intent.getStringExtra(EXTRA_ARTIST);
+                int positionMs = intent.getIntExtra(EXTRA_POSITION, 0);
+
+                if (title != null && !title.trim().isEmpty()) currentTitle = title;
+                if (artist != null && !artist.trim().isEmpty()) currentArtist = artist;
+
+                startForegroundNotification(currentTitle, currentArtist, true);
+
+                if (url != null && !url.trim().isEmpty()) {
+                    playUrl(url, positionMs);
+                }
+            }
         }
         return START_STICKY;
     }
 
-    private void startForegroundNotification(String title, String artist) {
+    private void playUrl(String url, int positionMs) {
+        try {
+            initMediaPlayer();
+            if (wifiLock != null && !wifiLock.isHeld()) {
+                wifiLock.acquire();
+            }
+
+            seekOnPrepared = positionMs;
+
+            mediaPlayer.reset();
+            mediaPlayer.setDataSource(url);
+            mediaPlayer.prepareAsync();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void pausePlayback() {
+        try {
+            if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                mediaPlayer.pause();
+                startForegroundNotification(currentTitle, currentArtist, false);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void resumePlayback() {
+        try {
+            if (mediaPlayer != null) {
+                mediaPlayer.start();
+                startForegroundNotification(currentTitle, currentArtist, true);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void seekPlayback(int positionMs) {
+        try {
+            if (mediaPlayer != null) {
+                mediaPlayer.seekTo(positionMs);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void stopPlayback() {
+        try {
+            if (mediaPlayer != null) {
+                if (mediaPlayer.isPlaying()) {
+                    mediaPlayer.stop();
+                }
+                mediaPlayer.release();
+                mediaPlayer = null;
+            }
+            if (wifiLock != null && wifiLock.isHeld()) {
+                wifiLock.release();
+            }
+        } catch (Exception ignored) {}
+
+        stopForeground(true);
+        stopSelf();
+    }
+
+    @Override
+    public void onPrepared(MediaPlayer mp) {
+        try {
+            if (seekOnPrepared > 0) {
+                mp.seekTo(seekOnPrepared);
+                seekOnPrepared = 0;
+            }
+            mp.start();
+            startForegroundNotification(currentTitle, currentArtist, true);
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onCompletion(MediaPlayer mp) {
+        startForegroundNotification(currentTitle, currentArtist, false);
+        MainActivity.notifyTrackCompleted();
+    }
+
+    @Override
+    public boolean onError(MediaPlayer mp, int what, int extra) {
+        return true;
+    }
+
+    private void startForegroundNotification(String title, String artist, boolean isPlaying) {
         Intent notificationIntent = new Intent(this, MainActivity.class);
         notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
@@ -66,7 +214,7 @@ public class BackgroundAudioService extends Service {
                 .setContentText(artist)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pendingIntent)
-                .setOngoing(true)
+                .setOngoing(isPlaying)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
@@ -94,6 +242,12 @@ public class BackgroundAudioService extends Service {
                 manager.createNotificationChannel(channel);
             }
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        stopPlayback();
+        super.onDestroy();
     }
 
     @Override

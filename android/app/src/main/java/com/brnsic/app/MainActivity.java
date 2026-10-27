@@ -11,15 +11,32 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     private PowerManager.WakeLock wakeLock;
+    private static MainActivity instance;
+
+    public static void notifyTrackCompleted() {
+        if (instance != null && instance.bridge != null && instance.bridge.getWebView() != null) {
+            instance.bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    instance.bridge.getWebView().evaluateJavascript(
+                        "(function(){ if (window.__handleNativeTrackCompleted) { window.__handleNativeTrackCompleted(); } })();",
+                        null
+                    );
+                }
+            });
+        }
+    }
 
     public class NativeAudioBridge {
         @JavascriptInterface
-        public void startPlayback(String title, String artist) {
+        public void playAudio(String audioUrl, String title, String artist, int positionMs) {
             try {
                 Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
-                intent.setAction(BackgroundAudioService.ACTION_START);
+                intent.setAction(BackgroundAudioService.ACTION_PLAY);
+                intent.putExtra(BackgroundAudioService.EXTRA_URL, audioUrl);
                 intent.putExtra(BackgroundAudioService.EXTRA_TITLE, title);
                 intent.putExtra(BackgroundAudioService.EXTRA_ARTIST, artist);
+                intent.putExtra(BackgroundAudioService.EXTRA_POSITION, positionMs);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(intent);
                 } else {
@@ -29,12 +46,50 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
-        public void stopPlayback() {
+        public void pauseAudio() {
+            try {
+                Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
+                intent.setAction(BackgroundAudioService.ACTION_PAUSE);
+                startService(intent);
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void resumeAudio() {
+            try {
+                Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
+                intent.setAction(BackgroundAudioService.ACTION_RESUME);
+                startService(intent);
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void seekAudio(int positionMs) {
+            try {
+                Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
+                intent.setAction(BackgroundAudioService.ACTION_SEEK);
+                intent.putExtra(BackgroundAudioService.EXTRA_POSITION, positionMs);
+                startService(intent);
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void stopAudio() {
             try {
                 Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
                 intent.setAction(BackgroundAudioService.ACTION_STOP);
                 startService(intent);
             } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void startPlayback(String title, String artist) {
+            playAudio("", title, artist, 0);
+        }
+
+        @JavascriptInterface
+        public void stopPlayback() {
+            stopAudio();
         }
 
         @JavascriptInterface
@@ -46,6 +101,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        instance = this;
         try {
             PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
             if (powerManager != null) {
