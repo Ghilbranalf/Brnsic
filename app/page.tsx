@@ -1705,9 +1705,17 @@ export default function BrnsicMusicPage() {
   const audioContextRef = useRef<any>(null);
   const silentNodeRef = useRef<any>(null);
 
+  const isIOSDevice = () => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    const platform = navigator.platform || "";
+    return /iPad|iPhone|iPod/.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  };
+
   const startWebAudioKeepalive = () => {
     try {
       if (typeof window === "undefined") return;
+      if (isIOSDevice()) return; // Never run WebAudio keepalive on iOS / iPhone! iOS handles mediaSession natively and mutes if WebAudio conflicts.
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       if (!audioContextRef.current) {
@@ -1742,6 +1750,10 @@ export default function BrnsicMusicPage() {
   };
 
   useEffect(() => {
+    // Only apply Chromium-specific anti-throttle shield on Android / Desktop Chromium.
+    // NEVER apply on iOS / iPhone, as WebKit uses native visibility events for background audio routing!
+    if (isIOSDevice()) return;
+
     try {
       const blockEvent = (e: Event) => {
         e.stopImmediatePropagation();
@@ -2530,8 +2542,8 @@ export default function BrnsicMusicPage() {
                 } catch (e) {}
 
                 // CRITICAL SHIELD: If pause was NOT triggered by the user clicking pause
-                // (e.g. Chromium / OS paused video on screen lock or tab blur):
-                if (!isUserExplicitlyPausedRef.current && isPlayingRef.current) {
+                // (e.g. Chromium / OS paused video on screen lock or tab blur on Android):
+                if (!isIOSDevice() && !isUserExplicitlyPausedRef.current && isPlayingRef.current) {
                   // Do NOT kill the background service! Immediately resume playback!
                   try {
                     ytPlayerRef.current?.playVideo?.();
@@ -3587,11 +3599,11 @@ export default function BrnsicMusicPage() {
         style={{
           position: "fixed",
           bottom: 0,
-          right: 0,
-          width: 240,
-          height: 180,
-          opacity: 1,
-          zIndex: -50,
+          left: 0,
+          width: 2,
+          height: 2,
+          opacity: 0.01,
+          zIndex: 1,
           pointerEvents: "none"
         }}
       >
@@ -6965,7 +6977,7 @@ export default function BrnsicMusicPage() {
                         }}
                         className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
                           isActive
-                            ? "text-2xl sm:text-3xl font-black scale-[1.04]"
+                            ? "text-2xl sm:text-3xl font-black scale-[1.04] drop-shadow-[0_2px_14px_rgba(255,255,255,0.7)]"
                             : dist === 1
                             ? "text-xl sm:text-2xl font-bold hover:scale-[1.01]"
                             : "text-xl sm:text-2xl font-semibold"
@@ -6988,12 +7000,13 @@ export default function BrnsicMusicPage() {
                           </div>
                         ) : isActive ? (
                           <span
-                            className="inline-block transition-[background] duration-100 ease-linear origin-left"
+                            className="inline transition-all duration-75 ease-linear"
                             style={{
-                              background: `linear-gradient(90deg, #ffffff 0%, #ffffff ${activeLineFillPct}%, rgba(255, 255, 255, 0.35) ${Math.min(100, activeLineFillPct + 3)}%, rgba(255, 255, 255, 0.30) 100%)`,
+                              backgroundImage: `linear-gradient(90deg, #ffffff 0%, #ffffff ${activeLineFillPct}%, rgba(255, 255, 255, 0.35) ${Math.min(100, activeLineFillPct + 4)}%, rgba(255, 255, 255, 0.35) 100%)`,
                               WebkitBackgroundClip: "text",
+                              backgroundClip: "text",
                               WebkitTextFillColor: "transparent",
-                              filter: `drop-shadow(0 0 16px rgba(255, 255, 255, ${0.45 + (activeLineFillPct / 100) * 0.45})) drop-shadow(0 0 32px rgba(255, 255, 255, 0.25))`
+                              color: "transparent"
                             }}
                           >
                             {line.text}
@@ -7234,7 +7247,7 @@ export default function BrnsicMusicPage() {
                         }}
                         className={`transition-all duration-300 ease-out cursor-pointer select-none leading-snug tracking-tight origin-left ${
                           isActive
-                            ? "text-3xl sm:text-5xl font-black scale-[1.04]"
+                            ? "text-3xl sm:text-5xl font-black scale-[1.04] drop-shadow-[0_4px_24px_rgba(255,255,255,0.75)]"
                             : dist === 1
                             ? "text-2xl sm:text-3xl font-bold hover:scale-[1.01]"
                             : "text-2xl sm:text-3xl font-semibold"
@@ -7257,12 +7270,13 @@ export default function BrnsicMusicPage() {
                           </div>
                         ) : isActive ? (
                           <span
-                            className="inline-block transition-[background] duration-100 ease-linear origin-left"
+                            className="inline transition-all duration-75 ease-linear"
                             style={{
-                              background: `linear-gradient(90deg, #ffffff 0%, #ffffff ${activeLineFillPct}%, rgba(255, 255, 255, 0.35) ${Math.min(100, activeLineFillPct + 3)}%, rgba(255, 255, 255, 0.30) 100%)`,
+                              backgroundImage: `linear-gradient(90deg, #ffffff 0%, #ffffff ${activeLineFillPct}%, rgba(255, 255, 255, 0.35) ${Math.min(100, activeLineFillPct + 4)}%, rgba(255, 255, 255, 0.35) 100%)`,
                               WebkitBackgroundClip: "text",
+                              backgroundClip: "text",
                               WebkitTextFillColor: "transparent",
-                              filter: `drop-shadow(0 0 20px rgba(255, 255, 255, ${0.5 + (activeLineFillPct / 100) * 0.45})) drop-shadow(0 0 40px rgba(255, 255, 255, 0.3))`
+                              color: "transparent"
                             }}
                           >
                             {line.text}
