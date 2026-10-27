@@ -23,17 +23,13 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Configure Android SDK and Accept Licenses
-        run: |
-          echo "sdk.dir=$ANDROID_HOME" > ./android/local.properties
-          yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+
+      - name: Accept Android SDK Licenses & Configure SDK
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > ./android/local.properties
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -47,7 +43,7 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Clean Nested APK Assets Before Sync
+      - name: Clean Nested APK Assets
         run: |
           rm -f public/Brnsic.apk
           rm -f android/app/src/main/assets/public/Brnsic.apk
