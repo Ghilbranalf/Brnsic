@@ -71,6 +71,35 @@ public class MainActivity extends BridgeActivity {
                 }
                 webView.addJavascriptInterface(new NativeAudioBridge(), "BrnsicNative");
             }
+            handleDeepLink(getIntent());
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleDeepLink(intent);
+    }
+
+    private void handleDeepLink(Intent intent) {
+        try {
+            if (intent != null && intent.getData() != null) {
+                android.net.Uri uri = intent.getData();
+                if ("brnsic".equals(uri.getScheme())) {
+                    String token = uri.getQueryParameter("token");
+                    if (token != null && !token.isEmpty() && bridge != null && bridge.getWebView() != null) {
+                        bridge.getWebView().post(new Runnable() {
+                            @Override
+                            public void run() {
+                                bridge.getWebView().evaluateJavascript(
+                                    "(function(){ if (window.__handleNativeAuthToken) { window.__handleNativeAuthToken('" + token + "'); } else { localStorage.setItem('brnsic_auth_token', '" + token + "'); window.location.href = '/?login_success=true&token=" + token + "'; } })();",
+                                    null
+                                );
+                            }
+                        });
+                    }
+                }
+            }
         } catch (Exception ignored) {}
     }
 

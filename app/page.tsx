@@ -1517,15 +1517,26 @@ export default function BrnsicMusicPage() {
       }
     }
 
+    (window as any).__handleNativeAuthToken = (token: string) => {
+      if (token) {
+        try {
+          localStorage.setItem("brnsic_auth_token", token);
+        } catch (e) {}
+        checkAuthSession(token);
+        setIsAuthModalOpen(false);
+        showToast("Berhasil masuk dengan Google!");
+      }
+    };
+
     checkAuthSession();
 
-    // Ensure First-Time Visitors (Guests or New Users) Always Get Onboarding Modal
-    const onboardingDone = localStorage.getItem("brnsic_onboarding_done");
-    if (!onboardingDone) {
-      const onboardTimer = setTimeout(() => {
-        setIsOnboardingModalOpen(true);
-      }, 1900);
-      return () => clearTimeout(onboardTimer);
+    // Prompt user to LOGIN first before choosing genres
+    const savedToken = typeof localStorage !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null;
+    if (!savedToken) {
+      const authTimer = setTimeout(() => {
+        setIsAuthModalOpen(true);
+      }, 1400);
+      return () => clearTimeout(authTimer);
     }
   }, []);
 
@@ -1931,7 +1942,13 @@ export default function BrnsicMusicPage() {
 
     try {
       // 1. Check if Supabase Google OAuth SSO is enabled (opens accounts.google.com account picker)
-      const oauthRes = await fetch("/api/auth/google/oauth").catch(() => null);
+      const isNative =
+        isInsideNativeApk ||
+        (typeof window !== "undefined" && Boolean((window as any).BrnsicNative)) ||
+        (typeof navigator !== "undefined" && navigator.userAgent.includes("BrnsicNative")) ||
+        (window as any).Capacitor?.getPlatform?.() === "android";
+
+      const oauthRes = await fetch(`/api/auth/google/oauth?platform=${isNative ? "native_apk" : "web"}`).catch(() => null);
       if (oauthRes && oauthRes.ok) {
         const oauthData = await oauthRes.json();
         if (oauthData.url && oauthData.enabled) {
