@@ -113,15 +113,24 @@ public class DynamicIslandOverlay {
                 layoutType = WindowManager.LayoutParams.TYPE_PHONE;
             }
 
+            int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
+
             layoutParams = new WindowManager.LayoutParams(
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     layoutType,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                            | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    flags,
                     PixelFormat.TRANSLUCENT
             );
+
+            // Allow window touch events directly inside camera punch-hole & status bar cutout
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                layoutParams.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutParams.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            }
 
             applyPositionConfigInternal();
 
@@ -352,20 +361,51 @@ public class DynamicIslandOverlay {
         View spacer = new View(context);
         LinearLayout.LayoutParams spacerParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
         spacer.setLayoutParams(spacerParams);
+        spacer.setClickable(false);
+        spacer.setFocusable(false);
         pill.addView(spacer);
 
         // Live Dancing Waveform on Right (Warm Amber/Orange or Green)
         collapsedWave = new WaveformView(context, Color.parseColor("#ffaa00"));
         LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(46), dpToPx(24));
         collapsedWave.setLayoutParams(waveParams);
+        collapsedWave.setClickable(false);
+        collapsedWave.setFocusable(false);
         pill.addView(collapsedWave);
 
-        // Tap anywhere on the pill smoothly expands to the luxury card!
-        // Locked in place, zero accidental drags!
-        pill.setOnClickListener(new View.OnClickListener() {
+        collapsedCover.setClickable(false);
+        collapsedCover.setFocusable(false);
+
+        pill.setClickable(true);
+        pill.setFocusable(false);
+
+        // Immediate Touch Consumer:
+        // Captures ACTION_DOWN immediately so system status bar / notification shade cannot intercept or steal the tap!
+        pill.setOnTouchListener(new View.OnTouchListener() {
+            private float downX = 0;
+            private float downY = 0;
+            private long downTime = 0;
+
             @Override
-            public void onClick(View v) {
-                setExpanded(true);
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = event.getRawX();
+                        downY = event.getRawY();
+                        downTime = System.currentTimeMillis();
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                        float diffX = Math.abs(event.getRawX() - downX);
+                        float diffY = Math.abs(event.getRawY() - downY);
+                        long elapsed = System.currentTimeMillis() - downTime;
+                        if (elapsed < 600 && diffX < dpToPx(35) && diffY < dpToPx(35)) {
+                            setExpanded(true);
+                            return true;
+                        }
+                        return true;
+                }
+                return false;
             }
         });
 
