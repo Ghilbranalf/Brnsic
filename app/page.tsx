@@ -94,6 +94,61 @@ const handleImgError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   }
 };
 
+// Spotify-Grade Marquee Text Component: Automatically detects overflow and scrolls long text seamlessly ("Teks Berjalan")
+const MarqueeText: React.FC<{
+  text: string;
+  className?: string;
+  speedSec?: number;
+}> = ({ text, className = "", speedSec = 14 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState<boolean>(false);
+
+  useEffect(() => {
+    const check = () => {
+      if (containerRef.current && textRef.current) {
+        setIsOverflowing(textRef.current.scrollWidth > containerRef.current.clientWidth + 2);
+      }
+    };
+    check();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(check) : null;
+    if (ro && containerRef.current) {
+      ro.observe(containerRef.current);
+    }
+    window.addEventListener("resize", check);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", check);
+    };
+  }, [text]);
+
+  if (!isOverflowing) {
+    return (
+      <div ref={containerRef} className={`truncate max-w-full ${className}`}>
+        <span ref={textRef} className="truncate inline-block max-w-full font-inherit">
+          {text}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className={`overflow-hidden max-w-full mask-marquee-fade ${className}`}>
+      <div
+        className="animate-marquee-smooth inline-flex whitespace-nowrap"
+        style={{ animationDuration: `${speedSec}s` }}
+      >
+        <span ref={textRef} className="pr-10 inline-block font-inherit">
+          {text}
+        </span>
+        <span className="pr-10 inline-block font-inherit" aria-hidden="true">
+          {text}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 // Rich Master Catalog (Diverse hits so playback never feels empty or repetitive)
 const DEFAULT_CATALOG: Track[] = [
   {
@@ -1387,42 +1442,57 @@ export default function BrnsicMusicPage() {
 
   // Dynamic Mood Vector & Shelf Info based on user's selectedMood or auto-detected mood
   const activeMoodInfo = useMemo(() => {
+    if (homeFilter === "most-played") {
+      return {
+        title: "Lagu Paling Sering Diputar di Indonesia",
+        description: "Daftar lagu yang paling banyak diputar dan dicari pecinta musik Indonesia hari ini.",
+        vector: [0.35, 0.85, 0.75, 0.85, 0.95, 0.4, 0.6, 0.4, 0.4, 0.4, 0.5, 0.95] as FeatureVector
+      };
+    }
+    if (homeFilter === "viral") {
+      return {
+        title: "Viral 50 Indonesia",
+        description: "Lagu-lagu yang sedang trending viral di media sosial dan platform streaming.",
+        vector: [0.25, 0.9, 0.85, 0.95, 0.7, 0.3, 0.3, 0.9, 0.5, 0.6, 0.3, 0.98] as FeatureVector
+      };
+    }
+
     switch (selectedMood) {
       case "energetic":
         return {
           title: "Pembangkit Semangat & Energi",
           description: "Irama penuh energi, upbeat, dan tempo bersemangat untuk menemani harimu.",
-          vector: [0.2, 0.95, 0.9, 0.95, 0.6, 0.1, 0.3, 0.9, 0.5, 0.7, 0.2, 0.95] as FeatureVector
+          vector: [0.15, 0.95, 0.85, 0.95, 0.5, 0.1, 0.4, 0.9, 0.6, 0.7, 0.4, 0.95] as FeatureVector
         };
       case "cheerful":
         return {
           title: "Bergairah & Penuh Ceria",
           description: "Lagu-lagu riang, melodi cerah, dan energi positif untuk mendongkrak harimu.",
-          vector: [0.3, 0.8, 0.95, 0.85, 0.85, 0.2, 0.4, 0.5, 0.6, 0.6, 0.3, 0.9] as FeatureVector
+          vector: [0.25, 0.85, 0.95, 0.85, 0.85, 0.2, 0.4, 0.5, 0.6, 0.7, 0.3, 0.9] as FeatureVector
         };
       case "chill":
         return {
           title: "Santai & Menenangkan",
           description: "Petikan gitar akustik, harmoni hangat, dan alunan santai menyejukkan hati.",
-          vector: [0.9, 0.35, 0.5, 0.4, 0.6, 0.95, 0.2, 0.0, 0.4, 0.2, 0.2, 0.7] as FeatureVector
+          vector: [0.95, 0.35, 0.55, 0.4, 0.6, 0.95, 0.2, 0.0, 0.3, 0.2, 0.2, 0.7] as FeatureVector
         };
       case "nostalgia":
         return {
           title: "Nostalgia & Lagu Legendaris",
           description: "Koleksi lagu pop-rock band klasik Indonesia terbaik era 90-an dan 2000-an.",
-          vector: [0.35, 0.8, 0.65, 0.6, 0.6, 0.3, 0.95, 0.0, 0.2, 0.2, 0.95, 0.7] as FeatureVector
+          vector: [0.35, 0.8, 0.65, 0.6, 0.6, 0.3, 0.95, 0.0, 0.2, 0.2, 0.95, 0.75] as FeatureVector
         };
       case "focus":
         return {
           title: "Fokus & Alur Belajar",
           description: "Ritme stabil, harmoni tenang, dan alur lembut untuk konsentrasi bekerja.",
-          vector: [0.7, 0.45, 0.5, 0.5, 0.4, 0.8, 0.2, 0.0, 0.3, 0.3, 0.1, 0.6] as FeatureVector
+          vector: [0.75, 0.45, 0.5, 0.45, 0.4, 0.85, 0.2, 0.0, 0.2, 0.2, 0.1, 0.6] as FeatureVector
         };
       case "melancholy":
         return {
           title: "Lagu Penenang Suasana Hati",
           description: "Melodi sendu dan reflektif untuk menemani saat malam dan hening.",
-          vector: [0.75, 0.4, 0.2, 0.4, 0.95, 0.9, 0.2, 0.0, 0.3, 0.2, 0.3, 0.85] as FeatureVector
+          vector: [0.8, 0.35, 0.15, 0.35, 0.95, 0.9, 0.2, 0.0, 0.2, 0.2, 0.3, 0.85] as FeatureVector
         };
       case "all":
       default:
@@ -1432,17 +1502,24 @@ export default function BrnsicMusicPage() {
           vector: currentMoodInsight.targetVector || userTasteVector
         };
     }
-  }, [selectedMood, currentMoodInsight, userTasteVector]);
+  }, [homeFilter, selectedMood, currentMoodInsight, userTasteVector]);
 
   // 18. Memoized Home ML Recommended Shelf (Adaptive Deep Learning + Real-time Mood Alignment)
   const homeMlRanked = useMemo(() => {
-    const rawPool = [
-      ...DEFAULT_CATALOG,
-      ...mostPlayedIndonesia,
-      ...indonesiaTop50,
-      ...viralIndonesia,
-      ...relatedQueue
-    ];
+    let rawPool: any[] = [];
+    if (homeFilter === "most-played") {
+      rawPool = [...mostPlayedIndonesia, ...DEFAULT_CATALOG];
+    } else if (homeFilter === "viral") {
+      rawPool = [...viralIndonesia, ...DEFAULT_CATALOG];
+    } else {
+      rawPool = [
+        ...DEFAULT_CATALOG,
+        ...mostPlayedIndonesia,
+        ...indonesiaTop50,
+        ...viralIndonesia,
+        ...relatedQueue
+      ];
+    }
     const seenTitles = new Set<string>();
     const uniquePool: any[] = [];
     for (const s of rawPool) {
@@ -1459,7 +1536,7 @@ export default function BrnsicMusicPage() {
       dislikedSongIds,
       24
     );
-  }, [mostPlayedIndonesia, indonesiaTop50, viralIndonesia, relatedQueue, activeMoodInfo, dislikedSongIds]);
+  }, [homeFilter, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, relatedQueue, activeMoodInfo, dislikedSongIds]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
@@ -4640,8 +4717,8 @@ export default function BrnsicMusicPage() {
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
                     homeFilter === "all" && selectedMood === "all"
-                      ? "bg-white text-black"
-                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
                   }`}
                 >
                   Semua
@@ -4652,12 +4729,12 @@ export default function BrnsicMusicPage() {
                     setHomeFilter("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "energetic"
-                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
-                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                    selectedMood === "energetic" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
                   }`}
                 >
-                  🔥 Semangat
+                  Semangat
                 </button>
                 <button
                   onClick={() => {
@@ -4665,12 +4742,12 @@ export default function BrnsicMusicPage() {
                     setHomeFilter("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "cheerful"
-                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
-                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                    selectedMood === "cheerful" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
                   }`}
                 >
-                  ⚡ Bergairah
+                  Bergairah
                 </button>
                 <button
                   onClick={() => {
@@ -4678,12 +4755,12 @@ export default function BrnsicMusicPage() {
                     setHomeFilter("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "chill"
-                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
-                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                    selectedMood === "chill" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
                   }`}
                 >
-                  ☕ Santai
+                  Santai
                 </button>
                 <button
                   onClick={() => {
@@ -4691,12 +4768,12 @@ export default function BrnsicMusicPage() {
                     setHomeFilter("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "nostalgia"
-                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
-                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                    selectedMood === "nostalgia" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
                   }`}
                 >
-                  📻 Nostalgia
+                  Nostalgia
                 </button>
                 <button
                   onClick={() => {
@@ -4704,12 +4781,12 @@ export default function BrnsicMusicPage() {
                     setHomeFilter("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "focus"
-                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
-                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                    selectedMood === "focus" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
                   }`}
                 >
-                  🎯 Fokus
+                  Fokus
                 </button>
                 <button
                   onClick={() => {
@@ -4717,22 +4794,36 @@ export default function BrnsicMusicPage() {
                     setHomeFilter("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "melancholy"
-                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
-                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                    selectedMood === "melancholy" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
                   }`}
                 >
-                  🌧️ Sendu
+                  Sendu
                 </button>
                 <button
-                  onClick={() => setCurrentView("most-played-indo")}
-                  className="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                  onClick={() => {
+                    setHomeFilter("most-played");
+                    setSelectedMood("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    homeFilter === "most-played"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
                 >
                   Sering Diputar
                 </button>
                 <button
-                  onClick={() => setCurrentView("viral-indo")}
-                  className="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                  onClick={() => {
+                    setHomeFilter("viral");
+                    setSelectedMood("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    homeFilter === "viral"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
                 >
                   Viral
                 </button>
@@ -5670,6 +5761,129 @@ export default function BrnsicMusicPage() {
           {currentView === "home" && (
             <div className="p-4 sm:p-6 flex flex-col gap-8">
               
+              {/* DESKTOP FILTER & MOOD CHIPS: HANYA DI BERANDA */}
+              <div
+                className="hidden md:flex items-center gap-2 w-full max-w-full overflow-x-auto no-scrollbar py-1 touch-pan-x flex-nowrap select-none"
+              >
+                <button
+                  onClick={() => {
+                    setHomeFilter("all");
+                    setSelectedMood("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    homeFilter === "all" && selectedMood === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Semua
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("energetic");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "energetic" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Semangat
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("cheerful");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "cheerful" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Bergairah
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("chill");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "chill" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Santai
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("nostalgia");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "nostalgia" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Nostalgia
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("focus");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "focus" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Fokus
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("melancholy");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "melancholy" && homeFilter === "all"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Sendu
+                </button>
+                <button
+                  onClick={() => {
+                    setHomeFilter("most-played");
+                    setSelectedMood("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    homeFilter === "most-played"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Sering Diputar
+                </button>
+                <button
+                  onClick={() => {
+                    setHomeFilter("viral");
+                    setSelectedMood("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    homeFilter === "viral"
+                      ? "bg-white text-black shadow-md"
+                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Viral
+                </button>
+              </div>
+
               {/* NATIVE APK BACKGROUND PERMISSION BANNER */}
               {showPermissionBanner && (
                 <div className="bg-[#181818] border border-[#1ed760]/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
@@ -6118,15 +6332,16 @@ export default function BrnsicMusicPage() {
                                 className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                               />
                             </div>
-                            <div>
-                              <h2 className="text-2xl font-black text-white tracking-tight line-clamp-1 group-hover:text-[#1ed760] transition">
-                                {searchResults[0].trackName}
-                              </h2>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs bg-white/10 text-white font-bold px-2 py-0.5 rounded-full">
+                            <div className="pr-16 min-w-0 max-w-full">
+                              <MarqueeText
+                                text={searchResults[0].trackName}
+                                className="text-2xl font-black text-white tracking-tight group-hover:text-[#1ed760] transition"
+                              />
+                              <div className="flex items-center gap-2 mt-1 min-w-0">
+                                <span className="text-xs bg-white/10 text-white font-bold px-2 py-0.5 rounded-full flex-shrink-0">
                                   Lagu
                                 </span>
-                                <span className="text-xs text-[#b3b3b3] font-semibold truncate">
+                                <span className="text-xs text-[#b3b3b3] font-semibold truncate min-w-0">
                                   {searchResults[0].artistName}
                                 </span>
                               </div>
@@ -6862,12 +7077,15 @@ export default function BrnsicMusicPage() {
                 onError={handleImgError}
                 className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
               />
-              <div className="min-w-0">
+              <div className="min-w-0 max-w-[200px] lg:max-w-[280px]">
                 <div
                   onClick={() => setIsZoomed(true)}
-                  className="text-sm font-semibold text-white truncate hover:underline cursor-pointer"
+                  className="hover:underline cursor-pointer"
                 >
-                  {currentTrack.title}
+                  <MarqueeText
+                    text={currentTrack.title}
+                    className="text-sm font-semibold text-white"
+                  />
                 </div>
                 <div className="text-xs text-[#b3b3b3] truncate mt-0.5">{currentTrack.artist}</div>
                 {currentTrack.album && (
@@ -7126,7 +7344,10 @@ export default function BrnsicMusicPage() {
                 className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
               />
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-white truncate">{currentTrack.title}</div>
+                <MarqueeText
+                  text={currentTrack.title}
+                  className="text-xs font-bold text-white"
+                />
                 <div className="text-[11px] text-[#b3b3b3] truncate flex items-center gap-1.5">
                   <span>{currentTrack.artist}</span>
                   {isPlaying && (
@@ -7571,9 +7792,10 @@ export default function BrnsicMusicPage() {
                 {/* Title, Artist, & Like Button Row */}
                 <div className="w-full flex items-center justify-between mt-3 px-1">
                   <div className="min-w-0 flex-1 pr-3">
-                    <h1 className="text-xl md:text-2xl font-black text-white tracking-tight truncate">
-                      {currentTrack.title}
-                    </h1>
+                    <MarqueeText
+                      text={currentTrack.title}
+                      className="text-xl md:text-2xl font-black text-white tracking-tight"
+                    />
                     <p className="text-xs md:text-sm text-white/60 font-medium truncate mt-0.5">{currentTrack.artist}</p>
                     {currentTrack.album && (
                       <button
