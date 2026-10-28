@@ -1,7 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // Curated verified YouTube Studio Master IDs (100% Official Audio, 0s movie/dialogue intro)
 const VERIFIED_MAP: Record<string, string> = {
+  // eńau / Enau
+  "enau ijazah": "tYGGKG6CRls",
+  "ijazah": "tYGGKG6CRls",
+  "enau bersamaku akan sedikit susah": "ohVuxEok7s8",
+  "bersamaku akan sedikit susah": "ohVuxEok7s8",
+  "enau rakyat biasa": "2yS7ERldKtE",
+  "rakyat biasa": "2yS7ERldKtE",
+
+  // The Lantis
+  "the lantis lampu merah": "IP57OKJlywA",
+  "lampu merah": "IP57OKJlywA",
+  "the lantis bunga maaf": "1v3DqMSm-uY",
+  "bunga maaf": "1v3DqMSm-uY",
+
+  // Melly Mono / Anji
+  "melly mono berhenti di kamu": "Vq7zgLz7qpw",
+  "anji berhenti di kamu": "Vq7zgLz7qpw",
+  "berhenti di kamu": "Vq7zgLz7qpw",
+
   // Sal Priadi (100% Pure Label Studio Master)
   "sal priadi gala bunga matahari": "kv2WIY8RLQQ",
   "gala bunga matahari": "kv2WIY8RLQQ",
@@ -144,14 +165,18 @@ const PENALIZED_WORDS = [
   "konser", "cover by", "karaoke"
 ];
 
-// Spoken word / podcast exclusions (Block foreign talk shows & podcasts, permit curated Indonesian chill like Rintik Sedu)
+// Spoken word / podcast exclusions (Blocks news talk shows, podcasts, crime hearings)
 const PODCAST_EXCLUSIONS = [
   "podcast", "talkshow", "talk show", "interview", "wawancara",
-  "full episode", "episode", "eps.", "audiobook", "stand up comedy"
+  "full episode", "episode", "eps.", "audiobook", "stand up comedy",
+  "terkuak", "berita", "kasus", "polisi", "sidang", "debat", "viral news",
+  "fakta mengejutkan", "klarifikasi", "pengakuan", "dokumenter", "investigasi"
 ];
 
 function cleanString(str: string): string {
   return (str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Removes diacritics: eńau -> enau, Beyoncé -> Beyonce
     .toLowerCase()
     .replace(/\(feat.*?\)/gi, "")
     .replace(/\[feat.*?\]/gi, "")
@@ -166,80 +191,128 @@ function cleanString(str: string): string {
     .trim();
 }
 
-function parseCleanVideoResults(html: string): Array<{ id: string; title: string; score: number }> {
+function parseDurationSeconds(durStr: string): number | null {
+  if (!durStr || typeof durStr !== "string") return null;
+  const parts = durStr.trim().replace(/\./g, ":").split(":").map((p) => parseInt(p, 10));
+  if (parts.some(isNaN)) return null;
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  } else if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  } else if (parts.length === 1) {
+    return parts[0];
+  }
+  return null;
+}
+
+interface ScoredCandidate {
+  id: string;
+  title: string;
+  durStr: string;
+  durSec: number | null;
+  channel: string;
+  score: number;
+}
+
+function parseCleanVideoResults(
+  html: string,
+  artist: string,
+  title: string,
+  expectedDuration?: number
+): ScoredCandidate[] {
   const jsonMatch =
     html.match(/ytInitialData\s*=\s*({[\s\S]+?});<\/script>/) ||
     html.match(/ytInitialData = ({[\s\S]+?});/);
 
-  const candidates: Array<{ id: string; title: string; score: number }> = [];
+  const candidates: ScoredCandidate[] = [];
+  const cleanA = cleanString(artist);
+  const cleanT = cleanString(title);
 
   if (jsonMatch) {
     try {
       const data = JSON.parse(jsonMatch[1]);
-      const contentsStr = JSON.stringify(data);
-      const videoRegex =
-        /"videoRenderer":\{"videoId":"([a-zA-Z0-9_-]{11})".*?"title":\{"runs":\[\{"text":"(.*?)"\}\]/g;
 
-      let m: RegExpExecArray | null;
-      while ((m = videoRegex.exec(contentsStr)) !== null) {
-        const id = m[1];
-        const rawTitle = m[2];
-        const lower = rawTitle.toLowerCase();
+      const walk = (obj: any) => {
+        if (!obj || typeof obj !== "object") return;
+        if (obj.videoRenderer) {
+          const vr = obj.videoRenderer;
+          const id = vr.videoId;
+          if (!id || typeof id !== "string") return;
+          const rawTitle = vr.title?.runs?.[0]?.text || vr.title?.simpleText || "";
+          const durStr = vr.lengthText?.simpleText || "";
+          const durSec = parseDurationSeconds(durStr);
+          const channel = vr.ownerText?.runs?.[0]?.text || "";
+          const lower = (rawTitle + " " + channel).toLowerCase();
 
-        // Calculate studio master score
-        let score = 50;
-        if (lower.includes("- topic")) score += 60; // Auto-generated YouTube Music studio master
-        if (lower.includes("official audio")) score += 40;
-        if (lower.includes("provided to youtube")) score += 50;
-        if (lower.includes("audio")) score += 20;
+          // 1. HARD DURATION FILTER:
+          // Strictly reject any video longer than 12 mins (720s) or shorter than 45s.
+          // This eliminates 200-minute podcasts, 3-hour news shows, documentaries, and memes!
+          if (durSec !== null) {
+            if (durSec < 45 || durSec > 720) return;
+          }
 
-        // Apply heavy penalties for MVs with dialogue intros or memes
-        for (const bad of PENALIZED_WORDS) {
-          if (lower.includes(bad)) {
-            score -= 60;
+          // 2. RELEVANCE FILTER:
+          // Video title MUST contain at least one meaningful keyword from the song title!
+          const titleWords = cleanT.split(" ").filter((w) => w.length > 1);
+          const artistWords = cleanA.split(" ").filter((w) => w.length > 1);
+
+          const hasTitleMatch = titleWords.length > 0 && titleWords.some((w) => lower.includes(w));
+          if (!hasTitleMatch) {
+            // Discard videos that don't even have the song's title
+            return;
+          }
+
+          const hasArtistMatch = artistWords.length === 0 || artistWords.some((w) => lower.includes(w));
+
+          let score = 50;
+
+          // Title match density
+          const matchedTitleWords = titleWords.filter((w) => lower.includes(w)).length;
+          score += matchedTitleWords * 30;
+
+          if (hasArtistMatch) score += 40;
+          if (channel.toLowerCase().includes(cleanA)) score += 30;
+
+          // Official Audio / Topic / Lyric bonuses
+          if (lower.includes("- topic")) score += 70;
+          if (lower.includes("official audio")) score += 60;
+          if (lower.includes("provided to youtube")) score += 50;
+          if (lower.includes("official lyric video") || lower.includes("lyric video")) score += 40;
+          if (lower.includes("audio")) score += 20;
+
+          // Penalize MVs with skits or memes
+          for (const bad of PENALIZED_WORDS) {
+            if (lower.includes(bad)) score -= 20;
+          }
+
+          // Disqualify talkshows/news
+          for (const pod of PODCAST_EXCLUSIONS) {
+            if (lower.includes(pod) && !lower.includes("rintik sedu")) {
+              score -= 300;
+            }
+          }
+
+          // Bonus for duration closeness to expected track duration
+          if (expectedDuration && durSec) {
+            const diff = Math.abs(durSec - expectedDuration);
+            if (diff <= 25) score += 30;
+            else if (diff <= 60) score += 15;
+            else if (diff > 150) score -= 30;
+          }
+
+          if (score > 0 && !candidates.some((c) => c.id === id)) {
+            candidates.push({ id, title: rawTitle, durStr, durSec, channel, score });
           }
         }
-
-        // Apply harsh penalty for foreign talk shows / podcasts (protect Indonesian storytelling like Rintik Sedu)
-        for (const pod of PODCAST_EXCLUSIONS) {
-          if (lower.includes(pod) && !lower.includes("rintik sedu")) {
-            score -= 100;
-          }
-        }
-
-        if (score > 0 && !candidates.some((c) => c.id === id)) {
-          candidates.push({ id, title: rawTitle, score });
+        for (const k of Object.keys(obj)) {
+          walk(obj[k]);
         }
       }
+
+      walk(data);
     } catch (e) {}
   }
 
-  // Fallback regex matching
-  if (candidates.length === 0) {
-    const titleVidRegex =
-      /"title":\{"runs":\[\{"text":"(.*?)"\}\]}.*?"videoId":"([a-zA-Z0-9_-]{11})"/g;
-    let tm: RegExpExecArray | null;
-    while ((tm = titleVidRegex.exec(html)) !== null) {
-      const rawTitle = tm[1];
-      const lower = rawTitle.toLowerCase();
-      const id = tm[2];
-
-      let score = 40;
-      if (lower.includes("topic") || lower.includes("official audio")) score += 40;
-      for (const bad of PENALIZED_WORDS) {
-        if (lower.includes(bad)) score -= 50;
-      }
-      for (const pod of PODCAST_EXCLUSIONS) {
-        if (lower.includes(pod) && !lower.includes("rintik sedu")) score -= 100;
-      }
-
-      if (score > 0 && !candidates.some((c) => c.id === id)) {
-        candidates.push({ id, title: rawTitle, score });
-      }
-    }
-  }
-
-  // Sort descending by highest studio audio score
   candidates.sort((a, b) => b.score - a.score);
   return candidates;
 }
@@ -249,10 +322,14 @@ export async function GET(request: NextRequest) {
   const artistParam = searchParams.get("artist") || "";
   const titleParam = searchParams.get("title") || "";
   const qParam = searchParams.get("q") || "";
+  const durationParam = searchParams.get("duration") || "";
 
   const cleanArtist = cleanString(artistParam);
   const cleanTitle = cleanString(titleParam);
   const fullClean = cleanString(qParam || `${cleanArtist} ${cleanTitle}`);
+
+  const rawDur = parseFloat(durationParam);
+  const expectedDuration = !isNaN(rawDur) && rawDur > 20 ? rawDur : 240;
 
   if (!fullClean) {
     return NextResponse.json({ error: "Query required" }, { status: 400 });
@@ -288,83 +365,63 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 2. High-Precision Query 1: YouTube Music Topic (Pure Label Master, 0 movie intros)
-    const topicSearch = `"${cleanTitle}" "${cleanArtist}" "Provided to YouTube"`;
-    const topicUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(topicSearch)}`;
+    const fetchHeaders = {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"
+    };
 
-    const topicRes = await fetch(topicUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"
-      },
-      next: { revalidate: 86400 }
-    });
+    // Multi-tier Clean Search Sequence (No rigid quotes that break non-major indie artists!)
+    const queries = [
+      `${cleanArtist} ${cleanTitle} audio`,
+      `${cleanArtist} ${cleanTitle}`,
+      `${cleanTitle} ${cleanArtist}`
+    ];
 
-    const topicHtml = await topicRes.text();
-    const topicResults = parseCleanVideoResults(topicHtml);
-    if (topicResults.length > 0 && topicResults[0].score >= 30) {
-      const ids = topicResults.map((r) => r.id);
-      return NextResponse.json({
-        videoId: ids[0],
-        title: topicResults[0].title,
-        candidates: ids,
-        source: "topic-label-master",
-        query: fullClean
+    for (const q of queries) {
+      const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+      const res = await fetch(searchUrl, {
+        headers: fetchHeaders,
+        next: { revalidate: 86400 }
       });
+
+      if (res.ok) {
+        const html = await res.text();
+        const results = parseCleanVideoResults(html, cleanArtist, cleanTitle, expectedDuration);
+        if (results.length > 0 && results[0].score >= 40) {
+          const ids = results.map((r) => r.id);
+          return NextResponse.json({
+            videoId: ids[0],
+            title: results[0].title,
+            candidates: ids,
+            duration: results[0].durStr,
+            source: "audio-matched-master",
+            query: q
+          });
+        }
+      }
     }
 
-    // 3. High-Precision Query 2: Official Audio
-    const audioSearch = `"${cleanArtist}" "${cleanTitle}" "Official Audio"`;
-    const audioUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(audioSearch)}`;
-
-    const audioRes = await fetch(audioUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"
-      },
+    // Fallback: search by title alone if artist query yielded no song
+    const fallbackUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${cleanTitle} audio`)}`;
+    const fbRes = await fetch(fallbackUrl, {
+      headers: fetchHeaders,
       next: { revalidate: 86400 }
     });
-
-    const audioHtml = await audioRes.text();
-    const audioResults = parseCleanVideoResults(audioHtml);
-    if (audioResults.length > 0 && audioResults[0].score >= 20) {
-      const ids = audioResults.map((r) => r.id);
-      return NextResponse.json({
-        videoId: ids[0],
-        title: audioResults[0].title,
-        candidates: ids,
-        source: "official-audio-master",
-        query: fullClean
-      });
-    }
-
-    // 4. Fallback: Clean query without music video intro
-    const fallbackSearch = `${cleanArtist} ${cleanTitle} audio`;
-    const fallbackUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(fallbackSearch)}`;
-
-    const fallbackRes = await fetch(fallbackUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"
-      },
-      next: { revalidate: 86400 }
-    });
-
-    const fallbackHtml = await fallbackRes.text();
-    const fallbackResults = parseCleanVideoResults(fallbackHtml);
-
-    if (fallbackResults.length > 0) {
-      const ids = fallbackResults.map((r) => r.id);
-      return NextResponse.json({
-        videoId: ids[0],
-        title: fallbackResults[0].title,
-        candidates: ids,
-        source: "audio-fallback",
-        query: fullClean
-      });
+    if (fbRes.ok) {
+      const fbHtml = await fbRes.text();
+      const fbResults = parseCleanVideoResults(fbHtml, cleanArtist, cleanTitle, expectedDuration);
+      if (fbResults.length > 0) {
+        const ids = fbResults.map((r) => r.id);
+        return NextResponse.json({
+          videoId: ids[0],
+          title: fbResults[0].title,
+          candidates: ids,
+          duration: fbResults[0].durStr,
+          source: "audio-fallback",
+          query: `${cleanTitle} audio`
+        });
+      }
     }
 
     return NextResponse.json({ videoId: null, candidates: [], query: fullClean }, { status: 404 });

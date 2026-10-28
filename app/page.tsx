@@ -2811,7 +2811,7 @@ export default function BrnsicMusicPage() {
               fetch(
                 `/api/youtube?artist=${encodeURIComponent(currentTrackRef.current?.artist || "")}&title=${encodeURIComponent(
                   recoveringSong || ""
-                )}&q=${encodeURIComponent(`${currentTrackRef.current?.artist || ""} ${recoveringSong || ""}`)}`
+                )}&q=${encodeURIComponent(`${currentTrackRef.current?.artist || ""} ${recoveringSong || ""}`)}&duration=${currentTrackRef.current?.duration || 210}`
               )
                 .then((r) => r.json())
                 .then((d) => {
@@ -2919,6 +2919,7 @@ export default function BrnsicMusicPage() {
               if (
                 typeof liveDur === "number" &&
                 liveDur > 5 &&
+                liveDur <= 720 &&
                 Math.abs(liveDur - (currentTrack.duration || 0)) > 1
               ) {
                 const roundedDur = Math.round(liveDur);
@@ -3165,7 +3166,7 @@ export default function BrnsicMusicPage() {
       fetch(
         `/api/youtube?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(
           song.title
-        )}&q=${encodeURIComponent(`${song.artist} ${song.title}`)}`
+        )}&q=${encodeURIComponent(`${song.artist} ${song.title}`)}&duration=${song.duration || 210}`
       )
         .then((r) => r.json())
         .then((d) => {
