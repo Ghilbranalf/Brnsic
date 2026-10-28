@@ -15,12 +15,12 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "3.7.0",
-    versionCode: 6,
-    minVersionCode: 6,
+    version: "3.8.0",
+    versionCode: 7,
+    minVersionCode: 7,
     releaseDate: "2026-10-29",
-    title: "Pembaruan Brnsic v3.7.0",
-    notes: "Kapsul Dynamic Island memanjang presisi Apple, kontrol kembali ke kapsul (swipe up/tap/tombol), dan pencatatan riwayat database real-time.",
+    title: "Pembaruan Brnsic v3.8.0",
+    notes: "Dynamic Island mepet paling atas sejajar status bar, kartu pintasan Spotify 4-grid, dan reset selera bersih.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: true,

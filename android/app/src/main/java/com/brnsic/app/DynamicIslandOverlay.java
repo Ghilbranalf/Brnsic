@@ -144,8 +144,9 @@ public class DynamicIslandOverlay {
         String position = prefs.getString("overlay_position", "center");
         int offsetYExtra = prefs.getInt("overlay_offset_y", 0);
 
-        // Safe clearance below status bar and punch-hole camera (10dp padding below status bar)
-        int safeTopY = statusBarHeight + dpToPx(10) + offsetYExtra;
+        // Position flush at the very top of the screen ("atasin sampe full")
+        // Default top position: 4dp from the absolute top edge of the screen
+        int safeTopY = dpToPx(4) + offsetYExtra;
 
         if ("left".equals(position)) {
             layoutParams.gravity = Gravity.TOP | Gravity.START;
@@ -314,17 +315,17 @@ public class DynamicIslandOverlay {
 
         // Apple Dynamic Island exact elongated pill width & height (Image 2)
         int pillWidth = dpToPx(205);
-        int pillHeight = dpToPx(38);
+        int pillHeight = dpToPx(34);
         LinearLayout.LayoutParams pillParams = new LinearLayout.LayoutParams(pillWidth, pillHeight);
         pill.setLayoutParams(pillParams);
 
-        int padHoriz = dpToPx(9);
-        int padVert = dpToPx(5);
+        int padHoriz = dpToPx(8);
+        int padVert = dpToPx(4);
         pill.setPadding(padHoriz, padVert, padHoriz, padVert);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        bg.setCornerRadius(dpToPx(19));
+        bg.setCornerRadius(dpToPx(17));
         bg.setStroke(dpToPx(1), Color.parseColor("#33FFFFFF"));
         pill.setBackground(bg);
 
@@ -332,15 +333,15 @@ public class DynamicIslandOverlay {
             pill.setElevation(dpToPx(14));
         }
 
-        // Cover on Left (26dp x 26dp, rounded 7dp)
-        int coverSize = dpToPx(26);
+        // Cover on Left (24dp x 24dp, rounded 6dp)
+        int coverSize = dpToPx(24);
         collapsedCover = new ImageView(context);
         LinearLayout.LayoutParams coverParams = new LinearLayout.LayoutParams(coverSize, coverSize);
         collapsedCover.setLayoutParams(coverParams);
         collapsedCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         GradientDrawable coverBg = new GradientDrawable();
         coverBg.setColor(Color.parseColor("#222222"));
-        coverBg.setCornerRadius(dpToPx(7));
+        coverBg.setCornerRadius(dpToPx(6));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             collapsedCover.setClipToOutline(true);
         }

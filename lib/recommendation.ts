@@ -289,12 +289,15 @@ export function detectUserMood(
   }
 
   // Default: Uplifting & Balanced Personalized AI Taste Shelf
-  const artistText = topArtist ? ` • Favorit: ${topArtist}` : "";
+  const hasRealPlays = totalPlays > 0 && topArtist;
+  const artistText = hasRealPlays ? ` • Favorit: ${topArtist}` : "";
   return {
     moodKey: "neutral",
     badgeText: `AI Taste Intelligence${artistText}`,
-    shelfTitle: topArtist ? `Spesial Untukmu & Fans ${topArtist}` : "Rekomendasi Spesial Untukmu",
-    shelfDescription: "Disesuaikan dengan selera musik dan artis yang kamu nikmati di Brnsic.",
+    shelfTitle: hasRealPlays ? `Spesial Untukmu & Fans ${topArtist}` : "Rekomendasi Spesial Untukmu",
+    shelfDescription: hasRealPlays
+      ? `Disesuaikan dengan kecenderungan musik ${topArtist} yang kamu nikmati.`
+      : "Mulai dengarkan lagu favoritmu agar AI Brnsic dapat mempelajari seleramu.",
     targetVector: userVector
   };
 }

@@ -668,34 +668,27 @@ const derivePersona = (artistWeights: Record<string, number>, genres?: string[])
   return `Penggemar ${sorted[0][0]}`;
 };
 
-// Stable default taste profile for deterministic SSR & Hydration parity
+// Stable default taste profile: Starts completely clean and neutral
 const DEFAULT_INITIAL_TASTE: TasteProfile = {
   userSeed: "brnsic-user-default",
-  persona: "Penjelajah Musik Indonesia & Global",
-  artistWeights: { "Sheila On 7": 3, "Sal Priadi": 2, "Bernadya": 2 },
-  genreWeights: { "Pop Indonesia": 3, "Pop Rock": 2 },
-  selectedGenres: ["Pop Indonesia", "Pop Rock"],
+  persona: "Penjelajah Musik",
+  artistWeights: {},
+  genreWeights: {},
+  selectedGenres: [],
   playCounts: {},
-  likedArtists: ["Sheila On 7", "Sal Priadi", "Bernadya"],
+  likedArtists: [],
   totalPlays: 0
 };
 
-// Initial Cold-Start Taste Profile: Gives each user a uniquely seeded experience
+// Initial Cold-Start Taste Profile: Clean fresh slate (learns only from real plays)
 const generateInitialTaste = (): TasteProfile => {
-  const seedOptions: Array<{ name: string; weights: Record<string, number> }> = [
-    { name: "indie-folk", weights: { "Sal Priadi": 3, "Hindia": 3, "Nadin Amizah": 2 } },
-    { name: "pop-galau", weights: { "Bernadya": 3, "Mahalini": 2, "Juicy Luicy": 2 } },
-    { name: "koplo-modern", weights: { "Denny Caknan": 3, "Happy Asmara": 2 } },
-    { name: "nostalgia-band", weights: { "Sheila On 7": 3, "Dewa 19": 3 } },
-    { name: "global-hits", weights: { "Lady Gaga, Bruno Mars": 3, "Billie Eilish": 2 } }
-  ];
-  const choice = seedOptions[Math.floor(Math.random() * seedOptions.length)];
   return {
     userSeed: `brnsic-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    persona: derivePersona(choice.weights),
-    artistWeights: choice.weights,
+    persona: "Penjelajah Musik",
+    artistWeights: {},
+    genreWeights: {},
     playCounts: {},
-    likedArtists: Object.keys(choice.weights),
+    likedArtists: [],
     totalPlays: 0
   };
 };
@@ -1449,9 +1442,10 @@ export default function BrnsicMusicPage() {
 
   // User Top Artist learned from Supabase Taste Profile & Listening History
   const topArtistName = useMemo(() => {
+    if (!userTaste || !userTaste.totalPlays || userTaste.totalPlays <= 0) return null;
     const entries = Object.entries(userTaste?.artistWeights || {}).sort((a, b) => b[1] - a[1]);
     return entries.length > 0 && entries[0][1] > 0 ? entries[0][0] : null;
-  }, [userTaste?.artistWeights]);
+  }, [userTaste?.artistWeights, userTaste?.totalPlays]);
 
   // Real-time AI Mood Sentiment & Listening Habit Analyzer (Detects melancholy, nostalgia, energy, chill)
   const currentMoodInsight: MoodInsight = useMemo(() => {
@@ -1828,7 +1822,19 @@ export default function BrnsicMusicPage() {
       }
       const storedTaste = localStorage.getItem("brnsic_user_taste_v1");
       if (storedTaste) {
-        setUserTaste(JSON.parse(storedTaste));
+        try {
+          const parsed = JSON.parse(storedTaste);
+          // Purge any stale dummy seed weights (like old Sal Priadi) if user has no real plays recorded
+          if (parsed && (!parsed.totalPlays || parsed.totalPlays === 0)) {
+            parsed.artistWeights = {};
+            parsed.likedArtists = [];
+            parsed.persona = "Penjelajah Musik";
+            setUserTaste(parsed);
+            localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(parsed));
+          } else if (parsed) {
+            setUserTaste(parsed);
+          }
+        } catch (e) {}
       } else {
         const fresh = generateInitialTaste();
         setUserTaste(fresh);
@@ -6038,72 +6044,69 @@ export default function BrnsicMusicPage() {
                 </div>
               )}
 
-              {/* PERSONALIZED QUICK ACCESS GRID (ADAPTS UNIQUELY TO EACH USER'S TASTE) */}
-              <section className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
+              {/* SPOTIFY-STYLE QUICK ACCESS SHORTCUT CARDS (SESUAI GAMBAR 2) */}
+              <section className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 {[
                   {
-                    title: `Mix: ${userTaste.persona}`,
-                    img: "/brnsic-loader-logo.png",
-                    isLogo: true,
-                    action: () => {
-                      const pool = [...DEFAULT_CATALOG, ...mostPlayedIndonesia, ...indonesiaTop50];
-                      const sorted = [...pool].sort((a, b) => (userTaste.artistWeights[b.artist] || 0) - (userTaste.artistWeights[a.artist] || 0));
-                      if (sorted.length > 0) handlePlayFromList(sorted[0], sorted, 0);
-                    }
+                    title: "Lagu yang Disukai",
+                    subtitle: `${likedSongIds.length} lagu`,
+                    icon: (
+                      <div className="w-12 h-12 bg-[#0c4a2a] rounded-lg flex items-center justify-center text-[#1ed760] flex-shrink-0 shadow-md">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
+                        </svg>
+                      </div>
+                    ),
+                    action: () => setCurrentView("liked")
                   },
                   {
                     title: "Top 50 Indonesia",
-                    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/a8/4c/faa84c4f-0f09-3730-6460-8c53e9dc159d/cover.jpg/600x600bb.jpg",
+                    subtitle: "Chart harian",
+                    icon: (
+                      <div className="w-12 h-12 bg-[#3d2400] rounded-lg flex items-center justify-center text-[#d97706] font-black text-xs flex-shrink-0 tracking-wider shadow-md">
+                        TOP
+                      </div>
+                    ),
                     action: () => setCurrentView("top50-indo")
                   },
                   {
-                    title: "Paling Sering Diputar",
-                    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/c1/97/e2/c197e2d2-a9f4-fd0f-f670-de2f88f96879/192641986017_Cover.jpg/600x600bb.jpg",
+                    title: "Sering Diputar",
+                    subtitle:
+                      mostPlayedIndonesia.length > 0
+                        ? mostPlayedIndonesia.slice(0, 2).map((s: any) => s.artist).join(", ")
+                        : "Belum ada riwayat",
+                    icon: (
+                      <div className="w-12 h-12 bg-[#0a3528] rounded-lg flex items-center justify-center text-[#1ed760] font-black text-xs flex-shrink-0 tracking-wider shadow-md">
+                        HITS
+                      </div>
+                    ),
                     action: () => setCurrentView("most-played-indo")
                   },
                   {
-                    title: "Viral 50 Indonesia",
-                    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/68/33/7a/68337ac5-981a-de0d-8999-a3505f05642f/cover.jpg/600x600bb.jpg",
+                    title: "Viral 50",
+                    subtitle: "TikTok & Reels",
+                    icon: (
+                      <div className="w-12 h-12 bg-[#3b0818] rounded-lg flex items-center justify-center text-[#f43f5e] font-black text-xs flex-shrink-0 tracking-wider shadow-md">
+                        VIRAL
+                      </div>
+                    ),
                     action: () => setCurrentView("viral-indo")
-                  },
-                  {
-                    title: "Antrean & Urutan",
-                    img: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg",
-                    action: () => setCurrentView("queue")
-                  },
-                  {
-                    title: "Lagu Favorit Kamu",
-                    img: "https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg",
-                    action: () => {
-                      const likedSongs = DEFAULT_CATALOG.filter(s => likedSongIds.includes(s.id));
-                      if (likedSongs.length > 0) handlePlayFromList(likedSongs[0], likedSongs, 0);
-                      else setCurrentView("most-played-indo");
-                    }
                   }
                 ].map((item, i) => (
                   <div
                     key={i}
                     onClick={item.action}
-                    className="h-14 bg-[#282828]/60 hover:bg-[#383838] rounded-xl overflow-hidden flex items-center justify-between pr-3 cursor-pointer transition group shadow-md min-w-0"
+                    className="h-16 bg-[#1f1f1f] hover:bg-[#282828] rounded-xl p-2 flex items-center gap-3 cursor-pointer transition group shadow-md min-w-0 border border-white/5 hover:border-white/10 active:scale-[0.99]"
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-14 h-14 bg-white/5 flex items-center justify-center flex-shrink-0">
-                        <img
-                          src={item.img}
-                          alt={item.title}
-                          onError={handleImgError}
-                          className={`${item.isLogo ? "w-8 h-8 object-contain" : "w-14 h-14 object-cover"}`}
-                        />
-                      </div>
-                      <span className="font-bold text-xs sm:text-sm text-white line-clamp-2 pr-1 leading-snug">
+                    {item.icon}
+                    <div className="min-w-0 flex-1 pr-1">
+                      <span className="font-bold text-xs sm:text-sm text-white truncate block leading-snug">
                         {item.title}
                       </span>
+                      <span className="text-[10px] sm:text-[11px] text-[#b3b3b3] truncate block mt-0.5 font-medium">
+                        {item.subtitle}
+                      </span>
                     </div>
-                    <button className="w-8 h-8 rounded-full bg-[#1ed760] text-black hidden sm:group-hover:flex items-center justify-center transition shadow-lg flex-shrink-0">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </button>
                   </div>
                 ))}
               </section>
