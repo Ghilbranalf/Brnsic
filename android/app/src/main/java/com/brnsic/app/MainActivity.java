@@ -290,6 +290,13 @@ public class MainActivity extends BridgeActivity {
                 }
                 webView.addJavascriptInterface(new NativeAudioBridge(), "BrnsicNative");
             }
+            getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+                @Override
+                public void handleOnBackPressed() {
+                    handleBackNavigation();
+                }
+            });
+
             handleDeepLink(getIntent());
         } catch (Exception ignored) {}
     }
@@ -327,8 +334,7 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception ignored) {}
     }
 
-    @Override
-    public void onBackPressed() {
+    private void handleBackNavigation() {
         if (bridge != null && bridge.getWebView() != null) {
             WebView webView = bridge.getWebView();
             webView.evaluateJavascript(
@@ -345,7 +351,12 @@ public class MainActivity extends BridgeActivity {
             );
             return;
         }
-        super.onBackPressed();
+        moveTaskToBack(true);
+    }
+
+    @Override
+    public void onBackPressed() {
+        handleBackNavigation();
     }
 
     @Override
