@@ -1606,8 +1606,12 @@ export default function BrnsicMusicPage() {
       } catch (e) {}
     }
 
-    // Handle URL search params (Google Direct OAuth redirect)
+    // History Trap: Push an anchor barrier so browser back button never traverses to Google OAuth
     if (typeof window !== "undefined") {
+      try {
+        window.history.pushState({ page: "home" }, "", window.location.pathname);
+      } catch (e) {}
+
       const urlParams = new URLSearchParams(window.location.search);
       const urlToken = urlParams.get("token");
       const urlUser = urlParams.get("user");
@@ -1753,7 +1757,8 @@ export default function BrnsicMusicPage() {
         window.history.pushState({ page: "home" }, "", "/");
         return;
       }
-      window.history.replaceState({ page: "home" }, "", "/");
+      // If already on home with no modals open, keep pinned on home view! Never navigate back to Google OAuth!
+      window.history.pushState({ page: "home" }, "", "/");
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -2248,6 +2253,11 @@ export default function BrnsicMusicPage() {
       if (oauthRes && oauthRes.ok) {
         const oauthData = await oauthRes.json();
         if (oauthData.url && oauthData.enabled) {
+          if (typeof window !== "undefined" && (window as any).BrnsicNative?.openExternalAuth) {
+            (window as any).BrnsicNative.openExternalAuth(oauthData.url);
+            setIsAuthSubmitting(false);
+            return;
+          }
           window.location.replace(oauthData.url);
           return;
         }

@@ -202,6 +202,15 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public void openExternalAuth(String authUrl) {
+            try {
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(authUrl));
+                browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                MainActivity.this.startActivity(browserIntent);
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
         public boolean isNativeApp() {
             return true;
         }
