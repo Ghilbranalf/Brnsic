@@ -1305,6 +1305,16 @@ export default function BrnsicMusicPage() {
   // 17. Real PWA Install Step State
   const [installStep, setInstallStep] = useState<"downloading" | "ready" | "installed" | "ios_guide">("downloading");
 
+  // 18. Dynamic Island (Apple/Spotify Fluid Floating Capsule)
+  const [isDynamicIslandExpanded, setIsDynamicIslandExpanded] = useState<boolean>(false);
+  const [isDynamicIslandDismissed, setIsDynamicIslandDismissed] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isMobilePlayerOpen || isZoomed) {
+      setIsDynamicIslandExpanded(false);
+    }
+  }, [isMobilePlayerOpen, isZoomed]);
+
   // User Top Artist learned from Supabase Taste Profile & Listening History
   const topArtistName = useMemo(() => {
     const entries = Object.entries(userTaste?.artistWeights || {}).sort((a, b) => b[1] - a[1]);
@@ -3189,6 +3199,7 @@ export default function BrnsicMusicPage() {
     const startAudio = (vid: string) => {
       if (currentRequestId !== playRequestIdRef.current) return;
       isUserExplicitlyPausedRef.current = false;
+      setIsDynamicIslandDismissed(false);
       setCurrentTrack((prev) => ({ ...prev, youtubeId: vid }));
       setIsPlaying(true);
       isPlayingRef.current = true;
@@ -6604,6 +6615,242 @@ export default function BrnsicMusicPage() {
           </button>
         </div>
       </footer>
+
+      {/* ====================================================================
+          3.5. APPLE / SPOTIFY LUXURY DYNAMIC ISLAND (TOP FLOATING CAPSULE)
+          ==================================================================== */}
+      {hasUserStartedPlayback && !isDynamicIslandDismissed && !isMobilePlayerOpen && !isZoomed && (
+        <>
+          {/* Subtle dim backdrop when Dynamic Island is fully expanded */}
+          {isDynamicIslandExpanded && (
+            <div
+              onClick={() => setIsDynamicIslandExpanded(false)}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
+            />
+          )}
+
+          {/* Dynamic Island Floating Container */}
+          <div
+            className={`fixed top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] select-none ${
+              isDynamicIslandExpanded
+                ? "w-[92vw] max-w-[370px]"
+                : "w-auto max-w-[90vw]"
+            }`}
+          >
+            {/* Outer Shell / Double-Bezel Architecture */}
+            <div
+              onClick={() => {
+                if (!isDynamicIslandExpanded) setIsDynamicIslandExpanded(true);
+              }}
+              className={`relative bg-black/95 backdrop-blur-3xl ring-1 ring-white/20 shadow-[0_16px_50px_rgba(0,0,0,0.9)] cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden ${
+                isDynamicIslandExpanded
+                  ? "rounded-[2rem] p-4 bg-gradient-to-b from-[#161616]/95 via-black/95 to-[#0b0b0b]/95 ring-white/25"
+                  : "rounded-full px-3.5 py-1.5 flex items-center gap-2.5 hover:ring-white/35 hover:scale-[1.03] active:scale-[0.97]"
+              }`}
+            >
+              {!isDynamicIslandExpanded ? (
+                /* --- COLLAPSED COMPACT PILL MODE --- */
+                <>
+                  {/* Left: Mini Spinning Vinyl Cover */}
+                  <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-white/25 shadow">
+                    <img
+                      src={currentTrack.cover}
+                      alt="thumb"
+                      onError={handleImgError}
+                      className={`w-full h-full object-cover ${isPlaying ? "animate-spin-slow" : ""}`}
+                    />
+                    <div className="absolute inset-0 m-auto w-1.5 h-1.5 rounded-full bg-black ring-1 ring-white/40" />
+                  </div>
+
+                  {/* Center: Track Title & Artist */}
+                  <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                    <span className="text-[12px] font-bold text-white truncate max-w-[105px] sm:max-w-[150px]">
+                      {currentTrack.title}
+                    </span>
+                    <span className="text-[11px] text-white/50 truncate max-w-[90px] hidden xs:inline">
+                      • {currentTrack.artist}
+                    </span>
+                  </div>
+
+                  {/* Right: Live Dancing Equalizer Waveform Bars */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0 pl-0.5">
+                    {isPlaying ? (
+                      <div className="flex items-end gap-[2px] h-3">
+                        <span className="w-[2.5px] bg-[#1ed760] bar-1 rounded-full shadow-[0_0_8px_rgba(30,215,96,0.9)]" />
+                        <span className="w-[2.5px] bg-[#1ed760] bar-2 rounded-full shadow-[0_0_8px_rgba(30,215,96,0.9)]" />
+                        <span className="w-[2.5px] bg-[#1ed760] bar-3 rounded-full shadow-[0_0_8px_rgba(30,215,96,0.9)]" />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-[2px] h-3 opacity-40">
+                        <span className="w-[2.5px] h-1 bg-white rounded-full" />
+                        <span className="w-[2.5px] h-1 bg-white rounded-full" />
+                        <span className="w-[2.5px] h-1 bg-white rounded-full" />
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* --- EXPANDED LUXURY CARD MODE --- */
+                <div className="flex flex-col w-full">
+                  {/* Top Bar: Cover, Titles & Quick Actions */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMobilePlayerOpen(true);
+                        setIsDynamicIslandExpanded(false);
+                      }}
+                      className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
+                      title="Buka Layar Penuh"
+                    >
+                      <div className="relative w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/20 shadow-md group-hover:scale-105 transition">
+                        <img
+                          src={currentTrack.cover}
+                          alt="art"
+                          onError={handleImgError}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-black text-white truncate group-hover:text-[#1ed760] transition">
+                          {currentTrack.title}
+                        </div>
+                        <div className="text-xs text-[#b3b3b3] truncate mt-0.5">
+                          {currentTrack.artist}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {/* Lyrics Button */}
+                      <button
+                        onClick={() => {
+                          setIsZoomed(true);
+                          setIsDynamicIslandExpanded(false);
+                        }}
+                        className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-bold text-white flex items-center gap-1 transition active:scale-95"
+                        title="Buka Lirik"
+                      >
+                        <span>Lirik</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="15 3 21 3 21 9"></polyline>
+                          <line x1="21" y1="3" x2="14" y2="10"></line>
+                        </svg>
+                      </button>
+
+                      {/* Collapse Button */}
+                      <button
+                        onClick={() => setIsDynamicIslandExpanded(false)}
+                        className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition active:scale-90"
+                        title="Kecilkan Dynamic Island"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="18 15 12 9 6 15"></polyline>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Middle Row: Live Scrubbable Seekbar & Timestamps */}
+                  <div className="my-3 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const clickX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+                        const pct = clickX / rect.width;
+                        const targetSec = Math.round(pct * getActiveDuration());
+                        handleSeekSeconds(targetSec);
+                      }}
+                      className="h-2 w-full bg-white/15 hover:bg-white/25 rounded-full cursor-pointer relative overflow-hidden group transition-all"
+                    >
+                      <div
+                        className="h-full bg-gradient-to-r from-[#1ed760] to-white rounded-full transition-all duration-150"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (currentTime / (getActiveDuration() || 1)) * 100))}%`
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-white/60 font-semibold px-0.5">
+                      <span>{formatTime(Math.floor(currentTime))}</span>
+                      <span>{formatTime(getActiveDuration())}</span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Row: Controls */}
+                  <div className="flex items-center justify-between px-1 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                    {/* Favorite / Like */}
+                    <button
+                      onClick={() => toggleLike(currentTrack.id)}
+                      className={`p-2 transition ${isCurrentTrackLiked ? "text-[#1ed760]" : "text-white/60 hover:text-white"}`}
+                      title={isCurrentTrackLiked ? "Hapus dari Favorit" : "Suka Lagu Ini"}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill={isCurrentTrackLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                        <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
+                      </svg>
+                    </button>
+
+                    {/* Prev */}
+                    <button
+                      onClick={playPrevSong}
+                      className="p-2 text-white/70 hover:text-white active:scale-90 transition"
+                      title="Sebelumnya"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                      </svg>
+                    </button>
+
+                    {/* Play / Pause Toggle */}
+                    <button
+                      onClick={togglePlay}
+                      className="w-11 h-11 rounded-full bg-white hover:bg-neutral-100 text-black flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)] active:scale-95 transition hover:scale-105"
+                      title={isPlaying ? "Jeda" : "Putar"}
+                    >
+                      {isPlaying ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="translate-x-0.5">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
+
+                    {/* Next */}
+                    <button
+                      onClick={() => playNextSongRef.current && playNextSongRef.current(true)}
+                      className="p-2 text-white/70 hover:text-white active:scale-90 transition"
+                      title="Berikutnya"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                      </svg>
+                    </button>
+
+                    {/* Expand to Fullscreen Player */}
+                    <button
+                      onClick={() => {
+                        setIsMobilePlayerOpen(true);
+                        setIsDynamicIslandExpanded(false);
+                      }}
+                      className="p-2 text-white/60 hover:text-white active:scale-90 transition"
+                      title="Buka Pemutar Penuh"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ====================================================================
           4. MOBILE & TABLET FLOATING MINI-PLAYER + LIQUID GLASS TAB BAR (IMAGE 1)
