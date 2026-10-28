@@ -15,12 +15,12 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "3.5.0",
-    versionCode: 4,
-    minVersionCode: 4,
-    releaseDate: "2026-10-28",
-    title: "Pembaruan Aplikasi Diperlukan",
-    notes: "Pembaruan pemutar musik resmi dan peningkatan performa.",
+    version: "3.6.0",
+    versionCode: 5,
+    minVersionCode: 5,
+    releaseDate: "2026-10-29",
+    title: "Pembaruan Brnsic v3.6.0",
+    notes: "Pembaruan Dynamic Island terkunci, visualizer nada live, teks berjalan, dan filter mood cerdas.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: true,

@@ -205,12 +205,12 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "3.5.0";
+            return "3.6.0";
         }
 
         @JavascriptInterface
         public int getAppVersionCode() {
-            return 4;
+            return 5;
         }
 
         @JavascriptInterface
