@@ -346,3 +346,32 @@ export const supabaseLogActivity = async (userId: string, activity: UserActivity
     return false;
   }
 };
+
+// 6. Get playlist by ID from Supabase
+export const supabaseGetPlaylistById = async (playlistId: string) => {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_playlists?id=eq.${encodeURIComponent(playlistId)}&select=*,users(name,avatar)`,
+      { headers: getHeaders(), cache: "no-store" }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    if (!rows || rows.length === 0) return null;
+    const row = rows[0];
+    return {
+      id: row.id,
+      name: row.name,
+      cover: row.cover,
+      songs: Array.isArray(row.songs) ? row.songs : [],
+      createdAt: new Date(row.created_at || Date.now()).getTime(),
+      creator: {
+        name: row.users?.name || "Pengguna Brnsic",
+        avatar: row.users?.avatar || ""
+      }
+    };
+  } catch (e) {
+    console.error("Supabase getPlaylistById error:", e);
+    return null;
+  }
+};

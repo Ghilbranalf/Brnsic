@@ -337,3 +337,34 @@ export const prismaLogActivity = async (userId: string, activity: UserActivity):
     return false;
   }
 };
+
+export const prismaGetPlaylistById = async (playlistId: string) => {
+  if (!isPrismaConfigured()) return null;
+  try {
+    const prisma = await getPrisma();
+    if (!prisma) return null;
+    const row = await prisma.playlist.findUnique({
+      where: { id: playlistId },
+      include: {
+        user: {
+          select: { name: true, avatar: true }
+        }
+      }
+    });
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      cover: row.cover,
+      songs: Array.isArray(row.songs) ? row.songs : [],
+      createdAt: row.createdAt.getTime(),
+      creator: {
+        name: row.user?.name || "Pengguna Brnsic",
+        avatar: row.user?.avatar || ""
+      }
+    };
+  } catch (e) {
+    console.error("Prisma getPlaylistById error:", e);
+    return null;
+  }
+};

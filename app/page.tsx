@@ -76,6 +76,10 @@ interface UserPlaylist {
   cover?: string;
   songs: any[];
   createdAt: number;
+  creator?: {
+    name: string;
+    avatar?: string;
+  };
 }
 
 const FALLBACK_COVER =
@@ -1650,6 +1654,21 @@ export default function BrnsicMusicPage() {
         setIsAuthModalOpen(true);
         window.history.replaceState({ page: "home" }, "", "/");
       }
+
+      // Handle Shared Playlist URL (?playlist=...)
+      const playlistParam = urlParams.get("playlist");
+      if (playlistParam) {
+        fetch(`/api/playlist?id=${encodeURIComponent(playlistParam)}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success && data.playlist) {
+              setActiveCustomPlaylist(data.playlist);
+              setCurrentView("custom-playlist");
+              showToast(`Membuka playlist: ${data.playlist.name}`);
+            }
+          })
+          .catch(() => {});
+      }
     }
 
     // Handle Supabase OAuth return hash (#access_token=...)
@@ -2569,6 +2588,47 @@ export default function BrnsicMusicPage() {
   const openCustomPlaylist = (pl: any) => {
     setActiveCustomPlaylist(pl);
     setCurrentView("custom-playlist");
+  };
+
+  const handleSharePlaylist = () => {
+    if (!activeCustomPlaylist) return;
+    const shareUrl = `${window.location.origin}/?playlist=${encodeURIComponent(activeCustomPlaylist.id)}`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: activeCustomPlaylist.name,
+        text: `Dengarkan playlist "${activeCustomPlaylist.name}" di Brnsic!`,
+        url: shareUrl
+      }).catch(() => {
+        try {
+          navigator.clipboard?.writeText(shareUrl);
+          showToast("Tautan playlist berhasil disalin ke clipboard!");
+        } catch (e) {}
+      });
+    } else {
+      try {
+        navigator.clipboard.writeText(shareUrl);
+        showToast("Tautan playlist berhasil disalin ke clipboard! Kirimkan ke temanmu.");
+      } catch (e) {
+        showToast(`Tautan: ${shareUrl}`);
+      }
+    }
+  };
+
+  const handleSaveSharedPlaylist = () => {
+    if (!activeCustomPlaylist) return;
+    if (userPlaylists.some((p) => p.id === activeCustomPlaylist.id)) {
+      showToast("Playlist ini sudah ada di koleksimu");
+      return;
+    }
+    const clonedPl: UserPlaylist = {
+      ...activeCustomPlaylist,
+      id: `pl-${Date.now()}`
+    };
+    const nextList = [...userPlaylists, clonedPl];
+    savePlaylists(nextList);
+    setActiveCustomPlaylist(clonedPl);
+    showToast(`Playlist "${clonedPl.name}" berhasil disimpan ke koleksimu!`);
   };
 
   const handleAddSongToPlaylist = (playlistId: string) => {
@@ -4407,19 +4467,19 @@ export default function BrnsicMusicPage() {
                 </div>
                 <div className="min-w-0 flex-1 text-center sm:text-left">
                   <span className="text-xs font-bold uppercase tracking-wider text-white/80">
-                    Playlist Pengguna
+                    Playlist
                   </span>
                   <h1 className="text-3xl sm:text-5xl font-black text-white my-2 tracking-tight">
                     {activeCustomPlaylist.name}
                   </h1>
                   <p className="text-sm text-white/80">
-                    Dibuat oleh Kamu • {activeCustomPlaylist.songs.length} lagu
+                    Dibuat oleh {activeCustomPlaylist.creator?.name || "Kamu"} • {activeCustomPlaylist.songs.length} lagu
                   </p>
                 </div>
               </div>
 
               {/* Action Bar */}
-              <div className="px-6 py-4 flex items-center gap-4">
+              <div className="px-6 py-4 flex items-center gap-3 flex-wrap">
                 <button
                   onClick={() => {
                     if (activeCustomPlaylist.songs.length > 0) {
@@ -4427,7 +4487,7 @@ export default function BrnsicMusicPage() {
                     }
                   }}
                   disabled={activeCustomPlaylist.songs.length === 0}
-                  className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center hover:scale-105 transition shadow-xl disabled:opacity-40"
+                  className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center hover:scale-105 transition shadow-xl disabled:opacity-40 cursor-pointer"
                   title="Putar Semua"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -4435,16 +4495,42 @@ export default function BrnsicMusicPage() {
                   </svg>
                 </button>
 
+                {/* Bagikan Playlist Button */}
                 <button
-                  onClick={() => handleDeletePlaylist(activeCustomPlaylist.id)}
-                  className="text-xs font-bold text-red-400 hover:text-red-300 px-3 py-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 transition"
+                  onClick={handleSharePlaylist}
+                  className="text-xs font-bold text-white hover:bg-white/20 px-4 py-2.5 rounded-full bg-white/10 border border-white/15 flex items-center gap-2 transition cursor-pointer hover:scale-105 active:scale-95"
+                  title="Bagikan Tautan Playlist"
                 >
-                  Hapus Playlist
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  <span>Bagikan</span>
                 </button>
+
+                {/* If user is NOT the owner of this playlist, show "Simpan ke Koleksi Saya" */}
+                {!userPlaylists.some((p) => p.id === activeCustomPlaylist.id) ? (
+                  <button
+                    onClick={handleSaveSharedPlaylist}
+                    className="text-xs font-bold text-black bg-[#1ed760] hover:bg-[#1fdf64] px-4 py-2.5 rounded-full transition flex items-center gap-1.5 shadow cursor-pointer hover:scale-105 active:scale-95"
+                  >
+                    <span>+ Simpan ke Koleksi Saya</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleDeletePlaylist(activeCustomPlaylist.id)}
+                    className="text-xs font-bold text-red-400 hover:text-red-300 px-3.5 py-2 rounded-full bg-red-500/10 hover:bg-red-500/20 transition cursor-pointer"
+                  >
+                    Hapus Playlist
+                  </button>
+                )}
 
                 <button
                   onClick={() => setCurrentView("home")}
-                  className="text-xs font-bold text-[#b3b3b3] hover:text-white flex items-center gap-1.5 transition ml-auto"
+                  className="text-xs font-bold text-[#b3b3b3] hover:text-white flex items-center gap-1.5 transition ml-auto cursor-pointer"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <polyline points="15 18 9 12 15 6"></polyline>

@@ -6,7 +6,8 @@ import {
   prismaGetUserById,
   prismaCreateUser,
   prismaUpdateUser,
-  prismaLogActivity
+  prismaLogActivity,
+  prismaGetPlaylistById
 } from "./prisma-db";
 import {
   isSupabaseConfigured,
@@ -14,7 +15,8 @@ import {
   supabaseGetUserById,
   supabaseCreateUser,
   supabaseUpdateUser,
-  supabaseLogActivity
+  supabaseLogActivity,
+  supabaseGetPlaylistById
 } from "./supabase";
 
 export interface TasteProfile {
@@ -348,4 +350,35 @@ export const dbLogUserActivity = async (
     taste: nextTaste,
     history: updatedHistory
   });
+};
+
+export const dbGetPlaylistById = async (playlistId: string) => {
+  if (isPrismaConfigured()) {
+    const pl = await prismaGetPlaylistById(playlistId);
+    if (pl) return pl;
+  }
+  if (isSupabaseConfigured()) {
+    const pl = await supabaseGetPlaylistById(playlistId);
+    if (pl) return pl;
+  }
+  const db = loadDb();
+  for (const user of Object.values(db.users)) {
+    if (Array.isArray(user.playlists)) {
+      const found = user.playlists.find((p: any) => p.id === playlistId);
+      if (found) {
+        return {
+          id: found.id,
+          name: found.name,
+          cover: found.cover || null,
+          songs: Array.isArray(found.songs) ? found.songs : [],
+          createdAt: found.createdAt || Date.now(),
+          creator: {
+            name: user.name || "Pengguna Brnsic",
+            avatar: user.avatar || ""
+          }
+        };
+      }
+    }
+  }
+  return null;
 };
