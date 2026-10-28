@@ -1741,33 +1741,87 @@ export default function BrnsicMusicPage() {
       return false;
     };
 
+    // Bulletproof History Shield: Keep browser trapped inside Brnsic
+    // Never allow pressing Android Back button to navigate to external OAuth / Google Account Chooser!
+    const lockHistory = () => {
+      try {
+        window.history.pushState({ brnsic: "app" }, "", window.location.pathname);
+      } catch (e) {}
+    };
+
+    lockHistory();
+
     const handlePopState = () => {
+      // Re-push barrier immediately so user can never pop out to Google OAuth!
+      lockHistory();
+
       if (isAuthModalOpenRef.current) {
         setIsAuthModalOpen(false);
-        window.history.pushState({ page: "home" }, "", "/");
         return;
       }
       if (isMobilePlayerOpenRef.current) {
         setIsMobilePlayerOpen(false);
-        window.history.pushState({ page: "home" }, "", "/");
         return;
       }
       if (isZoomedRef.current) {
         setIsZoomed(false);
-        window.history.pushState({ page: "home" }, "", "/");
         return;
       }
       if (currentViewRef.current !== "home") {
         setCurrentView("home");
         setSearchQuery("");
-        window.history.pushState({ page: "home" }, "", "/");
         return;
       }
-      // If already on home with no modals open, keep pinned on home view! Never navigate back to Google OAuth!
-      window.history.pushState({ page: "home" }, "", "/");
+      if (isOnboardingModalOpenRef.current) {
+        setIsOnboardingModalOpen(false);
+        return;
+      }
     };
 
     window.addEventListener("popstate", handlePopState);
+
+    // Popup OAuth Cross-Window Listener
+    const handlePopupAuthMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === "BRNSIC_AUTH_SUCCESS") {
+        const { token, user } = event.data;
+        if (token) {
+          try {
+            localStorage.setItem("brnsic_auth_token", token);
+          } catch (e) {}
+        }
+        if (user) {
+          setCurrentUser(user);
+          try {
+            localStorage.setItem("brnsic_user_profile", JSON.stringify(user));
+          } catch (e) {}
+          if (user.taste) {
+            setUserTaste(user.taste);
+            const dbVector = buildUserTasteVector(
+              user.taste.likedArtists || [],
+              user.selectedGenres || Object.keys(user.taste.genreWeights || {})
+            );
+            setUserTasteVector(dbVector);
+          }
+          if (Array.isArray(user.likedSongs)) {
+            setLikedSongIds(user.likedSongs);
+            try {
+              localStorage.setItem("brnsic_liked_songs", JSON.stringify(user.likedSongs));
+            } catch (e) {}
+          }
+          if (Array.isArray(user.playlists)) {
+            setUserPlaylists(user.playlists);
+            try {
+              localStorage.setItem("brnsic_user_playlists", JSON.stringify(user.playlists));
+            } catch (e) {}
+          }
+        }
+        setIsAuthModalOpen(false);
+        setIsAuthSubmitting(false);
+        showToast("Login Google Berhasil! Selamat datang di Brnsic.");
+      }
+    };
+
+    window.addEventListener("message", handlePopupAuthMessage);
 
     (window as any).__handleNativeTrackCompleted = () => {
       handleTrackEnded("native-android-completed");
@@ -1806,6 +1860,7 @@ export default function BrnsicMusicPage() {
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("message", handlePopupAuthMessage);
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
   }, []);
@@ -2276,6 +2331,24 @@ export default function BrnsicMusicPage() {
             setIsAuthSubmitting(false);
             return;
           }
+
+          // Open Google OAuth in a popup window so accounts.google.com NEVER enters this tab's history!
+          const width = 500;
+          const height = 650;
+          const left = window.screenX + (window.outerWidth - width) / 2;
+          const top = window.screenY + (window.outerHeight - height) / 2;
+          const popup = window.open(
+            oauthData.url,
+            "BrnsicGoogleLogin",
+            `width=${width},height=${height},left=${left},top=${top},status=0,toolbar=0,menubar=0,location=1`
+          );
+
+          if (popup) {
+            // Popup opened! postMessage listener handles the rest
+            return;
+          }
+
+          // Fallback if popup is blocked
           window.location.replace(oauthData.url);
           return;
         }

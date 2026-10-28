@@ -132,13 +132,30 @@ export async function GET(req: NextRequest) {
   <meta charset="utf-8">
   <title>Login Berhasil</title>
 </head>
-<body style="background:#000;color:#fff;">
+<body style="background:#000;color:#fff;font-family:sans-serif;text-align:center;padding:40px;">
+  <p>Login berhasil. Menghubungkan ke Brnsic...</p>
   <script>
     try {
       localStorage.setItem("brnsic_auth_token", "${sessionToken}");
       localStorage.setItem("brnsic_user_profile", decodeURIComponent("${userJson}"));
     } catch (e) {}
-    window.location.replace("${redirectUrl}");
+
+    // 1. If opened via popup, notify parent tab and close popup immediately!
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage({
+          type: "BRNSIC_AUTH_SUCCESS",
+          token: "${sessionToken}",
+          user: JSON.parse(decodeURIComponent("${userJson}"))
+        }, "*");
+        window.close();
+      } catch (e) {
+        window.location.replace("${redirectUrl}");
+      }
+    } else {
+      // 2. Full-page redirect fallback
+      window.location.replace("${redirectUrl}");
+    }
   </script>
 </body>
 </html>`;
