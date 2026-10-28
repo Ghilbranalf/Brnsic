@@ -92,7 +92,7 @@ public class BackgroundAudioService extends Service implements
         if (dynamicIslandOverlay == null) return;
         if (isPlaybackActive && !isAppInForeground && DynamicIslandOverlay.canDrawOverlay(this)) {
             dynamicIslandOverlay.show();
-            dynamicIslandOverlay.update(currentCoverBitmap, isPlaybackActive);
+            dynamicIslandOverlay.update(currentCoverBitmap, currentTitle, currentArtist, isPlaybackActive, currentPositionMs, currentDurationMs);
         } else {
             dynamicIslandOverlay.hide();
         }
@@ -235,6 +235,9 @@ public class BackgroundAudioService extends Service implements
                 currentPositionMs = pos;
                 seekPlayback(pos);
                 updatePlaybackState(isPlaybackActive, currentPositionMs);
+                if (dynamicIslandOverlay != null) {
+                    dynamicIslandOverlay.update(currentCoverBitmap, currentTitle, currentArtist, isPlaybackActive, currentPositionMs, currentDurationMs);
+                }
                 return START_STICKY;
             }
 
@@ -247,6 +250,9 @@ public class BackgroundAudioService extends Service implements
                 updateMediaMetadata();
                 updatePlaybackState(isPlaybackActive, currentPositionMs);
                 startForegroundNotification(currentTitle, currentArtist, isPlaybackActive);
+                if (dynamicIslandOverlay != null) {
+                    dynamicIslandOverlay.update(currentCoverBitmap, currentTitle, currentArtist, isPlaybackActive, currentPositionMs, currentDurationMs);
+                }
                 return START_STICKY;
             }
 
@@ -358,7 +364,7 @@ public class BackgroundAudioService extends Service implements
                                     updateMediaMetadata();
                                     startForegroundNotification(currentTitle, currentArtist, isPlaybackActive);
                                     if (dynamicIslandOverlay != null) {
-                                        dynamicIslandOverlay.update(currentCoverBitmap, isPlaybackActive);
+                                        dynamicIslandOverlay.update(currentCoverBitmap, currentTitle, currentArtist, isPlaybackActive, currentPositionMs, currentDurationMs);
                                     }
                                 }
                             }

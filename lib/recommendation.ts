@@ -243,19 +243,8 @@ export function detectUserMood(
   const dangdut = userVector[7];
   const globalPop = userVector[9];
 
-  // 1. Sad / Melancholy / Galau Mood: low valence + high pop/indie
-  if (valence < 0.44 || (indie > 0.6 && valence < 0.5)) {
-    return {
-      moodKey: "melancholy",
-      badgeText: "Deteksi Mood AI • Melankolis & Galau",
-      shelfTitle: "Lagu Penenang Suasana Hatimu",
-      shelfDescription: "Algoritma mendeteksi kamu sedang memutar banyak lagu sendu dan reflektif hari ini.",
-      targetVector: [0.75, 0.4, 0.2, 0.4, 0.95, 0.9, 0.2, 0.0, 0.3, 0.2, 0.3, 0.85]
-    };
-  }
-
-  // 2. Nostalgia & Band Legend: e.g. Sheila On 7, Dewa 19, Peterpan
-  if (rockNostalgia > 0.55 || (topArtist && /sheila|dewa|peterpan|padi|noah|naif|ungu/i.test(topArtist))) {
+  // 1. Nostalgia & Band Legend: e.g. Sheila On 7, Dewa 19, Peterpan
+  if (rockNostalgia > 0.55 || (topArtist && /sheila|dewa|peterpan|padi|noah|naif|ungu|slank/i.test(topArtist))) {
     const artistLabel = topArtist || "Sheila On 7";
     return {
       moodKey: "nostalgia",
@@ -266,8 +255,8 @@ export function detectUserMood(
     };
   }
 
-  // 3. Energetic / Upbeat: high energy + dangdut or global pop
-  if (energy > 0.75 || dangdut > 0.6) {
+  // 2. Energetic / Upbeat: high energy + dangdut or global pop
+  if (energy > 0.65 || dangdut > 0.5) {
     return {
       moodKey: "energetic",
       badgeText: "Deteksi Mood AI • Energi & Semangat",
@@ -277,8 +266,8 @@ export function detectUserMood(
     };
   }
 
-  // 4. Chill & Akustik Senja: high acousticness
-  if (acoustic > 0.65 || indie > 0.65) {
+  // 3. Chill & Akustik Senja: high acousticness
+  if (acoustic > 0.7) {
     return {
       moodKey: "chill",
       badgeText: "Deteksi Mood AI • Akustik & Senja",
@@ -288,13 +277,24 @@ export function detectUserMood(
     };
   }
 
-  // Default: Personalized AI Taste Shelf
+  // 4. Sad / Melancholy Mood: only if user has genuinely played low valence tracks repeatedly
+  if (totalPlays >= 5 && valence < 0.3) {
+    return {
+      moodKey: "melancholy",
+      badgeText: "Deteksi Mood AI • Reflektif & Sendu",
+      shelfTitle: "Lagu Penenang Suasana Hati",
+      shelfDescription: "Lagu sendu dan reflektif untuk menemani saat hening.",
+      targetVector: [0.75, 0.4, 0.2, 0.4, 0.95, 0.9, 0.2, 0.0, 0.3, 0.2, 0.3, 0.85]
+    };
+  }
+
+  // Default: Uplifting & Balanced Personalized AI Taste Shelf
   const artistText = topArtist ? ` • Favorit: ${topArtist}` : "";
   return {
     moodKey: "neutral",
     badgeText: `AI Taste Intelligence${artistText}`,
-    shelfTitle: topArtist ? `Spesial Untukmu & Fans ${topArtist}` : "Dibuat Khusus Berdasarkan Seleramu",
-    shelfDescription: "Dipelajari oleh AI Brnsic di Supabase dari setiap lagu yang kamu nikmati.",
+    shelfTitle: topArtist ? `Spesial Untukmu & Fans ${topArtist}` : "Rekomendasi Spesial Untukmu",
+    shelfDescription: "Disesuaikan dengan selera musik dan artis yang kamu nikmati di Brnsic.",
     targetVector: userVector
   };
 }

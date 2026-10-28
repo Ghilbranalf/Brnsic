@@ -617,11 +617,11 @@ const derivePersona = (artistWeights: Record<string, number>, genres?: string[])
 const DEFAULT_INITIAL_TASTE: TasteProfile = {
   userSeed: "brnsic-user-default",
   persona: "Penjelajah Musik Indonesia & Global",
-  artistWeights: { "Sal Priadi": 3, "Bernadya": 3, "Sheila On 7": 2 },
-  genreWeights: { "Pop Indonesia": 3, "Indie Senja": 3 },
-  selectedGenres: ["Pop Indonesia", "Indie Senja"],
+  artistWeights: { "Sheila On 7": 3, "Sal Priadi": 2, "Bernadya": 2 },
+  genreWeights: { "Pop Indonesia": 3, "Pop Rock": 2 },
+  selectedGenres: ["Pop Indonesia", "Pop Rock"],
   playCounts: {},
-  likedArtists: ["Sal Priadi", "Bernadya", "Sheila On 7"],
+  likedArtists: ["Sheila On 7", "Sal Priadi", "Bernadya"],
   totalPlays: 0
 };
 
@@ -1170,10 +1170,32 @@ export default function BrnsicMusicPage() {
   // 1. Splash Screen State
   const [showSplash, setShowSplash] = useState<boolean>(true);
 
-  // 2. Playback State - Starts PAUSED on initial page load (No unprompted noise!)
-  const [currentTrack, setCurrentTrack] = useState<Track>(DEFAULT_CATALOG[0]);
+  // 2. Playback State - Restores from cache or starts fresh
+  const [currentTrack, setCurrentTrack] = useState<Track>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("brnsic_cached_track");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.title) return parsed;
+        }
+      } catch (e) {}
+    }
+    return DEFAULT_CATALOG[0];
+  });
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedTime = localStorage.getItem("brnsic_cached_time");
+        if (cachedTime) {
+          const t = parseFloat(cachedTime);
+          if (!isNaN(t) && t > 0) return t;
+        }
+      } catch (e) {}
+    }
+    return 0;
+  });
   const currentTimeRef = useRef<number>(0);
   const [volume, setVolume] = useState<number>(0.8);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -1184,16 +1206,59 @@ export default function BrnsicMusicPage() {
   const [isAlbumLoopMode, setIsAlbumLoopMode] = useState<boolean>(false);
 
   // 4. Dedicated Queue Engine (Solves endless repeating loop!)
-  const [activeQueue, setActiveQueue] = useState<any[]>(DEFAULT_CATALOG);
+  const [activeQueue, setActiveQueue] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedQ = localStorage.getItem("brnsic_cached_queue");
+        if (cachedQ) {
+          const parsed = JSON.parse(cachedQ);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return DEFAULT_CATALOG;
+  });
   const [activeQueueIndex, setActiveQueueIndex] = useState<number>(0);
   const [relatedQueue, setRelatedQueue] = useState<any[]>([]);
   const [activeAlbumTracks, setActiveAlbumTracks] = useState<any[]>([]);
   const [albumData, setAlbumData] = useState<any | null>(null);
 
   // 5. Liked & Disliked Songs (Independent state stored in localStorage)
-  const [likedSongIds, setLikedSongIds] = useState<string[]>([]);
-  const [dislikedSongIds, setDislikedSongIds] = useState<string[]>([]);
-  const [hasUserStartedPlayback, setHasUserStartedPlayback] = useState<boolean>(false);
+  const [likedSongIds, setLikedSongIds] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("brnsic_liked_songs");
+        if (stored) return JSON.parse(stored);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [dislikedSongIds, setDislikedSongIds] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("brnsic_disliked_songs");
+        if (stored) return JSON.parse(stored);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [dislikedTracks, setDislikedTracks] = useState<Track[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("brnsic_disliked_tracks_list");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [hasUserStartedPlayback, setHasUserStartedPlayback] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem("brnsic_has_user_played") === "true";
+      } catch (e) {}
+    }
+    return false;
+  });
   const [onboardingSearch, setOnboardingSearch] = useState<string>("");
   const recentHistoryRef = useRef<string[]>([]);
 
@@ -1226,9 +1291,13 @@ export default function BrnsicMusicPage() {
     | "custom-playlist"
     | "queue"
     | "liked"
+    | "disliked"
     | "playlists"
   >("home");
   const [homeFilter, setHomeFilter] = useState<"all" | "top-indo" | "most-played" | "viral" | "global">("all");
+  const [selectedMood, setSelectedMood] = useState<
+    "all" | "energetic" | "cheerful" | "chill" | "nostalgia" | "focus" | "melancholy"
+  >("all");
 
   // 8. Mobile & Fullscreen State
   const [isMobilePlayerOpen, setIsMobilePlayerOpen] = useState<boolean>(false);
@@ -1316,6 +1385,55 @@ export default function BrnsicMusicPage() {
     return detectUserMood(userTasteVector, topArtistName, userTaste?.totalPlays || 0);
   }, [userTasteVector, topArtistName, userTaste?.totalPlays]);
 
+  // Dynamic Mood Vector & Shelf Info based on user's selectedMood or auto-detected mood
+  const activeMoodInfo = useMemo(() => {
+    switch (selectedMood) {
+      case "energetic":
+        return {
+          title: "Pembangkit Semangat & Energi",
+          description: "Irama penuh energi, upbeat, dan tempo bersemangat untuk menemani harimu.",
+          vector: [0.2, 0.95, 0.9, 0.95, 0.6, 0.1, 0.3, 0.9, 0.5, 0.7, 0.2, 0.95] as FeatureVector
+        };
+      case "cheerful":
+        return {
+          title: "Bergairah & Penuh Ceria",
+          description: "Lagu-lagu riang, melodi cerah, dan energi positif untuk mendongkrak harimu.",
+          vector: [0.3, 0.8, 0.95, 0.85, 0.85, 0.2, 0.4, 0.5, 0.6, 0.6, 0.3, 0.9] as FeatureVector
+        };
+      case "chill":
+        return {
+          title: "Santai & Menenangkan",
+          description: "Petikan gitar akustik, harmoni hangat, dan alunan santai menyejukkan hati.",
+          vector: [0.9, 0.35, 0.5, 0.4, 0.6, 0.95, 0.2, 0.0, 0.4, 0.2, 0.2, 0.7] as FeatureVector
+        };
+      case "nostalgia":
+        return {
+          title: "Nostalgia & Lagu Legendaris",
+          description: "Koleksi lagu pop-rock band klasik Indonesia terbaik era 90-an dan 2000-an.",
+          vector: [0.35, 0.8, 0.65, 0.6, 0.6, 0.3, 0.95, 0.0, 0.2, 0.2, 0.95, 0.7] as FeatureVector
+        };
+      case "focus":
+        return {
+          title: "Fokus & Alur Belajar",
+          description: "Ritme stabil, harmoni tenang, dan alur lembut untuk konsentrasi bekerja.",
+          vector: [0.7, 0.45, 0.5, 0.5, 0.4, 0.8, 0.2, 0.0, 0.3, 0.3, 0.1, 0.6] as FeatureVector
+        };
+      case "melancholy":
+        return {
+          title: "Lagu Penenang Suasana Hati",
+          description: "Melodi sendu dan reflektif untuk menemani saat malam dan hening.",
+          vector: [0.75, 0.4, 0.2, 0.4, 0.95, 0.9, 0.2, 0.0, 0.3, 0.2, 0.3, 0.85] as FeatureVector
+        };
+      case "all":
+      default:
+        return {
+          title: currentMoodInsight.shelfTitle,
+          description: currentMoodInsight.shelfDescription,
+          vector: currentMoodInsight.targetVector || userTasteVector
+        };
+    }
+  }, [selectedMood, currentMoodInsight, userTasteVector]);
+
   // 18. Memoized Home ML Recommended Shelf (Adaptive Deep Learning + Real-time Mood Alignment)
   const homeMlRanked = useMemo(() => {
     const rawPool = [
@@ -1335,21 +1453,21 @@ export default function BrnsicMusicPage() {
       }
     }
     return rankTracksByDeepLearning(
-      currentMoodInsight.targetVector || userTasteVector,
+      activeMoodInfo.vector,
       uniquePool,
       recentHistoryRef.current,
       dislikedSongIds,
       24
     );
-  }, [mostPlayedIndonesia, indonesiaTop50, viralIndonesia, relatedQueue, userTasteVector, dislikedSongIds, currentMoodInsight]);
+  }, [mostPlayedIndonesia, indonesiaTop50, viralIndonesia, relatedQueue, activeMoodInfo, dislikedSongIds]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
-  const activeQueueRef = useRef<any[]>(DEFAULT_CATALOG);
+  const activeQueueRef = useRef<any[]>(activeQueue);
   const activeQueueIndexRef = useRef<number>(0);
   const repeatModeRef = useRef<"off" | "all" | "one">("off");
   const isAlbumLoopModeRef = useRef<boolean>(false);
-  const currentTrackRef = useRef<Track>(DEFAULT_CATALOG[0]);
+  const currentTrackRef = useRef<Track>(currentTrack);
   const playNextSongRef = useRef<(userTriggered?: boolean) => void>(() => {});
   const handleSeekSecondsRef = useRef<(sec: number) => void>(() => {});
   const toggleLikeRef = useRef<(id: string) => void>(() => {});
@@ -1608,6 +1726,10 @@ export default function BrnsicMusicPage() {
       const storedDislikes = localStorage.getItem("brnsic_disliked_songs");
       if (storedDislikes) {
         setDislikedSongIds(JSON.parse(storedDislikes));
+      }
+      const storedDislikedTracks = localStorage.getItem("brnsic_disliked_tracks_list");
+      if (storedDislikedTracks) {
+        setDislikedTracks(JSON.parse(storedDislikedTracks));
       }
       const storedTaste = localStorage.getItem("brnsic_user_taste_v1");
       if (storedTaste) {
@@ -1965,6 +2087,42 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
+  // 3b. Real-time Caching of Active Queue and Playback Time to LocalStorage
+  useEffect(() => {
+    if (activeQueue && activeQueue.length > 0 && typeof window !== "undefined") {
+      try {
+        localStorage.setItem("brnsic_cached_queue", JSON.stringify(activeQueue.slice(0, 40)));
+      } catch (e) {}
+    }
+  }, [activeQueue]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (currentTimeRef.current > 0 && typeof window !== "undefined") {
+        try {
+          localStorage.setItem("brnsic_cached_time", Math.round(currentTimeRef.current).toString());
+        } catch (e) {}
+      }
+    }, 4000);
+
+    const handleBeforeUnload = () => {
+      try {
+        if (currentTimeRef.current > 0) {
+          localStorage.setItem("brnsic_cached_time", Math.round(currentTimeRef.current).toString());
+        }
+        if (currentTrackRef.current) {
+          localStorage.setItem("brnsic_cached_track", JSON.stringify(currentTrackRef.current));
+        }
+      } catch (e) {}
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
   // Continuous Background Audio Keepalive & Anti-Throttle Shield
   const isUserExplicitlyPausedRef = useRef<boolean>(false);
   const audioContextRef = useRef<any>(null);
@@ -2226,17 +2384,30 @@ export default function BrnsicMusicPage() {
     const isDisliked = dislikedSongIds.includes(songId) || dislikedSongIds.includes(cleanTitle);
 
     if (isDisliked) {
-      const next = dislikedSongIds.filter((id) => id !== songId && id !== cleanTitle);
-      setDislikedSongIds(next);
+      const nextIds = dislikedSongIds.filter((id) => id !== songId && id !== cleanTitle);
+      const nextTracks = dislikedTracks.filter(
+        (t) => (t.id || t.title) !== songId && (t.title || "").toLowerCase().trim() !== cleanTitle
+      );
+      setDislikedSongIds(nextIds);
+      setDislikedTracks(nextTracks);
       try {
-        localStorage.setItem("brnsic_disliked_songs", JSON.stringify(next));
+        localStorage.setItem("brnsic_disliked_songs", JSON.stringify(nextIds));
+        localStorage.setItem("brnsic_disliked_tracks_list", JSON.stringify(nextTracks));
       } catch (e) {}
-      showToast(`Batal menyembunyikan "${song.title}"`);
+      showToast(`Lagu "${song.title}" dipulihkan (batal disembunyikan)`);
     } else {
-      const next = [...dislikedSongIds, songId, cleanTitle];
-      setDislikedSongIds(next);
+      const nextIds = [...dislikedSongIds, songId, cleanTitle];
+      const nextTracks = [
+        song,
+        ...dislikedTracks.filter(
+          (t) => (t.id || t.title) !== songId && (t.title || "").toLowerCase().trim() !== cleanTitle
+        )
+      ];
+      setDislikedSongIds(nextIds);
+      setDislikedTracks(nextTracks);
       try {
-        localStorage.setItem("brnsic_disliked_songs", JSON.stringify(next));
+        localStorage.setItem("brnsic_disliked_songs", JSON.stringify(nextIds));
+        localStorage.setItem("brnsic_disliked_tracks_list", JSON.stringify(nextTracks));
       } catch (e) {}
 
       // Heavily penalize artist in user taste
@@ -2262,11 +2433,13 @@ export default function BrnsicMusicPage() {
         })
       );
 
-      showToast(`Lagu disembunyikan: Brnsic tidak akan memutar lagu ini lagi`);
+      showToast(`Lagu disembunyikan: Brnsic tidak akan memutar "${song.title}" lagi`);
 
       // If currently playing this song, skip immediately!
       if (currentTrack.id === song.id || (currentTrack.title || "").toLowerCase().trim() === cleanTitle) {
-        playNextSong(true);
+        if (playNextSongRef.current) {
+          playNextSongRef.current(true);
+        }
       }
     }
   };
@@ -3201,6 +3374,10 @@ export default function BrnsicMusicPage() {
     const optimisticTrack: Track = { ...song };
     setCurrentTrack(optimisticTrack);
     currentTrackRef.current = optimisticTrack;
+    try {
+      localStorage.setItem("brnsic_cached_track", JSON.stringify(optimisticTrack));
+      localStorage.setItem("brnsic_has_user_played", "true");
+    } catch (e) {}
 
     // Fetch related songs asynchronously
     fetch(`/api/related?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
@@ -3208,10 +3385,19 @@ export default function BrnsicMusicPage() {
       .then((d) => {
         if (currentRequestId !== playRequestIdRef.current) return;
         if (d.related && d.related.length > 0) {
-          const freshRelated = d.related.filter(
-            (item: any) => !playedSongTitlesRef.current.has(item.title.toLowerCase().trim())
-          );
-          setRelatedQueue(freshRelated.length > 0 ? freshRelated : d.related);
+          const freshRelated = d.related.filter((item: any) => {
+            const title = (item.title || item.trackName || "").toLowerCase().trim();
+            const id = item.id || item.trackId;
+            const isPlayed = playedSongTitlesRef.current.has(title);
+            const isDisliked = dislikedSongIds.includes(id) || dislikedSongIds.includes(title);
+            return !isPlayed && !isDisliked;
+          });
+          const safeRelated = freshRelated.length > 0 ? freshRelated : d.related.filter((item: any) => {
+            const title = (item.title || item.trackName || "").toLowerCase().trim();
+            const id = item.id || item.trackId;
+            return !dislikedSongIds.includes(id) && !dislikedSongIds.includes(title);
+          });
+          setRelatedQueue(safeRelated);
         }
       })
       .catch(() => {});
@@ -3416,7 +3602,12 @@ export default function BrnsicMusicPage() {
       );
       if (res.ok) {
         const data = await res.json();
-        const incomingRelated = Array.isArray(data.related) ? data.related : [];
+        const rawRelated = Array.isArray(data.related) ? data.related : [];
+        const incomingRelated = rawRelated.filter((item: any) => {
+          const title = (item.title || item.trackName || "").toLowerCase().trim();
+          const id = item.id || item.trackId;
+          return !dislikedSongIds.includes(id) && !dislikedSongIds.includes(title);
+        });
         setRelatedQueue(incomingRelated);
 
         const candidatePool = [
@@ -3551,8 +3742,19 @@ export default function BrnsicMusicPage() {
 
     // 2. If inside active queue and not at the last track
     if (currentQ && currentQ.length > 0) {
-      if (currentIdx < currentQ.length - 1) {
-        const nextIdx = currentIdx + 1;
+      let nextIdx = currentIdx + 1;
+      // Skip any candidate in upcoming queue that the user has disliked!
+      while (nextIdx < currentQ.length) {
+        const item = currentQ[nextIdx];
+        const isDisliked = item && (
+          dislikedSongIds.includes(item.id) ||
+          dislikedSongIds.includes((item.title || item.trackName || "").toLowerCase().trim())
+        );
+        if (!isDisliked) break;
+        nextIdx++;
+      }
+
+      if (nextIdx < currentQ.length) {
         const candidate = currentQ[nextIdx];
         if (candidate) {
           activeQueueIndexRef.current = nextIdx;
@@ -3587,10 +3789,22 @@ export default function BrnsicMusicPage() {
       } else {
         // Reached the end of activeQueue!
         if (currentMode === "all" || isLoopAlbum) {
-          activeQueueIndexRef.current = 0;
-          setActiveQueueIndex(0);
-          playAnySong(currentQ[0], userTriggered);
-          return;
+          let loopIdx = 0;
+          while (loopIdx < currentQ.length) {
+            const item = currentQ[loopIdx];
+            const isDisliked = item && (
+              dislikedSongIds.includes(item.id) ||
+              dislikedSongIds.includes((item.title || item.trackName || "").toLowerCase().trim())
+            );
+            if (!isDisliked) break;
+            loopIdx++;
+          }
+          if (loopIdx < currentQ.length) {
+            activeQueueIndexRef.current = loopIdx;
+            setActiveQueueIndex(loopIdx);
+            playAnySong(currentQ[loopIdx], userTriggered);
+            return;
+          }
         }
       }
     }
@@ -3675,7 +3889,19 @@ export default function BrnsicMusicPage() {
     const currentQ = activeQueueRef.current && activeQueueRef.current.length > 0 ? activeQueueRef.current : activeQueue;
     const currentIdx = activeQueueIndexRef.current;
     if (currentQ && currentQ.length > 0) {
-      const prevIdx = (currentIdx - 1 + currentQ.length) % currentQ.length;
+      let prevIdx = currentIdx - 1;
+      while (prevIdx >= 0) {
+        const item = currentQ[prevIdx];
+        const isDisliked = item && (
+          dislikedSongIds.includes(item.id) ||
+          dislikedSongIds.includes((item.title || item.trackName || "").toLowerCase().trim())
+        );
+        if (!isDisliked) break;
+        prevIdx--;
+      }
+      if (prevIdx < 0) {
+        prevIdx = 0;
+      }
       activeQueueIndexRef.current = prevIdx;
       setActiveQueueIndex(prevIdx);
       playAnySong(currentQ[prevIdx], false);
@@ -4274,6 +4500,45 @@ export default function BrnsicMusicPage() {
           </div>
 
           <div className="flex flex-col gap-1 overflow-y-auto no-scrollbar flex-1">
+            {/* Liked Songs Entry */}
+            <div
+              onClick={() => setCurrentView("liked")}
+              className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition ${
+                currentView === "liked" ? "bg-[#282828]" : "hover:bg-[#1a1a1a]"
+              }`}
+            >
+              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#1ed760] via-[#0f8b3c] to-[#053617] flex items-center justify-center text-black font-black text-xs flex-shrink-0 shadow-md">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-white truncate">Lagu yang Disukai</div>
+                <div className="text-xs text-[#b3b3b3]">{likedSongIds.length} lagu • Favorit</div>
+              </div>
+            </div>
+
+            {/* Disliked / Hidden Songs Entry */}
+            <div
+              onClick={() => setCurrentView("disliked")}
+              className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition ${
+                currentView === "disliked" ? "bg-[#282828]" : "hover:bg-[#1a1a1a]"
+              }`}
+            >
+              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#e91429] via-[#8a121d] to-[#3a060b] flex items-center justify-center text-white font-black text-xs flex-shrink-0 shadow-md">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-white truncate">Lagu Disembunyikan</div>
+                <div className="text-xs text-[#b3b3b3]">{dislikedTracks.length} lagu • Tidak Disukai</div>
+              </div>
+            </div>
+
+            <div className="h-[1px] bg-white/10 my-1"></div>
+
             {/* User Custom Playlists */}
             {userPlaylists.map((pl) => (
               <div
@@ -4362,49 +4627,117 @@ export default function BrnsicMusicPage() {
               </div>
             </div>
 
-            {/* Mobile Filter Chips */}
-            <div
-              className="flex items-center gap-2 w-full max-w-full overflow-x-auto no-scrollbar py-1 touch-pan-x flex-nowrap overscroll-x-contain select-none"
-              style={{ WebkitOverflowScrolling: "touch" }}
-            >
-              <button
-                onClick={() => {
-                  setHomeFilter("all");
-                  setCurrentView("home");
-                }}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                  homeFilter === "all" && currentView === "home"
-                    ? "bg-white text-black"
-                    : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
-                }`}
+            {/* Mobile Filter & Mood Chips: HANYA DI BERANDA (HOME) */}
+            {currentView === "home" && (
+              <div
+                className="flex items-center gap-2 w-full max-w-full overflow-x-auto no-scrollbar py-1 touch-pan-x flex-nowrap overscroll-x-contain select-none"
+                style={{ WebkitOverflowScrolling: "touch" }}
               >
-                Semua
-              </button>
-              <button
-                onClick={() => setCurrentView("top50-indo")}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                  currentView === "top50-indo" ? "bg-white text-black" : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
-                }`}
-              >
-                Top 50 Indonesia
-              </button>
-              <button
-                onClick={() => setCurrentView("most-played-indo")}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                  currentView === "most-played-indo" ? "bg-white text-black" : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
-                }`}
-              >
-                Sering Diputar
-              </button>
-              <button
-                onClick={() => setCurrentView("viral-indo")}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                  currentView === "viral-indo" ? "bg-white text-black" : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
-                }`}
-              >
-                Viral
-              </button>
-            </div>
+                <button
+                  onClick={() => {
+                    setHomeFilter("all");
+                    setSelectedMood("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    homeFilter === "all" && selectedMood === "all"
+                      ? "bg-white text-black"
+                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  Semua
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("energetic");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "energetic"
+                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
+                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  🔥 Semangat
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("cheerful");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "cheerful"
+                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
+                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  ⚡ Bergairah
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("chill");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "chill"
+                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
+                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  ☕ Santai
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("nostalgia");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "nostalgia"
+                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
+                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  📻 Nostalgia
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("focus");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "focus"
+                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
+                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  🎯 Fokus
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedMood("melancholy");
+                    setHomeFilter("all");
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
+                    selectedMood === "melancholy"
+                      ? "bg-[#1ed760] text-black shadow-[0_0_15px_rgba(30,215,96,0.3)]"
+                      : "bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                  }`}
+                >
+                  🌧️ Sendu
+                </button>
+                <button
+                  onClick={() => setCurrentView("most-played-indo")}
+                  className="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                >
+                  Sering Diputar
+                </button>
+                <button
+                  onClick={() => setCurrentView("viral-indo")}
+                  className="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer bg-[#242424] text-white hover:bg-[#2e2e2e]"
+                >
+                  Viral
+                </button>
+              </div>
+            )}
           </div>
 
           {/* VIEW: DEDICATED ALBUM VIEW (ROUNDED ROWS FIX) */}
@@ -4842,6 +5175,107 @@ export default function BrnsicMusicPage() {
             </div>
           )}
 
+          {/* VIEW: DISLIKED / HIDDEN SONGS (LAGU YANG DISEMBUNYIKAN) */}
+          {currentView === "disliked" && (
+            <div>
+              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#e91429]/25 via-[#251014]/40 to-black md:to-[#121212] flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#e91429]/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl shadow-2xl bg-gradient-to-br from-[#e91429] via-[#8a121d] to-[#3a060b] flex items-center justify-center text-white flex-shrink-0 relative z-10 shadow-[0_15px_40px_rgba(233,20,41,0.3)]">
+                  <svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1 text-center sm:text-left relative z-10">
+                  <span className="text-xs font-bold uppercase tracking-wider text-white/80">
+                    Filter & Privasi
+                  </span>
+                  <h1 className="text-3xl sm:text-5xl font-black text-white my-2 tracking-tight">
+                    Lagu yang Disembunyikan
+                  </h1>
+                  <p className="text-sm text-white/80">
+                    {dislikedTracks.length} lagu • Brnsic menyembunyikan lagu-lagu ini agar tidak pernah diputar otomatis di rekomendasi, radio, atau autoplay
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Bar */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="text-xs text-[#b3b3b3]">
+                  Klik tombol <strong>Pulihkan</strong> pada lagu untuk membatalkan sembunyikan.
+                </div>
+                <button
+                  onClick={() => setCurrentView("home")}
+                  className="text-xs font-bold text-[#b3b3b3] hover:text-white flex items-center gap-1.5 transition ml-auto"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                  <span>Kembali</span>
+                </button>
+              </div>
+
+              {/* Disliked Tracks List */}
+              <div className="px-6 pb-28 flex flex-col gap-1">
+                {dislikedTracks.length === 0 ? (
+                  <div className="text-center py-20 text-[#b3b3b3]">
+                    <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 text-[#e91429]">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                      </svg>
+                    </div>
+                    <p className="text-base font-bold text-white mb-1">Belum ada lagu yang disembunyikan</p>
+                    <p className="text-xs max-w-sm mx-auto">
+                      Saat kamu menekan ikon tidak suka (dislike) pada lagu, lagu tersebut akan tersimpan di sini dan algoritma Brnsic tidak akan pernah memutarnya kembali.
+                    </p>
+                  </div>
+                ) : (
+                  dislikedTracks.map((t: Track, i: number) => (
+                    <div
+                      key={t.id || `${t.title}-${i}`}
+                      className="group px-3 py-2.5 rounded-xl flex items-center justify-between transition hover:bg-white/5 text-white border border-transparent hover:border-white/5"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="text-xs text-[#b3b3b3] w-5 text-right font-semibold">
+                          {i + 1}
+                        </span>
+                        <img
+                          src={t.cover || "/app-icon.png"}
+                          alt={t.title}
+                          onError={handleImgError}
+                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0 grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs sm:text-sm font-bold truncate text-white">
+                            {t.title}
+                          </div>
+                          <div className="text-[11px] text-[#b3b3b3] truncate">
+                            {t.artist}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <button
+                          onClick={() => toggleDislike(t)}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition flex items-center gap-1.5 active:scale-95 border border-white/10"
+                          title="Batal sembunyikan lagu ini"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                          </svg>
+                          <span>Pulihkan</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
           {/* VIEW: MY PLAYLIST (KOLEKSI PLAYLIST PRIBADI) */}
           {currentView === "playlists" && (
             <div>
@@ -4878,6 +5312,40 @@ export default function BrnsicMusicPage() {
                   </svg>
                   <span>Buat Playlist Baru</span>
                 </button>
+              </div>
+
+              {/* Quick Collection Cards: Liked & Disliked Songs */}
+              <div className="px-4 sm:px-6 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  onClick={() => setCurrentView("liked")}
+                  className="bg-gradient-to-r from-[#1ed760]/20 to-white/5 border border-[#1ed760]/20 hover:border-[#1ed760]/40 p-4 rounded-2xl flex items-center gap-4 cursor-pointer transition hover:scale-[1.01] active:scale-[0.99] shadow"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1ed760] via-[#0f8b3c] to-[#053617] flex items-center justify-center text-black flex-shrink-0 shadow-lg shadow-[#1ed760]/20">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-white truncate">Lagu yang Disukai</h3>
+                    <p className="text-xs text-[#b3b3b3]">{likedSongIds.length} lagu favorit</p>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setCurrentView("disliked")}
+                  className="bg-gradient-to-r from-[#e91429]/20 to-white/5 border border-[#e91429]/20 hover:border-[#e91429]/40 p-4 rounded-2xl flex items-center gap-4 cursor-pointer transition hover:scale-[1.01] active:scale-[0.99] shadow"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#e91429] via-[#8a121d] to-[#3a060b] flex items-center justify-center text-white flex-shrink-0 shadow-lg shadow-[#e91429]/20">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-white truncate">Lagu yang Disembunyikan</h3>
+                    <p className="text-xs text-[#b3b3b3]">{dislikedTracks.length} lagu di-blacklist</p>
+                  </div>
+                </div>
               </div>
 
               {/* Playlists Grid */}
@@ -5358,10 +5826,10 @@ export default function BrnsicMusicPage() {
                 <div className="flex items-end justify-between mb-4">
                   <div>
                     <h2 className="text-xl sm:text-2xl font-bold text-white mt-0.5">
-                      {currentMoodInsight.shelfTitle}
+                      {activeMoodInfo.title}
                     </h2>
                     <p className="text-xs text-[#b3b3b3] mt-1">
-                      {currentMoodInsight.shelfDescription}
+                      {activeMoodInfo.description}
                     </p>
                   </div>
                 </div>
@@ -7744,10 +8212,12 @@ export default function BrnsicMusicPage() {
                 <p className="text-xs text-[#b3b3b3] truncate mt-0.5">
                   {currentUser?.email || "Mode Tamu"}
                 </p>
-                <div className="flex items-center gap-2 text-[11px] text-[#b3b3b3] mt-2 font-medium">
+                <div className="flex items-center gap-2 text-[11px] text-[#b3b3b3] mt-2 font-medium flex-wrap">
                   <span>{userPlaylists.length} Playlist</span>
                   <span>•</span>
                   <span>{likedSongIds.length} Disukai</span>
+                  <span>•</span>
+                  <span>{dislikedTracks.length} Disembunyikan</span>
                   <span>•</span>
                   <span>{userTaste.totalPlays} Diputar</span>
                 </div>
@@ -7802,6 +8272,23 @@ export default function BrnsicMusicPage() {
 
             {/* Section: Pengaturan Akun */}
             <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+              <button
+                onClick={() => {
+                  setIsProfileModalOpen(false);
+                  setCurrentView("disliked");
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between cursor-pointer border border-white/5"
+              >
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  </svg>
+                  <span>Lagu yang Disembunyikan</span>
+                </div>
+                <span className="text-white/40 text-[11px]">{dislikedTracks.length} lagu</span>
+              </button>
+
               {!isInsideNativeApk && (
                 <button
                   onClick={() => {
