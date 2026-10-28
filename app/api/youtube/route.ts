@@ -170,7 +170,9 @@ const PODCAST_EXCLUSIONS = [
   "podcast", "talkshow", "talk show", "interview", "wawancara",
   "full episode", "episode", "eps.", "audiobook", "stand up comedy",
   "terkuak", "berita", "kasus", "polisi", "sidang", "debat", "viral news",
-  "fakta mengejutkan", "klarifikasi", "pengakuan", "dokumenter", "investigasi"
+  "fakta mengejutkan", "klarifikasi", "pengakuan", "dokumenter", "investigasi",
+  "tvone", "kompastv", "metrotv", "tribun", "detikcom", "inews", "breaking news",
+  "alur cerita", "bedah lagu", "reaksi", "reaction", "vlog", "sinopsis"
 ];
 
 function cleanString(str: string): string {
@@ -189,6 +191,15 @@ function cleanString(str: string): string {
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function extractPureTitle(title: string): string {
+  let cleaned = cleanString(title);
+  cleaned = cleaned
+    .replace(/\b(single|remastered|remaster|album version|original mix|bonus track|anniversary edition)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || cleanString(title);
 }
 
 function parseDurationSeconds(durStr: string): number | null {
@@ -325,8 +336,9 @@ export async function GET(request: NextRequest) {
   const durationParam = searchParams.get("duration") || "";
 
   const cleanArtist = cleanString(artistParam);
+  const pureTitle = extractPureTitle(titleParam);
   const cleanTitle = cleanString(titleParam);
-  const fullClean = cleanString(qParam || `${cleanArtist} ${cleanTitle}`);
+  const fullClean = cleanString(qParam || `${cleanArtist} ${pureTitle}`);
 
   const rawDur = parseFloat(durationParam);
   const expectedDuration = !isNaN(rawDur) && rawDur > 20 ? rawDur : 240;
@@ -336,7 +348,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 1. Direct Exact & Substring Match in Verified Studio Dictionary
-  const exactKey = `${cleanArtist} ${cleanTitle}`.trim();
+  const exactKey = `${cleanArtist} ${pureTitle}`.trim();
   if (VERIFIED_MAP[exactKey]) {
     return NextResponse.json({
       videoId: VERIFIED_MAP[exactKey],
@@ -346,10 +358,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  if (cleanTitle && VERIFIED_MAP[cleanTitle]) {
+  if (pureTitle && VERIFIED_MAP[pureTitle]) {
     return NextResponse.json({
-      videoId: VERIFIED_MAP[cleanTitle],
-      candidates: [VERIFIED_MAP[cleanTitle]],
+      videoId: VERIFIED_MAP[pureTitle],
+      candidates: [VERIFIED_MAP[pureTitle]],
       source: "verified-title",
       query: fullClean
     });
@@ -373,9 +385,10 @@ export async function GET(request: NextRequest) {
 
     // Multi-tier Clean Search Sequence (No rigid quotes that break non-major indie artists!)
     const queries = [
-      `${cleanArtist} ${cleanTitle} audio`,
-      `${cleanArtist} ${cleanTitle}`,
-      `${cleanTitle} ${cleanArtist}`
+      `${cleanArtist} ${pureTitle} audio`,
+      `${cleanArtist} ${pureTitle}`,
+      `${pureTitle} ${cleanArtist}`,
+      `${cleanArtist} ${pureTitle} topic`
     ];
 
     for (const q of queries) {
@@ -387,7 +400,7 @@ export async function GET(request: NextRequest) {
 
       if (res.ok) {
         const html = await res.text();
-        const results = parseCleanVideoResults(html, cleanArtist, cleanTitle, expectedDuration);
+        const results = parseCleanVideoResults(html, cleanArtist, pureTitle, expectedDuration);
         if (results.length > 0 && results[0].score >= 40) {
           const ids = results.map((r) => r.id);
           return NextResponse.json({
@@ -403,14 +416,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Fallback: search by title alone if artist query yielded no song
-    const fallbackUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${cleanTitle} audio`)}`;
+    const fallbackUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${pureTitle} audio`)}`;
     const fbRes = await fetch(fallbackUrl, {
       headers: fetchHeaders,
       next: { revalidate: 86400 }
     });
     if (fbRes.ok) {
       const fbHtml = await fbRes.text();
-      const fbResults = parseCleanVideoResults(fbHtml, cleanArtist, cleanTitle, expectedDuration);
+      const fbResults = parseCleanVideoResults(fbHtml, cleanArtist, pureTitle, expectedDuration);
       if (fbResults.length > 0) {
         const ids = fbResults.map((r) => r.id);
         return NextResponse.json({
@@ -419,7 +432,7 @@ export async function GET(request: NextRequest) {
           candidates: ids,
           duration: fbResults[0].durStr,
           source: "audio-fallback",
-          query: `${cleanTitle} audio`
+          query: `${pureTitle} audio`
         });
       }
     }

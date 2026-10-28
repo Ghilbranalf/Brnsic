@@ -1378,6 +1378,8 @@ export default function BrnsicMusicPage() {
   // References
   const ytPlayerRef = useRef<any>(null);
   const pendingVideoIdRef = useRef<string | null>(null);
+  const availableCandidatesRef = useRef<string[]>([]);
+  const candidateIndexRef = useRef<number>(0);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const activeLyricRef = useRef<HTMLDivElement | null>(null);
   const mobileActiveLyricRef = useRef<HTMLDivElement | null>(null);
@@ -2806,7 +2808,17 @@ export default function BrnsicMusicPage() {
               if (!hasUserStartedPlaybackRef.current) {
                 return;
               }
-              // Attempt to recover by querying fresh ID for the current track first
+              // Attempt to recover using candidates array or fresh lookup
+              if (availableCandidatesRef.current.length > candidateIndexRef.current + 1) {
+                candidateIndexRef.current += 1;
+                const nextVid = availableCandidatesRef.current[candidateIndexRef.current];
+                if (nextVid && ytPlayerRef.current?.loadVideoById) {
+                  ytPlayerRef.current.loadVideoById({ videoId: nextVid, startSeconds: 0 });
+                  ytPlayerRef.current.playVideo();
+                  return;
+                }
+              }
+
               const recoveringSong = currentTrackRef.current?.title;
               fetch(
                 `/api/youtube?artist=${encodeURIComponent(currentTrackRef.current?.artist || "")}&title=${encodeURIComponent(
@@ -2815,6 +2827,10 @@ export default function BrnsicMusicPage() {
               )
                 .then((r) => r.json())
                 .then((d) => {
+                  if (d.candidates && Array.isArray(d.candidates) && d.candidates.length > 0) {
+                    availableCandidatesRef.current = d.candidates;
+                    candidateIndexRef.current = 0;
+                  }
                   if (d.videoId && d.videoId !== currentTrackRef.current?.youtubeId && ytPlayerRef.current) {
                     ytPlayerRef.current.loadVideoById({ videoId: d.videoId, startSeconds: 0 });
                     ytPlayerRef.current.playVideo();
@@ -2843,6 +2859,30 @@ export default function BrnsicMusicPage() {
                 isPlayingRef.current = true;
                 hasTriggeredEndRef.current = false;
                 startBackgroundKeepalive();
+
+                // CLIENT-SIDE RUNTIME AUDIO WATCHDOG:
+                // Instantly detect and abort non-music videos (> 12 minutes, e.g. 200m news podcasts or long streams)
+                try {
+                  const actualDur = ytPlayerRef.current?.getDuration?.();
+                  if (typeof actualDur === "number" && actualDur > 720) {
+                    console.warn("Disallowed long-form non-music video (>12m) detected on player:", actualDur);
+                    ytPlayerRef.current?.stopVideo?.();
+                    showToast("Audio tidak sesuai terdeteksi, memulihkan ke versi resmi...");
+                    if (availableCandidatesRef.current.length > candidateIndexRef.current + 1) {
+                      candidateIndexRef.current += 1;
+                      const nextVid = availableCandidatesRef.current[candidateIndexRef.current];
+                      if (nextVid && ytPlayerRef.current?.loadVideoById) {
+                        ytPlayerRef.current.loadVideoById({ videoId: nextVid, startSeconds: 0 });
+                        ytPlayerRef.current.playVideo();
+                        return;
+                      }
+                    }
+                    setTimeout(() => {
+                      if (playNextSongRef.current) playNextSongRef.current(false);
+                    }, 800);
+                    return;
+                  }
+                } catch (e) {}
               } else if (event.data === 2) {
                 // Paused - Check if paused at or near the end of track!
                 try {
@@ -3161,6 +3201,8 @@ export default function BrnsicMusicPage() {
     };
 
     if (directVid) {
+      availableCandidatesRef.current = [directVid];
+      candidateIndexRef.current = 0;
       startAudio(directVid);
     } else {
       fetch(
@@ -3170,11 +3212,25 @@ export default function BrnsicMusicPage() {
       )
         .then((r) => r.json())
         .then((d) => {
-          const vid = d.videoId || "kv2WIY8RLQQ";
-          startAudio(vid);
+          if (currentRequestId !== playRequestIdRef.current) return;
+          if (d.candidates && Array.isArray(d.candidates) && d.candidates.length > 0) {
+            availableCandidatesRef.current = d.candidates;
+            candidateIndexRef.current = 0;
+          }
+          if (d.videoId) {
+            startAudio(d.videoId);
+          } else {
+            showToast(`Audio resmi "${song.title}" sedang disiapkan`);
+            setTimeout(() => {
+              if (playNextSongRef.current) playNextSongRef.current(false);
+            }, 1200);
+          }
         })
         .catch(() => {
-          startAudio("kv2WIY8RLQQ");
+          showToast(`Gagal memuat audio "${song.title}"`);
+          setTimeout(() => {
+            if (playNextSongRef.current) playNextSongRef.current(false);
+          }, 1200);
         });
     }
 
