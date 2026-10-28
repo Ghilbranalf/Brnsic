@@ -1594,9 +1594,15 @@ export default function BrnsicMusicPage() {
             }
             if (Array.isArray(data.user.likedSongs)) {
               setLikedSongIds(data.user.likedSongs);
+              try {
+                localStorage.setItem("brnsic_liked_songs", JSON.stringify(data.user.likedSongs));
+              } catch (e) {}
             }
             if (Array.isArray(data.user.playlists)) {
               setUserPlaylists(data.user.playlists);
+              try {
+                localStorage.setItem("brnsic_user_playlists", JSON.stringify(data.user.playlists));
+              } catch (e) {}
             }
             if (!data.user.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
               setIsOnboardingModalOpen(true);
@@ -2021,9 +2027,15 @@ export default function BrnsicMusicPage() {
         recordTasteInteraction(currentTrack, "like");
       }
       if (currentUser) {
+        const token = typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
         fetch("/api/user/sync", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
+          credentials: "include",
           body: JSON.stringify({ likedSongs: next, replaceLikes: true })
         }).catch(() => {});
       }
@@ -2228,10 +2240,16 @@ export default function BrnsicMusicPage() {
       localStorage.setItem("brnsic_user_playlists", JSON.stringify(playlists));
     } catch (e) {}
     if (currentUser) {
+      const token = typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       fetch("/api/user/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playlists })
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ playlists, replacePlaylists: true })
       }).catch(() => {});
     }
   };
@@ -2319,18 +2337,35 @@ export default function BrnsicMusicPage() {
         } catch (e) {}
       }
 
-      // Sync local guest playlists and likes into newly logged in account
-      try {
-        fetch("/api/user/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            likedSongs: likedSongIds,
-            playlists: userPlaylists,
-            taste: userTaste
-          })
-        });
-      } catch (e) {}
+      if (Array.isArray(data.user?.playlists) && data.user.playlists.length > 0) {
+        setUserPlaylists(data.user.playlists);
+        try {
+          localStorage.setItem("brnsic_user_playlists", JSON.stringify(data.user.playlists));
+        } catch (e) {}
+      } else if (userPlaylists.length > 0) {
+        try {
+          fetch("/api/user/sync", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(data.token ? { Authorization: `Bearer ${data.token}` } : {})
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              likedSongs: likedSongIds.length > 0 ? likedSongIds : undefined,
+              playlists: userPlaylists,
+              taste: userTaste
+            })
+          }).catch(() => {});
+        } catch (e) {}
+      }
+
+      if (Array.isArray(data.user?.likedSongs) && data.user.likedSongs.length > 0) {
+        setLikedSongIds(data.user.likedSongs);
+        try {
+          localStorage.setItem("brnsic_liked_songs", JSON.stringify(data.user.likedSongs));
+        } catch (e) {}
+      }
 
       showToast(`Selamat datang, ${data.user.name}! Akun Google terhubung`);
 
@@ -7871,6 +7906,21 @@ export default function BrnsicMusicPage() {
                     </svg>
                     <span>Download APK</span>
                   </a>
+
+                  {currentUser && (
+                    <a
+                      href={`brnsic://auth?login_success=true&token=${encodeURIComponent(
+                        typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") || "" : ""
+                      )}&user=${encodeURIComponent(JSON.stringify(currentUser))}`}
+                      onClick={() => setIsInstallModalOpen(false)}
+                      className="w-full py-3 px-5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center gap-2 border border-white/15 transition cursor-pointer"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1ed760" strokeWidth="2.5">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                      </svg>
+                      <span>Sudah Pasang APK? Masuk Otomatis</span>
+                    </a>
+                  )}
 
                   <button
                     onClick={() => setIsInstallModalOpen(false)}

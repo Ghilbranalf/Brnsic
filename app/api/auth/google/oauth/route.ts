@@ -15,15 +15,19 @@ export async function GET(req: NextRequest) {
 
   // 1. Direct Official Google Cloud OAuth Account Chooser
   if (GOOGLE_CLIENT_ID) {
+    if (platform === "native_apk") {
+      const bridgeUrl = `${origin}/api/auth/bridge?platform=native_apk`;
+      return NextResponse.json({ url: bridgeUrl, enabled: true, mode: "google-direct" });
+    }
+
     const callbackUrl = `${origin}/api/auth/google/callback`;
-    const stateParam = platform === "native_apk" ? "&state=native_apk" : "";
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
       GOOGLE_CLIENT_ID
     )}&redirect_uri=${encodeURIComponent(
       callbackUrl
     )}&response_type=code&scope=${encodeURIComponent(
       "openid email profile"
-    )}&access_type=offline&prompt=select_account${stateParam}`;
+    )}&access_type=offline&prompt=select_account`;
 
     return NextResponse.json({ url: googleAuthUrl, enabled: true, mode: "google-direct" });
   }

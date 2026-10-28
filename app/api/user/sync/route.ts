@@ -26,15 +26,17 @@ export async function POST(req: Request) {
       }
     }
 
-    // Merge playlists (avoid duplicates by playlist id or name)
+    // Merge or replace playlists
     if (Array.isArray(playlists)) {
-      const existingPlMap = new Map((user.playlists || []).map((p: any) => [p.id || p.name, p]));
-      for (const pl of playlists) {
-        if (!existingPlMap.has(pl.id || pl.name)) {
+      if (body.replacePlaylists) {
+        updates.playlists = playlists;
+      } else {
+        const existingPlMap = new Map((user.playlists || []).map((p: any) => [p.id || p.name, p]));
+        for (const pl of playlists) {
           existingPlMap.set(pl.id || pl.name, pl);
         }
+        updates.playlists = Array.from(existingPlMap.values());
       }
-      updates.playlists = Array.from(existingPlMap.values());
     }
 
     // Merge taste weights if provided

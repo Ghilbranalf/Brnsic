@@ -288,6 +288,28 @@ export const supabaseUpdateUser = async (id: string, updates: Partial<User>): Pr
       }
     }
 
+    // Update playlists if included
+    if (Array.isArray(updates.playlists)) {
+      await fetch(`${SUPABASE_URL}/rest/v1/user_playlists?user_id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: getHeaders()
+      });
+      if (updates.playlists.length > 0) {
+        const rows = updates.playlists.map((p) => ({
+          id: p.id || `pl_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          user_id: id,
+          name: p.name,
+          cover: p.cover || null,
+          songs: Array.isArray(p.songs) ? p.songs : []
+        }));
+        await fetch(`${SUPABASE_URL}/rest/v1/user_playlists`, {
+          method: "POST",
+          headers: getHeaders({ Prefer: "return=minimal" }),
+          body: JSON.stringify(rows)
+        });
+      }
+    }
+
     return true;
   } catch (err) {
     console.error("Supabase updateUser error:", err);
