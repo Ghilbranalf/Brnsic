@@ -1992,8 +1992,8 @@ export default function BrnsicMusicPage() {
     stopWebAudioKeepalive();
     if (typeof window !== "undefined") {
       try {
-        if ((window as any).BrnsicNative?.stopPlayback) {
-          (window as any).BrnsicNative.stopPlayback();
+        if ((window as any).BrnsicNative?.pauseAudio) {
+          (window as any).BrnsicNative.pauseAudio();
         }
       } catch (e) {}
     }

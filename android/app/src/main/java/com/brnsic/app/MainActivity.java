@@ -153,7 +153,7 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void stopPlayback() {
-            stopAudio();
+            pauseAudio();
         }
 
         @JavascriptInterface

@@ -322,7 +322,7 @@ public class BackgroundAudioService extends Service implements
                 .addAction(android.R.drawable.ic_media_next, "Berikutnya", nextPendingIntent)
                 .setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
                         .setShowActionsInCompactView(0, 1, 2))
-                .setOngoing(isPlaying)
+                .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
