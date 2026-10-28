@@ -2934,8 +2934,9 @@ export default function BrnsicMusicPage() {
   useEffect(() => {
     // Only poll ultra-fast (50ms) if user is actively viewing lyrics or the expanded seekbar player!
     // When browsing / scrolling the home screen, poll at 1000ms so scrolling never drops frames!
-    const isHighPrecisionNeeded = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics";
-    const pollInterval = isHighPrecisionNeeded ? 50 : 1000;
+    const isDesktop = typeof window !== "undefined" && window.innerWidth >= 1024;
+    const isHighPrecisionNeeded = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics" || isDesktop;
+    const pollInterval = (isMobilePlayerOpen || isZoomed || mobileTab === "lyrics") ? 50 : isDesktop ? 100 : 1000;
 
     const timer = setInterval(() => {
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
@@ -4221,104 +4222,6 @@ export default function BrnsicMusicPage() {
                 </div>
               </div>
             ))}
-
-            {/* Top 50 Indonesia Card */}
-            <div
-              onClick={() => setCurrentView("top50-indo")}
-              className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition ${
-                currentView === "top50-indo" ? "bg-[#282828]" : "hover:bg-[#1a1a1a]"
-              }`}
-            >
-              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#bc5900] via-[#e91429] to-[#5a161f] flex flex-col items-center justify-center text-white font-black text-[9px] flex-shrink-0">
-                TOP 50
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white truncate">Top 50 - Indonesia</div>
-                <div className="text-xs text-[#b3b3b3]">Playlist • Update harian</div>
-              </div>
-            </div>
-
-            {/* Paling Sering Diputar Card */}
-            <div
-              onClick={() => setCurrentView("most-played-indo")}
-              className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition ${
-                currentView === "most-played-indo" ? "bg-[#282828]" : "hover:bg-[#1a1a1a]"
-              }`}
-            >
-              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#006450] via-[#148a08] to-[#1e3264] flex items-center justify-center text-white text-xs font-black flex-shrink-0">
-                HEAVY
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white truncate">Paling Sering Diputar</div>
-                <div className="text-xs text-[#b3b3b3]">Playlist • Bernadya, Hindia, dll</div>
-              </div>
-            </div>
-
-            {/* Viral 50 Indo */}
-            <div
-              onClick={() => setCurrentView("viral-indo")}
-              className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition ${
-                currentView === "viral-indo" ? "bg-[#282828]" : "hover:bg-[#1a1a1a]"
-              }`}
-            >
-              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#e8115b] to-[#ba5d07] flex items-center justify-center text-white text-xs font-black flex-shrink-0">
-                VIRAL
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white truncate">Viral 50 Indonesia</div>
-                <div className="text-xs text-[#b3b3b3]">Playlist • TikTok &amp; Reels</div>
-              </div>
-            </div>
-
-            {/* Top 50 Global */}
-            <div
-              onClick={() => setCurrentView("top50-global")}
-              className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition ${
-                currentView === "top50-global" ? "bg-[#282828]" : "hover:bg-[#1a1a1a]"
-              }`}
-            >
-              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#1e3264] to-[#8400e7] flex items-center justify-center text-white text-xs font-black flex-shrink-0">
-                GLOBAL
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white truncate">Top 50 - Global</div>
-                <div className="text-xs text-[#b3b3b3]">Playlist • Chart Dunia</div>
-              </div>
-            </div>
-
-            {/* Hindia - Menari Dengan Bayangan */}
-            <div
-              onClick={() => openAlbumView("Menari Dengan Bayangan", "Hindia", 1481804269)}
-              className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#1a1a1a] cursor-pointer transition"
-            >
-              <img
-                src="https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/83/f6/8f/83f68f0a-8a30-9653-a3e2-dc37d9714946/cover.jpg/600x600bb.jpg"
-                alt="hindia"
-                onError={handleImgError}
-                className="w-11 h-11 rounded-lg object-cover flex-shrink-0"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white truncate">Menari Dengan Bayangan</div>
-                <div className="text-xs text-[#b3b3b3]">Album • Hindia</div>
-              </div>
-            </div>
-
-            {/* Bernadya - Sialnya Hidup Harus Tetap Berjalan */}
-            <div
-              onClick={() => openAlbumView("Sialnya, Hidup Harus Tetap Berjalan", "Bernadya", 1749876880)}
-              className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#1a1a1a] cursor-pointer transition"
-            >
-              <img
-                src="https://is1-ssl.mzstatic.com/image/thumb/Video126/v4/b3/7f/04/b37f04d1-8ead-36df-0e8f-37be5828b625/23UM1IM02870.crop.jpg/600x600bb.jpg"
-                alt="bernadya"
-                onError={handleImgError}
-                className="w-11 h-11 rounded-lg object-cover flex-shrink-0"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white truncate">Sialnya Hidup Harus Tetap Berjalan</div>
-                <div className="text-xs text-[#b3b3b3]">Album • Bernadya</div>
-              </div>
-            </div>
           </div>
         </aside>
 
@@ -5267,7 +5170,7 @@ export default function BrnsicMusicPage() {
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse"></span>
                       <span className="text-xs font-black uppercase tracking-wider text-[#1ed760]">
-                        Rekomendasi Cerdas Sesuai Selera Kamu
+                        Rekomendasi
                       </span>
                     </div>
                     <span className="text-xs text-[#b3b3b3]">
@@ -5369,16 +5272,10 @@ export default function BrnsicMusicPage() {
                 ))}
               </section>
 
-              {/* SHELF 0: DIBUAT KHUSUS UNTUK KAMU (PERSONALIZED TASTE & MOOD INTELLIGENCE) */}
+              {/* SHELF 0: DIBUAT KHUSUS UNTUK KAMU */}
               <section>
                 <div className="flex items-end justify-between mb-4">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse"></span>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[#1ed760]">
-                        {currentMoodInsight.badgeText}
-                      </span>
-                    </div>
                     <h2 className="text-xl sm:text-2xl font-bold text-white mt-0.5">
                       {currentMoodInsight.shelfTitle}
                     </h2>
@@ -6348,16 +6245,31 @@ export default function BrnsicMusicPage() {
                 </svg>
               </span>
             </div>
-            {currentTrack.lyrics.slice(0, 4).map((l, idx) => (
-              <div
-                key={idx}
-                className={`text-sm leading-snug ${
-                  idx === activeLyricIdx ? "text-white font-extrabold text-base" : "text-white/60"
-                }`}
-              >
-                {l.text}
-              </div>
-            ))}
+            {(() => {
+              const total = currentTrack.lyrics.length;
+              if (total === 0) return null;
+              // Sliding window of 4 lines that dynamically follows the song's playback progress
+              const startIdx = Math.max(0, Math.min(total - 4, activeLyricIdx - 1));
+              const sliceCount = Math.min(4, total);
+              const visible = currentTrack.lyrics.slice(startIdx, startIdx + sliceCount);
+
+              return visible.map((l, relIdx) => {
+                const actualIdx = startIdx + relIdx;
+                const isActive = actualIdx === activeLyricIdx;
+                return (
+                  <div
+                    key={`${actualIdx}-${l.time}`}
+                    className={`leading-snug transition-all duration-300 ${
+                      isActive
+                        ? "text-white font-extrabold text-base scale-[1.02] origin-left"
+                        : "text-white/50 font-medium text-sm"
+                    }`}
+                  >
+                    {l.text}
+                  </div>
+                );
+              });
+            })()}
           </div>
 
           {/* Smart Next Up Recommendation Preview */}
