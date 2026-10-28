@@ -144,8 +144,8 @@ public class DynamicIslandOverlay {
         String position = prefs.getString("overlay_position", "center");
         int offsetYExtra = prefs.getInt("overlay_offset_y", 0);
 
-        // Position slightly below top edge ("di bwahin dikit aja" - 11dp default)
-        int safeTopY = dpToPx(11) + offsetYExtra;
+        // Balanced top position for 40dp height pill
+        int safeTopY = dpToPx(9) + offsetYExtra;
 
         if ("left".equals(position)) {
             layoutParams.gravity = Gravity.TOP | Gravity.START;
@@ -312,19 +312,19 @@ public class DynamicIslandOverlay {
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
 
-        // Apple Dynamic Island exact elongated pill width & height ("lebarkan lagi & pendekan dikit")
-        int pillWidth = dpToPx(265);
-        int pillHeight = dpToPx(32);
+        // Apple Dynamic Island exact elongated pill width & height ("tidak kepanjangan & lebih tinggi")
+        int pillWidth = dpToPx(210);
+        int pillHeight = dpToPx(40);
         LinearLayout.LayoutParams pillParams = new LinearLayout.LayoutParams(pillWidth, pillHeight);
         pill.setLayoutParams(pillParams);
 
-        int padHoriz = dpToPx(9);
-        int padVert = dpToPx(4);
+        int padHoriz = dpToPx(10);
+        int padVert = dpToPx(5);
         pill.setPadding(padHoriz, padVert, padHoriz, padVert);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        bg.setCornerRadius(dpToPx(16));
+        bg.setCornerRadius(dpToPx(20));
         bg.setStroke(dpToPx(1), Color.parseColor("#33FFFFFF"));
         pill.setBackground(bg);
 
@@ -332,15 +332,15 @@ public class DynamicIslandOverlay {
             pill.setElevation(dpToPx(14));
         }
 
-        // Cover on Left (24dp x 24dp, rounded 6dp)
-        int coverSize = dpToPx(24);
+        // Cover on Left (28dp x 28dp, rounded 7dp)
+        int coverSize = dpToPx(28);
         collapsedCover = new ImageView(context);
         LinearLayout.LayoutParams coverParams = new LinearLayout.LayoutParams(coverSize, coverSize);
         collapsedCover.setLayoutParams(coverParams);
         collapsedCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         GradientDrawable coverBg = new GradientDrawable();
         coverBg.setColor(Color.parseColor("#222222"));
-        coverBg.setCornerRadius(dpToPx(6));
+        coverBg.setCornerRadius(dpToPx(7));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             collapsedCover.setClipToOutline(true);
         }
@@ -356,7 +356,7 @@ public class DynamicIslandOverlay {
 
         // Live Dancing Waveform on Right (Warm Amber/Orange or Green)
         collapsedWave = new WaveformView(context, Color.parseColor("#ffaa00"));
-        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(38), dpToPx(14));
+        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(42), dpToPx(18));
         collapsedWave.setLayoutParams(waveParams);
         pill.addView(collapsedWave);
 
