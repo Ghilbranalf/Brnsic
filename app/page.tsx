@@ -1531,8 +1531,17 @@ export default function BrnsicMusicPage() {
     setInstallStep("ready");
     if (typeof window !== "undefined") {
       try {
+        const apkUrl = "https://brnsic.vercel.app/Brnsic.apk";
+        if ((window as any).BrnsicNative?.downloadAndInstallUpdate) {
+          (window as any).BrnsicNative.downloadAndInstallUpdate(apkUrl);
+          return;
+        }
+        if ((window as any).BrnsicNative?.openExternalAuth) {
+          (window as any).BrnsicNative.openExternalAuth(apkUrl);
+          return;
+        }
         const link = document.createElement("a");
-        link.href = "/Brnsic.apk";
+        link.href = apkUrl;
         link.download = "Brnsic.apk";
         link.target = "_blank";
         document.body.appendChild(link);
@@ -1545,7 +1554,14 @@ export default function BrnsicMusicPage() {
 
   const handlePerformInstall = async () => {
     if (typeof window !== "undefined") {
-      window.location.href = "/Brnsic.apk";
+      const apkUrl = "https://brnsic.vercel.app/Brnsic.apk";
+      if ((window as any).BrnsicNative?.downloadAndInstallUpdate) {
+        (window as any).BrnsicNative.downloadAndInstallUpdate(apkUrl);
+      } else if ((window as any).BrnsicNative?.openExternalAuth) {
+        (window as any).BrnsicNative.openExternalAuth(apkUrl);
+      } else {
+        window.location.href = apkUrl;
+      }
     }
 
     if (deferredInstallPrompt) {
@@ -8427,13 +8443,33 @@ export default function BrnsicMusicPage() {
 
             <div className="w-full flex flex-col gap-2 mt-2">
               {isInsideNativeApk ? (
-                <a
-                  href="/Brnsic.apk"
-                  download="Brnsic.apk"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
                   onClick={() => {
-                    showToast("Mengunduh Brnsic.apk versi terbaru...");
+                    const apkUrl = "https://brnsic.vercel.app/Brnsic.apk";
+                    showToast("Membuka pengunduhan Brnsic.apk...");
+
+                    // 1. Try native downloadAndInstallUpdate (v3.4+)
+                    if (typeof window !== "undefined" && (window as any).BrnsicNative?.downloadAndInstallUpdate) {
+                      try {
+                        (window as any).BrnsicNative.downloadAndInstallUpdate(apkUrl);
+                        return;
+                      } catch (e) {}
+                    }
+
+                    // 2. Try native openExternalAuth (available in all installed versions v3.0+)
+                    if (typeof window !== "undefined" && (window as any).BrnsicNative?.openExternalAuth) {
+                      try {
+                        (window as any).BrnsicNative.openExternalAuth(apkUrl);
+                        return;
+                      } catch (e) {}
+                    }
+
+                    // 3. Fallback: window.open or location.href
+                    try {
+                      window.open(apkUrl, "_system");
+                    } catch (e) {}
+                    window.location.href = apkUrl;
                   }}
                   className="w-full py-3.5 px-5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(30,215,96,0.4)] cursor-pointer"
                 >
@@ -8442,8 +8478,8 @@ export default function BrnsicMusicPage() {
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                   </svg>
-                  <span>Unduh & Pasang Pembaruan APK</span>
-                </a>
+                  <span>Unduh &amp; Pasang Pembaruan APK</span>
+                </button>
               ) : (
                 <button
                   onClick={async () => {

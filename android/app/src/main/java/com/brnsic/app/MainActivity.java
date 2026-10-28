@@ -1,5 +1,6 @@
 package com.brnsic.app;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
@@ -267,8 +268,59 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public void downloadAndInstallUpdate(final String urlString) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    startApkDownload(urlString);
+                }
+            });
+        }
+
+        @JavascriptInterface
         public boolean isNativeApp() {
             return true;
+        }
+    }
+
+    public void startApkDownload(String urlString) {
+        try {
+            String fullUrl = urlString;
+            if (fullUrl == null || fullUrl.isEmpty()) {
+                fullUrl = "https://brnsic.vercel.app/Brnsic.apk";
+            } else if (!fullUrl.startsWith("http")) {
+                fullUrl = "https://brnsic.vercel.app" + (urlString.startsWith("/") ? urlString : "/" + urlString);
+            }
+
+            // 1. Android System DownloadManager
+            try {
+                android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(android.net.Uri.parse(fullUrl));
+                request.setTitle("Pembaruan Brnsic APK");
+                request.setDescription("Mengunduh Brnsic.apk versi terbaru...");
+                request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setMimeType("application/vnd.android.package-archive");
+                request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "Brnsic.apk");
+
+                android.app.DownloadManager downloadManager = (android.app.DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                if (downloadManager != null) {
+                    downloadManager.enqueue(request);
+                    android.widget.Toast.makeText(this, "Mengunduh pembaruan Brnsic.apk... Cek notifikasi Anda", android.widget.Toast.LENGTH_LONG).show();
+                }
+            } catch (Exception ignored) {}
+
+            // 2. Open directly in external browser as instant fallback
+            try {
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(fullUrl));
+                browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(browserIntent);
+            } catch (Exception ignored) {}
+
+        } catch (Exception e) {
+            try {
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://brnsic.vercel.app/Brnsic.apk"));
+                browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(browserIntent);
+            } catch (Exception ignored) {}
         }
     }
 
@@ -345,6 +397,14 @@ public class MainActivity extends BridgeActivity {
                     webSettings.setUserAgentString(currentUa + " BrnsicNative/1.0 BrnsicMobile/1.0");
                 }
                 webView.addJavascriptInterface(new NativeAudioBridge(), "BrnsicNative");
+
+                // DownloadListener so APK downloads trigger seamlessly
+                webView.setDownloadListener(new android.webkit.DownloadListener() {
+                    @Override
+                    public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType, long contentLength) {
+                        startApkDownload(url);
+                    }
+                });
             }
             getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
                 @Override
