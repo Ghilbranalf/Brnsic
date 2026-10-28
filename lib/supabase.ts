@@ -31,7 +31,22 @@ export const supabaseGetUserByEmail = async (email: string): Promise<User | null
     const row = rows[0];
 
     // Reconstruct into clean User object
-    const tasteRow = Array.isArray(row.user_taste) && row.user_taste.length > 0 ? row.user_taste[0] : null;
+    let tasteRow = Array.isArray(row.user_taste) && row.user_taste.length > 0 ? row.user_taste[0] : null;
+    if (!tasteRow) {
+      try {
+        const tRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_taste?user_id=eq.${encodeURIComponent(row.id)}`,
+          { headers: getHeaders(), cache: "no-store" }
+        );
+        if (tRes.ok) {
+          const tRows = await tRes.json();
+          if (Array.isArray(tRows) && tRows.length > 0) {
+            tasteRow = tRows[0];
+          }
+        }
+      } catch (e) {}
+    }
+
     const taste: TasteProfile = tasteRow
       ? {
           userSeed: `brnsic-${row.id}`,
@@ -40,7 +55,8 @@ export const supabaseGetUserByEmail = async (email: string): Promise<User | null
           genreWeights: tasteRow.genre_weights || {},
           playCounts: tasteRow.play_counts || {},
           likedArtists: tasteRow.liked_artists || [],
-          totalPlays: tasteRow.total_plays || 0
+          totalPlays: tasteRow.total_plays || 0,
+          moodState: tasteRow.mood_state || undefined
         }
       : {
           userSeed: `brnsic-${row.id}`,
@@ -53,7 +69,30 @@ export const supabaseGetUserByEmail = async (email: string): Promise<User | null
         };
 
     const likedSongs = Array.isArray(row.user_likes) ? row.user_likes.map((l: any) => l.song_id) : [];
-    const playlists = Array.isArray(row.user_playlists) ? row.user_playlists : [];
+
+    let rawPlaylists = Array.isArray(row.user_playlists) ? row.user_playlists : [];
+    if (rawPlaylists.length === 0) {
+      try {
+        const plRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_playlists?user_id=eq.${encodeURIComponent(row.id)}`,
+          { headers: getHeaders(), cache: "no-store" }
+        );
+        if (plRes.ok) {
+          const directRows = await plRes.json();
+          if (Array.isArray(directRows) && directRows.length > 0) {
+            rawPlaylists = directRows;
+          }
+        }
+      } catch (e) {}
+    }
+
+    const playlists = rawPlaylists.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      cover: p.cover || "",
+      songs: Array.isArray(p.songs) ? p.songs : [],
+      createdAt: p.created_at ? new Date(p.created_at).getTime() : (p.createdAt || Date.now())
+    }));
 
     let history: UserActivity[] = [];
     try {
@@ -112,7 +151,22 @@ export const supabaseGetUserById = async (id: string): Promise<User | null> => {
     if (!rows || rows.length === 0) return null;
     const row = rows[0];
 
-    const tasteRow = Array.isArray(row.user_taste) && row.user_taste.length > 0 ? row.user_taste[0] : null;
+    let tasteRow = Array.isArray(row.user_taste) && row.user_taste.length > 0 ? row.user_taste[0] : null;
+    if (!tasteRow) {
+      try {
+        const tRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_taste?user_id=eq.${encodeURIComponent(row.id)}`,
+          { headers: getHeaders(), cache: "no-store" }
+        );
+        if (tRes.ok) {
+          const tRows = await tRes.json();
+          if (Array.isArray(tRows) && tRows.length > 0) {
+            tasteRow = tRows[0];
+          }
+        }
+      } catch (e) {}
+    }
+
     const taste: TasteProfile = tasteRow
       ? {
           userSeed: `brnsic-${row.id}`,
@@ -121,7 +175,8 @@ export const supabaseGetUserById = async (id: string): Promise<User | null> => {
           genreWeights: tasteRow.genre_weights || {},
           playCounts: tasteRow.play_counts || {},
           likedArtists: tasteRow.liked_artists || [],
-          totalPlays: tasteRow.total_plays || 0
+          totalPlays: tasteRow.total_plays || 0,
+          moodState: tasteRow.mood_state || undefined
         }
       : {
           userSeed: `brnsic-${row.id}`,
@@ -134,7 +189,30 @@ export const supabaseGetUserById = async (id: string): Promise<User | null> => {
         };
 
     const likedSongs = Array.isArray(row.user_likes) ? row.user_likes.map((l: any) => l.song_id) : [];
-    const playlists = Array.isArray(row.user_playlists) ? row.user_playlists : [];
+
+    let rawPlaylists = Array.isArray(row.user_playlists) ? row.user_playlists : [];
+    if (rawPlaylists.length === 0) {
+      try {
+        const plRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_playlists?user_id=eq.${encodeURIComponent(row.id)}`,
+          { headers: getHeaders(), cache: "no-store" }
+        );
+        if (plRes.ok) {
+          const directRows = await plRes.json();
+          if (Array.isArray(directRows) && directRows.length > 0) {
+            rawPlaylists = directRows;
+          }
+        }
+      } catch (e) {}
+    }
+
+    const playlists = rawPlaylists.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      cover: p.cover || "",
+      songs: Array.isArray(p.songs) ? p.songs : [],
+      createdAt: p.created_at ? new Date(p.created_at).getTime() : (p.createdAt || Date.now())
+    }));
 
     let history: UserActivity[] = [];
     try {

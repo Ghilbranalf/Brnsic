@@ -157,6 +157,16 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public String getAppVersion() {
+            return "3.3.0";
+        }
+
+        @JavascriptInterface
+        public int getAppVersionCode() {
+            return 2;
+        }
+
+        @JavascriptInterface
         public void requestBatteryOptimizationExemption() {
             runOnUiThread(new Runnable() {
                 @Override

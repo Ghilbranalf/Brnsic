@@ -27,6 +27,9 @@ export interface TasteProfile {
   playCounts: Record<string, number>;
   likedArtists: string[];
   totalPlays: number;
+  moodState?: string;
+  moodAffinity?: Record<string, number>;
+  topArtist?: string;
 }
 
 export interface UserActivity {

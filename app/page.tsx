@@ -6,6 +6,8 @@ import {
   buildUserTasteVector,
   trainUserVectorOnInteraction,
   rankTracksByDeepLearning,
+  detectUserMood,
+  type MoodInsight,
   type FeatureVector
 } from "@/lib/recommendation";
 
@@ -1258,7 +1260,14 @@ export default function BrnsicMusicPage() {
 
   // 12. Update Popup State
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
-  const [updateInfo, setUpdateInfo] = useState<{ version: string; title: string; notes: string } | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<{
+    version: string;
+    title: string;
+    notes: string;
+    apkSize?: string;
+    minVersionCode?: number;
+    forceUpdate?: boolean;
+  } | null>(null);
 
   // 13. Dynamic User Taste Profile (Personalized Learning Engine)
   const [userTaste, setUserTaste] = useState<TasteProfile>(DEFAULT_INITIAL_TASTE);
@@ -1296,7 +1305,18 @@ export default function BrnsicMusicPage() {
   // 17. Real PWA Install Step State
   const [installStep, setInstallStep] = useState<"downloading" | "ready" | "installed" | "ios_guide">("downloading");
 
-  // 18. Memoized Home ML Recommended Shelf (Zero main-thread jank during scrolling & playback)
+  // User Top Artist learned from Supabase Taste Profile & Listening History
+  const topArtistName = useMemo(() => {
+    const entries = Object.entries(userTaste?.artistWeights || {}).sort((a, b) => b[1] - a[1]);
+    return entries.length > 0 && entries[0][1] > 0 ? entries[0][0] : null;
+  }, [userTaste?.artistWeights]);
+
+  // Real-time AI Mood Sentiment & Listening Habit Analyzer (Detects melancholy, nostalgia, energy, chill)
+  const currentMoodInsight: MoodInsight = useMemo(() => {
+    return detectUserMood(userTasteVector, topArtistName, userTaste?.totalPlays || 0);
+  }, [userTasteVector, topArtistName, userTaste?.totalPlays]);
+
+  // 18. Memoized Home ML Recommended Shelf (Adaptive Deep Learning + Real-time Mood Alignment)
   const homeMlRanked = useMemo(() => {
     const rawPool = [
       ...DEFAULT_CATALOG,
@@ -1315,13 +1335,13 @@ export default function BrnsicMusicPage() {
       }
     }
     return rankTracksByDeepLearning(
-      userTasteVector,
+      currentMoodInsight.targetVector || userTasteVector,
       uniquePool,
       recentHistoryRef.current,
       dislikedSongIds,
       24
     );
-  }, [mostPlayedIndonesia, indonesiaTop50, viralIndonesia, relatedQueue, userTasteVector, dislikedSongIds]);
+  }, [mostPlayedIndonesia, indonesiaTop50, viralIndonesia, relatedQueue, userTasteVector, dislikedSongIds, currentMoodInsight]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
@@ -1453,17 +1473,30 @@ export default function BrnsicMusicPage() {
     };
     window.addEventListener("appinstalled", onAppInstalled);
 
-    // Automatic Update Check via /api/version
+    // Automatic Update Check via /api/version (Force Update for Outdated APK Versions)
     const checkAppVersion = async () => {
       try {
         const res = await fetch(`/api/version?t=${Date.now()}`, { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
+          setUpdateInfo(data);
+
+          const nativeCode = (window as any).BrnsicNative?.getAppVersionCode?.() ?? null;
+          const nativeVer = (window as any).BrnsicNative?.getAppVersion?.() ?? null;
           const storedVer = localStorage.getItem("brnsic_app_version");
+
+          // 1. Android APK Native Version Guard: Block older APK versions unconditionally
+          if (nativeCode !== null) {
+            if (data.minVersionCode && nativeCode < data.minVersionCode) {
+              setIsUpdateModalOpen(true);
+              return;
+            }
+          }
+
+          // 2. Web version guard
           if (!storedVer) {
             localStorage.setItem("brnsic_app_version", data.version);
           } else if (storedVer !== data.version) {
-            setUpdateInfo(data);
             setIsUpdateModalOpen(true);
           }
         }
@@ -2056,11 +2089,18 @@ export default function BrnsicMusicPage() {
       )
     );
 
-    // Also persist interaction to Supabase / Backend Activity Log
+    // Also persist interaction to Supabase / Backend Activity Log & Online AI Learning
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       fetch("/api/user/activity", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
+        credentials: "include",
         body: JSON.stringify({
           songId,
           title: song.title || song.trackName,
@@ -2075,6 +2115,9 @@ export default function BrnsicMusicPage() {
         .then((data) => {
           if (data?.taste) {
             setUserTaste(data.taste);
+            try {
+              localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.taste));
+            } catch (e) {}
           }
           if (data?.user) {
             setCurrentUser(data.user);
@@ -2849,10 +2892,10 @@ export default function BrnsicMusicPage() {
 
   // 6. Precise Audio Time & Real Duration Polling (Intelligent Adaptive Interval)
   useEffect(() => {
-    // Only poll fast (150ms) if user is actively viewing lyrics or the expanded seekbar player!
+    // Only poll ultra-fast (50ms) if user is actively viewing lyrics or the expanded seekbar player!
     // When browsing / scrolling the home screen, poll at 1000ms so scrolling never drops frames!
     const isHighPrecisionNeeded = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics";
-    const pollInterval = isHighPrecisionNeeded ? 150 : 1000;
+    const pollInterval = isHighPrecisionNeeded ? 50 : 1000;
 
     const timer = setInterval(() => {
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
@@ -3138,7 +3181,7 @@ export default function BrnsicMusicPage() {
     if (song.lyrics && song.lyrics.length > 5) {
       setCurrentTrack((prev) => ({ ...prev, lyrics: song.lyrics }));
     }
-    fetch(`/api/lyrics?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
+    fetch(`/api/lyrics?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}&duration=${song.duration || 210}`)
       .then((r) => r.json())
       .then((d) => {
         if (currentRequestId !== playRequestIdRef.current) return;
@@ -3808,9 +3851,9 @@ export default function BrnsicMusicPage() {
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
-  // Precise lyric index with calibrated vocal anticipation offset (perfect vocal sync, no delay)
+  // Precise lyric index with calibrated vocal anticipation offset (perfect vocal sync, no delay, exact studio timing)
   let activeLyricIdx = 0;
-  const vocalTime = currentTime + 0.30;
+  const vocalTime = currentTime + 0.05;
   currentTrack.lyrics.forEach((line, idx) => {
     if (vocalTime >= line.time) activeLyricIdx = idx;
   });
@@ -5269,19 +5312,22 @@ export default function BrnsicMusicPage() {
                 ))}
               </section>
 
-              {/* SHELF 0: DIBUAT KHUSUS UNTUK KAMU (PERSONALIZED TASTE SHELF) */}
+              {/* SHELF 0: DIBUAT KHUSUS UNTUK KAMU (PERSONALIZED TASTE & MOOD INTELLIGENCE) */}
               <section>
                 <div className="flex items-end justify-between mb-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse"></span>
                       <span className="text-[10px] font-black uppercase tracking-widest text-[#1ed760]">
-                        DIBUAT KHUSUS UNTUKMU
+                        {currentMoodInsight.badgeText}
                       </span>
                     </div>
                     <h2 className="text-xl sm:text-2xl font-bold text-white mt-0.5">
-                      Rekomendasi Berdasarkan Seleramu
+                      {currentMoodInsight.shelfTitle}
                     </h2>
+                    <p className="text-xs text-[#b3b3b3] mt-1">
+                      {currentMoodInsight.shelfDescription}
+                    </p>
                   </div>
                 </div>
 
@@ -7709,35 +7755,6 @@ export default function BrnsicMusicPage() {
                 </button>
               )}
 
-              <button
-                onClick={async () => {
-                  showToast("Memperbarui dan membersihkan cache");
-                  try {
-                    if ("caches" in window) {
-                      const keys = await caches.keys();
-                      await Promise.all(keys.map((k) => caches.delete(k)));
-                    }
-                    if ("serviceWorker" in navigator) {
-                      const regs = await navigator.serviceWorker.getRegistrations();
-                      for (const reg of regs) {
-                        await reg.unregister();
-                      }
-                    }
-                    localStorage.removeItem("brnsic_app_version");
-                  } catch (e) {}
-                  setTimeout(() => {
-                    window.location.reload();
-                  }, 400);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between"
-              >
-                <span>Perbarui Versi Aplikasi</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="23 4 23 10 17 10"></polyline>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                </svg>
-              </button>
-
               {!currentUser ? (
                 <button
                   onClick={() => {
@@ -8042,7 +8059,7 @@ export default function BrnsicMusicPage() {
                 <div className="flex items-center justify-center gap-2 text-[11px] text-[#b3b3b3] font-medium">
                   <span>Android</span>
                   <span>•</span>
-                  <span>8.6 MB</span>
+                  <span>{updateInfo?.apkSize || "8.9 MB"}</span>
                   <span>•</span>
                   <span>Gratis</span>
                 </div>
@@ -8117,71 +8134,89 @@ export default function BrnsicMusicPage() {
       )}
 
       {/* ====================================================================
-          11. MODAL: NOTIFIKASI UPDATE / PEMBARUAN APLIKASI (USER REQUEST)
+          11. MODAL: NOTIFIKASI UPDATE WAJIB / FORCE UPDATE (UNCLOSABLE)
           ==================================================================== */}
       {isUpdateModalOpen && updateInfo && (
         <div
-          onClick={() => setIsUpdateModalOpen(false)}
-          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+          className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 select-none animate-fadeIn"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xs liquid-glass rounded-3xl p-5 flex flex-col items-center gap-3 border border-white/10 shadow-2xl relative text-center"
+            className="w-full max-w-sm liquid-glass rounded-3xl p-6 sm:p-7 flex flex-col items-center gap-4 border border-[#1ed760]/30 shadow-[0_0_50px_rgba(30,215,96,0.2)] relative text-center"
           >
             {/* Ambient Logo Glow */}
-            <div className="relative flex items-center justify-center my-1">
-              <div className="absolute inset-0 rounded-full bg-[#1ed760]/20 blur-xl"></div>
+            <div className="relative flex items-center justify-center my-2">
+              <div className="absolute inset-0 rounded-full bg-[#1ed760]/30 blur-2xl scale-125"></div>
               <img
                 src="/brnsic-loader-logo.png"
                 alt="Brnsic Logo"
-                className="w-12 h-12 object-contain relative z-10"
+                className="w-16 h-16 object-contain relative z-10 drop-shadow-[0_4px_20px_rgba(30,215,96,0.5)]"
               />
             </div>
 
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#1ed760] bg-[#1ed760]/10 border border-[#1ed760]/25 px-2.5 py-0.5 rounded-full inline-block mb-1.5">
-                Pembaruan • v{updateInfo.version}
+              <span className="text-[11px] font-black uppercase tracking-widest text-[#1ed760] bg-[#1ed760]/15 border border-[#1ed760]/30 px-3 py-1 rounded-full inline-block mb-2">
+                Pembaruan Wajib • v{updateInfo.version}
               </span>
-              <h2 className="text-base font-bold text-white">{updateInfo.title || "Pembaruan Siap Digunakan"}</h2>
-              <p className="text-xs text-[#b3b3b3] mt-1 leading-snug">
-                {updateInfo.notes || "Pembaruan performa dan stabilitas sistem."}
+              <h2 className="text-xl font-extrabold text-white">{updateInfo.title || "Pembaruan Aplikasi Diperlukan"}</h2>
+              <p className="text-xs text-[#b3b3b3] mt-2 leading-relaxed">
+                {updateInfo.notes || "Versi lama telah dinonaktifkan demi stabilitas pemutaran musik dan sinkronisasi playlist."}
               </p>
+              <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-[#888] font-semibold">
+                <span>Android</span>
+                <span>•</span>
+                <span>{updateInfo.apkSize || "8.9 MB"}</span>
+                <span>•</span>
+                <span>Wajib Diperbarui</span>
+              </div>
             </div>
 
-            <div className="w-full flex flex-col gap-2 mt-1">
-              <button
-                onClick={async () => {
-                  try {
-                    localStorage.setItem("brnsic_app_version", updateInfo.version);
-                    if ("caches" in window) {
-                      const keys = await caches.keys();
-                      await Promise.all(keys.map((k) => caches.delete(k)));
-                    }
-                    if ("serviceWorker" in navigator) {
-                      const regs = await navigator.serviceWorker.getRegistrations();
-                      for (const reg of regs) {
-                        await reg.update().catch(() => {});
+            <div className="w-full flex flex-col gap-2 mt-2">
+              {isInsideNativeApk ? (
+                <a
+                  href="/Brnsic.apk"
+                  download="Brnsic.apk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    showToast("Mengunduh Brnsic.apk versi terbaru...");
+                  }}
+                  className="w-full py-3.5 px-5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(30,215,96,0.4)] cursor-pointer"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Unduh & Pasang Pembaruan APK</span>
+                </a>
+              ) : (
+                <button
+                  onClick={async () => {
+                    try {
+                      localStorage.setItem("brnsic_app_version", updateInfo.version);
+                      if ("caches" in window) {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map((k) => caches.delete(k)));
                       }
-                    }
-                  } catch (e) {}
-                  setIsUpdateModalOpen(false);
-                  window.location.reload();
-                }}
-                className="w-full py-2.5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs hover:scale-105 active:scale-95 transition shadow-[0_0_15px_rgba(30,215,96,0.3)] flex items-center justify-center gap-1.5"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="23 4 23 10 17 10"></polyline>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                </svg>
-                <span>Perbarui Sekarang</span>
-              </button>
-
-              <button
-                onClick={() => setIsUpdateModalOpen(false)}
-                className="w-full py-1.5 rounded-full text-white/50 hover:text-white font-medium text-xs transition"
-              >
-                Nanti
-              </button>
+                      if ("serviceWorker" in navigator) {
+                        const regs = await navigator.serviceWorker.getRegistrations();
+                        for (const reg of regs) {
+                          await reg.update().catch(() => {});
+                        }
+                      }
+                    } catch (e) {}
+                    window.location.reload();
+                  }}
+                  className="w-full py-3.5 px-5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(30,215,96,0.4)] cursor-pointer"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                  <span>Perbarui Aplikasi Sekarang</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -72,7 +72,16 @@ export const ARTIST_EMBEDDINGS: Record<string, FeatureVector> = {
   "barasuara": [0.3, 0.95, 0.5, 0.6, 0.3, 0.9, 0.95, 0.0, 0.3, 0.2, 0.3, 0.8],
   "padi": [0.35, 0.8, 0.6, 0.55, 0.4, 0.2, 0.95, 0.0, 0.2, 0.2, 0.95, 0.6],
   "noah": [0.35, 0.85, 0.65, 0.6, 0.7, 0.3, 0.95, 0.0, 0.2, 0.2, 0.95, 0.75],
+  "peterpan": [0.35, 0.85, 0.65, 0.6, 0.7, 0.3, 0.95, 0.0, 0.2, 0.2, 0.95, 0.75],
   "ari lasso": [0.4, 0.8, 0.5, 0.5, 0.6, 0.2, 0.95, 0.0, 0.2, 0.2, 0.95, 0.6],
+  "anji": [0.6, 0.55, 0.35, 0.5, 0.9, 0.4, 0.3, 0.0, 0.4, 0.2, 0.4, 0.85],
+  "melly mono": [0.65, 0.5, 0.3, 0.45, 0.9, 0.4, 0.2, 0.0, 0.4, 0.2, 0.3, 0.85],
+  "the lantis": [0.55, 0.75, 0.6, 0.65, 0.7, 0.85, 0.7, 0.0, 0.4, 0.2, 0.4, 0.9],
+  "d'masiv": [0.5, 0.75, 0.35, 0.5, 0.9, 0.3, 0.7, 0.0, 0.3, 0.2, 0.8, 0.8],
+  "letto": [0.6, 0.65, 0.45, 0.5, 0.8, 0.6, 0.8, 0.0, 0.3, 0.2, 0.85, 0.7],
+  "ungu": [0.45, 0.8, 0.5, 0.6, 0.85, 0.2, 0.9, 0.0, 0.3, 0.2, 0.9, 0.75],
+  "kerispatih": [0.6, 0.7, 0.35, 0.5, 0.9, 0.2, 0.6, 0.0, 0.4, 0.2, 0.85, 0.75],
+  "naif": [0.45, 0.8, 0.75, 0.7, 0.6, 0.4, 0.9, 0.0, 0.3, 0.2, 0.9, 0.7],
   "gilga sahid": [0.3, 0.85, 0.75, 0.9, 0.6, 0.1, 0.3, 1.0, 0.1, 0.0, 0.3, 0.9],
   "ndarboy genk": [0.35, 0.85, 0.7, 0.9, 0.6, 0.2, 0.3, 1.0, 0.1, 0.0, 0.3, 0.85],
   "woro widowati": [0.6, 0.7, 0.6, 0.8, 0.6, 0.3, 0.2, 0.95, 0.2, 0.0, 0.3, 0.8],
@@ -210,4 +219,82 @@ export function rankTracksByDeepLearning(
 
   scored.sort((a, b) => b.finalScore - a.finalScore);
   return scored.slice(0, count).map((s) => s.track);
+}
+
+export interface MoodInsight {
+  moodKey: "melancholy" | "nostalgia" | "energetic" | "chill" | "pop_indonesia" | "neutral";
+  badgeText: string;
+  shelfTitle: string;
+  shelfDescription: string;
+  targetVector: FeatureVector;
+}
+
+export function detectUserMood(
+  userVector: FeatureVector,
+  topArtist?: string | null,
+  totalPlays: number = 0
+): MoodInsight {
+  const acoustic = userVector[0];
+  const energy = userVector[1];
+  const valence = userVector[2]; // Low valence = sad/melancholy/galau
+  const popIndo = userVector[4];
+  const indie = userVector[5];
+  const rockNostalgia = userVector[6];
+  const dangdut = userVector[7];
+  const globalPop = userVector[9];
+
+  // 1. Sad / Melancholy / Galau Mood: low valence + high pop/indie
+  if (valence < 0.44 || (indie > 0.6 && valence < 0.5)) {
+    return {
+      moodKey: "melancholy",
+      badgeText: "Deteksi Mood AI • Melankolis & Galau",
+      shelfTitle: "Lagu Penenang Suasana Hatimu",
+      shelfDescription: "Algoritma mendeteksi kamu sedang memutar banyak lagu sendu dan reflektif hari ini.",
+      targetVector: [0.75, 0.4, 0.2, 0.4, 0.95, 0.9, 0.2, 0.0, 0.3, 0.2, 0.3, 0.85]
+    };
+  }
+
+  // 2. Nostalgia & Band Legend: e.g. Sheila On 7, Dewa 19, Peterpan
+  if (rockNostalgia > 0.55 || (topArtist && /sheila|dewa|peterpan|padi|noah|naif|ungu/i.test(topArtist))) {
+    const artistLabel = topArtist || "Sheila On 7";
+    return {
+      moodKey: "nostalgia",
+      badgeText: `AI Intelligence • Favoritmu: ${artistLabel}`,
+      shelfTitle: `Karena Kamu Sering Memutar ${artistLabel}`,
+      shelfDescription: `Dipelajari oleh algoritma: Racikan terbaik dari ${artistLabel} dan era lagu nostalgia favoritmu.`,
+      targetVector: [0.35, 0.8, 0.65, 0.6, 0.6, 0.3, 0.95, 0.0, 0.2, 0.2, 0.95, 0.7]
+    };
+  }
+
+  // 3. Energetic / Upbeat: high energy + dangdut or global pop
+  if (energy > 0.75 || dangdut > 0.6) {
+    return {
+      moodKey: "energetic",
+      badgeText: "Deteksi Mood AI • Energi & Semangat",
+      shelfTitle: "Pembangkit Mood & Semangat Hari Ini",
+      shelfDescription: "Irama penuh energi dan tempo bersemangat untuk menemani harimu.",
+      targetVector: [0.25, 0.9, 0.85, 0.95, 0.6, 0.1, 0.3, 0.95, 0.5, 0.6, 0.3, 0.9]
+    };
+  }
+
+  // 4. Chill & Akustik Senja: high acousticness
+  if (acoustic > 0.65 || indie > 0.65) {
+    return {
+      moodKey: "chill",
+      badgeText: "Deteksi Mood AI • Akustik & Senja",
+      shelfTitle: "Rehat Sejenak • Akustik & Puisi Senja",
+      shelfDescription: "Harmoni hangat dan petikan gitar akustik yang menenangkan jiwa.",
+      targetVector: [0.9, 0.4, 0.45, 0.45, 0.5, 0.95, 0.2, 0.0, 0.4, 0.2, 0.2, 0.75]
+    };
+  }
+
+  // Default: Personalized AI Taste Shelf
+  const artistText = topArtist ? ` • Favorit: ${topArtist}` : "";
+  return {
+    moodKey: "neutral",
+    badgeText: `AI Taste Intelligence${artistText}`,
+    shelfTitle: topArtist ? `Spesial Untukmu & Fans ${topArtist}` : "Dibuat Khusus Berdasarkan Seleramu",
+    shelfDescription: "Dipelajari oleh AI Brnsic di Supabase dari setiap lagu yang kamu nikmati.",
+    targetVector: userVector
+  };
 }
