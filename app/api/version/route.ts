@@ -15,12 +15,12 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "3.9.5",
-    versionCode: 13,
-    minVersionCode: 13,
+    version: "3.9.6",
+    versionCode: 14,
+    minVersionCode: 14,
     releaseDate: "2026-10-29",
-    title: "Pembaruan Brnsic v3.9.5",
-    notes: "Dynamic Island tetap di paling atas (6dp) & 100% responsif diklik dengan Cutout Display Mode & Immediate Touch Consumer.",
+    title: "Pembaruan Brnsic v3.9.6",
+    notes: "Tebal kapsul Dynamic Island diturunkan ke 44dp dan posisi top disetel 12dp agar bagian paling atas bisa diklik tanpa terserap status bar.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: true,
