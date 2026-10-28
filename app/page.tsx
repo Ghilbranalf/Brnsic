@@ -1305,16 +1305,6 @@ export default function BrnsicMusicPage() {
   // 17. Real PWA Install Step State
   const [installStep, setInstallStep] = useState<"downloading" | "ready" | "installed" | "ios_guide">("downloading");
 
-  // 18. Dynamic Island (Apple/Spotify Fluid Floating Capsule)
-  const [isDynamicIslandExpanded, setIsDynamicIslandExpanded] = useState<boolean>(false);
-  const [isDynamicIslandDismissed, setIsDynamicIslandDismissed] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (isMobilePlayerOpen || isZoomed) {
-      setIsDynamicIslandExpanded(false);
-    }
-  }, [isMobilePlayerOpen, isZoomed]);
-
   // User Top Artist learned from Supabase Taste Profile & Listening History
   const topArtistName = useMemo(() => {
     const entries = Object.entries(userTaste?.artistWeights || {}).sort((a, b) => b[1] - a[1]);
@@ -1363,6 +1353,7 @@ export default function BrnsicMusicPage() {
   const playNextSongRef = useRef<(userTriggered?: boolean) => void>(() => {});
   const handleSeekSecondsRef = useRef<(sec: number) => void>(() => {});
   const toggleLikeRef = useRef<(id: string) => void>(() => {});
+  const checkAppVersionRef = useRef<() => void>(() => {});
   const hasTriggeredEndRef = useRef<boolean>(false);
 
   // Back Navigation & Modal State Refs for Android hardware Back & browser popstate
@@ -1495,19 +1486,33 @@ export default function BrnsicMusicPage() {
           const data = await res.json();
           setUpdateInfo(data);
 
-          const nativeCode = (window as any).BrnsicNative?.getAppVersionCode?.() ?? null;
-          const nativeVer = (window as any).BrnsicNative?.getAppVersion?.() ?? null;
-          const storedVer = localStorage.getItem("brnsic_app_version");
+          const isNative =
+            Boolean((window as any).BrnsicNative) ||
+            (typeof navigator !== "undefined" && navigator.userAgent.includes("BrnsicNative")) ||
+            Boolean((window as any).Capacitor?.isNativePlatform?.()) ||
+            (window as any).Capacitor?.getPlatform?.() === "android";
 
-          // 1. Android APK Native Version Guard: Block older APK versions unconditionally
-          if (nativeCode !== null) {
-            if (data.minVersionCode && nativeCode < data.minVersionCode) {
-              setIsUpdateModalOpen(true);
+          // 1. Android APK Native Version Guard: Ground truth is nativeCode
+          if (isNative) {
+            const nativeCode = (window as any).BrnsicNative?.getAppVersionCode?.() ?? null;
+            if (nativeCode === null) {
+              // Native bridge still binding; retry shortly without prematurely locking modal
+              setTimeout(checkAppVersion, 400);
               return;
             }
+
+            if (data.minVersionCode && nativeCode < data.minVersionCode) {
+              setIsUpdateModalOpen(true);
+            } else {
+              // The APK is up to date!
+              localStorage.setItem("brnsic_app_version", data.version);
+              setIsUpdateModalOpen(false);
+            }
+            return;
           }
 
-          // 2. Web version guard
+          // 2. Web version guard (Browser / PWA)
+          const storedVer = localStorage.getItem("brnsic_app_version");
           if (!storedVer) {
             localStorage.setItem("brnsic_app_version", data.version);
           } else if (storedVer !== data.version) {
@@ -1516,6 +1521,7 @@ export default function BrnsicMusicPage() {
         }
       } catch (e) {}
     };
+    checkAppVersionRef.current = checkAppVersion;
     checkAppVersion();
     const updateInterval = setInterval(checkAppVersion, 25000);
 
@@ -3215,7 +3221,6 @@ export default function BrnsicMusicPage() {
     const startAudio = (vid: string) => {
       if (currentRequestId !== playRequestIdRef.current) return;
       isUserExplicitlyPausedRef.current = false;
-      setIsDynamicIslandDismissed(false);
       setCurrentTrack((prev) => ({ ...prev, youtubeId: vid }));
       setIsPlaying(true);
       isPlayingRef.current = true;
@@ -6633,242 +6638,6 @@ export default function BrnsicMusicPage() {
       </footer>
 
       {/* ====================================================================
-          3.5. APPLE / SPOTIFY LUXURY DYNAMIC ISLAND (TOP FLOATING CAPSULE)
-          ==================================================================== */}
-      {hasUserStartedPlayback && !isDynamicIslandDismissed && !isMobilePlayerOpen && !isZoomed && (
-        <>
-          {/* Subtle dim backdrop when Dynamic Island is fully expanded */}
-          {isDynamicIslandExpanded && (
-            <div
-              onClick={() => setIsDynamicIslandExpanded(false)}
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
-            />
-          )}
-
-          {/* Dynamic Island Floating Container */}
-          <div
-            className={`fixed top-2.5 sm:top-3.5 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] select-none ${
-              isDynamicIslandExpanded
-                ? "w-[92vw] max-w-[370px]"
-                : "w-auto max-w-[90vw]"
-            }`}
-          >
-            {/* Outer Shell / Double-Bezel Architecture */}
-            <div
-              onClick={() => {
-                if (!isDynamicIslandExpanded) setIsDynamicIslandExpanded(true);
-              }}
-              className={`relative bg-black/95 backdrop-blur-3xl ring-1 ring-white/20 shadow-[0_16px_50px_rgba(0,0,0,0.9)] cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden ${
-                isDynamicIslandExpanded
-                  ? "rounded-[2rem] p-4 bg-gradient-to-b from-[#161616]/95 via-black/95 to-[#0b0b0b]/95 ring-white/25"
-                  : "rounded-full px-3.5 py-1.5 flex items-center gap-2.5 hover:ring-white/35 hover:scale-[1.03] active:scale-[0.97]"
-              }`}
-            >
-              {!isDynamicIslandExpanded ? (
-                /* --- COLLAPSED COMPACT PILL MODE --- */
-                <>
-                  {/* Left: Mini Spinning Vinyl Cover */}
-                  <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-white/25 shadow">
-                    <img
-                      src={currentTrack.cover}
-                      alt="thumb"
-                      onError={handleImgError}
-                      className={`w-full h-full object-cover ${isPlaying ? "animate-spin-slow" : ""}`}
-                    />
-                    <div className="absolute inset-0 m-auto w-1.5 h-1.5 rounded-full bg-black ring-1 ring-white/40" />
-                  </div>
-
-                  {/* Center: Track Title & Artist */}
-                  <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                    <span className="text-[12px] font-bold text-white truncate max-w-[105px] sm:max-w-[150px]">
-                      {currentTrack.title}
-                    </span>
-                    <span className="text-[11px] text-white/50 truncate max-w-[90px] hidden xs:inline">
-                      • {currentTrack.artist}
-                    </span>
-                  </div>
-
-                  {/* Right: Live Dancing Equalizer Waveform Bars */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0 pl-0.5">
-                    {isPlaying ? (
-                      <div className="flex items-end gap-[2px] h-3">
-                        <span className="w-[2.5px] bg-[#1ed760] bar-1 rounded-full shadow-[0_0_8px_rgba(30,215,96,0.9)]" />
-                        <span className="w-[2.5px] bg-[#1ed760] bar-2 rounded-full shadow-[0_0_8px_rgba(30,215,96,0.9)]" />
-                        <span className="w-[2.5px] bg-[#1ed760] bar-3 rounded-full shadow-[0_0_8px_rgba(30,215,96,0.9)]" />
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-[2px] h-3 opacity-40">
-                        <span className="w-[2.5px] h-1 bg-white rounded-full" />
-                        <span className="w-[2.5px] h-1 bg-white rounded-full" />
-                        <span className="w-[2.5px] h-1 bg-white rounded-full" />
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                /* --- EXPANDED LUXURY CARD MODE --- */
-                <div className="flex flex-col w-full">
-                  {/* Top Bar: Cover, Titles & Quick Actions */}
-                  <div className="flex items-center justify-between gap-3">
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMobilePlayerOpen(true);
-                        setIsDynamicIslandExpanded(false);
-                      }}
-                      className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
-                      title="Buka Layar Penuh"
-                    >
-                      <div className="relative w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-white/20 shadow-md group-hover:scale-105 transition">
-                        <img
-                          src={currentTrack.cover}
-                          alt="art"
-                          onError={handleImgError}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-black text-white truncate group-hover:text-[#1ed760] transition">
-                          {currentTrack.title}
-                        </div>
-                        <div className="text-xs text-[#b3b3b3] truncate mt-0.5">
-                          {currentTrack.artist}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      {/* Lyrics Button */}
-                      <button
-                        onClick={() => {
-                          setIsZoomed(true);
-                          setIsDynamicIslandExpanded(false);
-                        }}
-                        className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-bold text-white flex items-center gap-1 transition active:scale-95"
-                        title="Buka Lirik"
-                      >
-                        <span>Lirik</span>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <polyline points="15 3 21 3 21 9"></polyline>
-                          <line x1="21" y1="3" x2="14" y2="10"></line>
-                        </svg>
-                      </button>
-
-                      {/* Collapse Button */}
-                      <button
-                        onClick={() => setIsDynamicIslandExpanded(false)}
-                        className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition active:scale-90"
-                        title="Kecilkan Dynamic Island"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <polyline points="18 15 12 9 6 15"></polyline>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Middle Row: Live Scrubbable Seekbar & Timestamps */}
-                  <div className="my-3 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-                    <div
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const clickX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-                        const pct = clickX / rect.width;
-                        const targetSec = Math.round(pct * getActiveDuration());
-                        handleSeekSeconds(targetSec);
-                      }}
-                      className="h-2 w-full bg-white/15 hover:bg-white/25 rounded-full cursor-pointer relative overflow-hidden group transition-all"
-                    >
-                      <div
-                        className="h-full bg-gradient-to-r from-[#1ed760] to-white rounded-full transition-all duration-150"
-                        style={{
-                          width: `${Math.min(100, Math.max(0, (currentTime / (getActiveDuration() || 1)) * 100))}%`
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-white/60 font-semibold px-0.5">
-                      <span>{formatTime(Math.floor(currentTime))}</span>
-                      <span>{formatTime(getActiveDuration())}</span>
-                    </div>
-                  </div>
-
-                  {/* Bottom Row: Controls */}
-                  <div className="flex items-center justify-between px-1 pt-0.5" onClick={(e) => e.stopPropagation()}>
-                    {/* Favorite / Like */}
-                    <button
-                      onClick={() => toggleLike(currentTrack.id)}
-                      className={`p-2 transition ${isCurrentTrackLiked ? "text-[#1ed760]" : "text-white/60 hover:text-white"}`}
-                      title={isCurrentTrackLiked ? "Hapus dari Favorit" : "Suka Lagu Ini"}
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill={isCurrentTrackLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                        <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
-                      </svg>
-                    </button>
-
-                    {/* Prev */}
-                    <button
-                      onClick={playPrevSong}
-                      className="p-2 text-white/70 hover:text-white active:scale-90 transition"
-                      title="Sebelumnya"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
-                      </svg>
-                    </button>
-
-                    {/* Play / Pause Toggle */}
-                    <button
-                      onClick={togglePlay}
-                      className="w-11 h-11 rounded-full bg-white hover:bg-neutral-100 text-black flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)] active:scale-95 transition hover:scale-105"
-                      title={isPlaying ? "Jeda" : "Putar"}
-                    >
-                      {isPlaying ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                        </svg>
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="translate-x-0.5">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      )}
-                    </button>
-
-                    {/* Next */}
-                    <button
-                      onClick={() => playNextSongRef.current && playNextSongRef.current(true)}
-                      className="p-2 text-white/70 hover:text-white active:scale-90 transition"
-                      title="Berikutnya"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-                      </svg>
-                    </button>
-
-                    {/* Expand to Fullscreen Player */}
-                    <button
-                      onClick={() => {
-                        setIsMobilePlayerOpen(true);
-                        setIsDynamicIslandExpanded(false);
-                      }}
-                      className="p-2 text-white/60 hover:text-white active:scale-90 transition"
-                      title="Buka Pemutar Penuh"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="15 3 21 3 21 9"></polyline>
-                        <polyline points="9 21 3 21 3 15"></polyline>
-                        <line x1="21" y1="3" x2="14" y2="10"></line>
-                        <line x1="3" y1="21" x2="10" y2="14"></line>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ====================================================================
           4. MOBILE & TABLET FLOATING MINI-PLAYER + LIQUID GLASS TAB BAR (IMAGE 1)
           ==================================================================== */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex flex-col pointer-events-none pb-3 sm:pb-4">
@@ -7692,30 +7461,44 @@ export default function BrnsicMusicPage() {
             <div className="absolute inset-0 bg-black/70 backdrop-blur-2xl" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/90" />
           </div>
-          <header className="relative z-10 flex items-center justify-between pb-4 border-b border-white/10 flex-shrink-0">
-            {/* Left: Track Info */}
-            <div className="flex items-center gap-3.5 min-w-0 max-w-[30%]">
-              <img
-                src={currentTrack.cover}
-                alt="thumb"
-                onError={handleImgError}
-                className="w-12 h-12 rounded-xl object-cover shadow-lg flex-shrink-0"
-              />
-              <div className="min-w-0">
-                <div className="font-extrabold text-white text-base tracking-tight truncate">
-                  {currentTrack.title}
-                </div>
-                <div className="text-xs text-[#b3b3b3] font-medium truncate">
-                  {currentTrack.artist} • {currentTrack.album}
+          <header className="relative z-10 flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-white/10 gap-3 flex-shrink-0">
+            {/* Top Row on Mobile / Left & Right on Desktop */}
+            <div className="flex items-center justify-between gap-3 w-full md:w-auto md:flex-1 md:min-w-0 md:max-w-md">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <img
+                  src={currentTrack.cover}
+                  alt="thumb"
+                  onError={handleImgError}
+                  className="w-11 h-11 rounded-xl object-cover shadow-lg flex-shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="font-extrabold text-white text-sm sm:text-base tracking-tight truncate">
+                    {currentTrack.title}
+                  </div>
+                  <div className="text-xs text-[#b3b3b3] font-medium truncate mt-0.5">
+                    {currentTrack.artist} • {currentTrack.album}
+                  </div>
                 </div>
               </div>
+
+              {/* Mobile Close Button (Top-Right) */}
+              <button
+                onClick={() => setIsZoomed(false)}
+                className="md:hidden w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white transition shadow border border-white/10 flex-shrink-0"
+                title="Tutup Layar Penuh (Esc)"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
             </div>
 
-            {/* Center: Mode Switcher Pills */}
-            <div className="flex items-center bg-[#1f1f1f]/80 backdrop-blur-md rounded-full p-1 border border-white/10 shadow-lg">
+            {/* Mode Switcher Pills (Responsive & Clean) */}
+            <div className="flex items-center justify-center bg-[#1f1f1f]/80 backdrop-blur-md rounded-full p-1 border border-white/10 shadow-lg w-full md:w-auto self-center">
               <button
                 onClick={() => setZoomMode("both")}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                className={`flex-1 md:flex-initial px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-bold transition text-center whitespace-nowrap ${
                   zoomMode === "both" ? "bg-white text-black shadow-md" : "text-white/70 hover:text-white"
                 }`}
               >
@@ -7723,7 +7506,7 @@ export default function BrnsicMusicPage() {
               </button>
               <button
                 onClick={() => setZoomMode("lyrics-only")}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                className={`flex-1 md:flex-initial px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-bold transition text-center whitespace-nowrap ${
                   zoomMode === "lyrics-only" ? "bg-white text-black shadow-md" : "text-white/70 hover:text-white"
                 }`}
               >
@@ -7731,7 +7514,7 @@ export default function BrnsicMusicPage() {
               </button>
               <button
                 onClick={() => setZoomMode("video-only")}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                className={`flex-1 md:flex-initial px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-bold transition text-center whitespace-nowrap ${
                   zoomMode === "video-only" ? "bg-white text-black shadow-md" : "text-white/70 hover:text-white"
                 }`}
               >
@@ -7739,8 +7522,8 @@ export default function BrnsicMusicPage() {
               </button>
             </div>
 
-            {/* Right: Crisp Centered Close Button */}
-            <div className="flex items-center justify-end max-w-[30%]">
+            {/* Desktop Close Button (Right) */}
+            <div className="hidden md:flex items-center justify-end flex-shrink-0">
               <button
                 onClick={() => setIsZoomed(false)}
                 className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white transition shadow border border-white/10"
@@ -8415,27 +8198,24 @@ export default function BrnsicMusicPage() {
             className="w-full max-w-sm liquid-glass rounded-3xl p-6 sm:p-7 flex flex-col items-center gap-4 border border-[#1ed760]/30 shadow-[0_0_50px_rgba(30,215,96,0.2)] relative text-center"
           >
             {/* Ambient Logo Glow */}
-            <div className="relative flex items-center justify-center my-2">
-              <div className="absolute inset-0 rounded-full bg-[#1ed760]/30 blur-2xl scale-125"></div>
+            <div className="relative flex items-center justify-center my-3 w-full">
+              <div className="absolute inset-0 rounded-full bg-[#1ed760]/20 blur-3xl scale-150"></div>
               <img
-                src="/brnsic-loader-logo.png"
-                alt="Brnsic Logo"
-                className="w-16 h-16 object-contain relative z-10 drop-shadow-[0_4px_20px_rgba(30,215,96,0.5)]"
+                src="/brnsic-logo-white-transparent.png"
+                alt="Brnsic"
+                className="w-48 sm:w-56 h-auto max-h-16 object-contain relative z-10 drop-shadow-[0_4px_25px_rgba(255,255,255,0.4)]"
               />
             </div>
 
             <div>
-              <span className="text-[11px] font-black uppercase tracking-widest text-[#1ed760] bg-[#1ed760]/15 border border-[#1ed760]/30 px-3 py-1 rounded-full inline-block mb-2">
-                Pembaruan Wajib • v{updateInfo.version}
-              </span>
               <h2 className="text-xl font-extrabold text-white">{updateInfo.title || "Pembaruan Aplikasi Diperlukan"}</h2>
-              <p className="text-xs text-[#b3b3b3] mt-2 leading-relaxed">
-                {updateInfo.notes || "Versi lama telah dinonaktifkan demi stabilitas pemutaran musik dan sinkronisasi playlist."}
+              <p className="text-xs text-[#b3b3b3] mt-2 leading-relaxed max-w-[280px] mx-auto">
+                {updateInfo.notes || "Pembaruan pemutar musik resmi dan peningkatan performa."}
               </p>
               <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-[#888] font-semibold">
                 <span>Android</span>
                 <span>•</span>
-                <span>{updateInfo.apkSize || "8.9 MB"}</span>
+                <span>{updateInfo.apkSize || "8.7 MB"}</span>
                 <span>•</span>
                 <span>Wajib Diperbarui</span>
               </div>
@@ -8443,43 +8223,59 @@ export default function BrnsicMusicPage() {
 
             <div className="w-full flex flex-col gap-2 mt-2">
               {isInsideNativeApk ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const apkUrl = "https://brnsic.vercel.app/Brnsic.apk";
-                    showToast("Membuka pengunduhan Brnsic.apk...");
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const apkUrl = "https://brnsic.vercel.app/Brnsic.apk";
+                      showToast("Membuka pengunduhan Brnsic.apk...");
 
-                    // 1. Try native downloadAndInstallUpdate (v3.4+)
-                    if (typeof window !== "undefined" && (window as any).BrnsicNative?.downloadAndInstallUpdate) {
+                      // 1. Try native downloadAndInstallUpdate (v3.4+)
+                      if (typeof window !== "undefined" && (window as any).BrnsicNative?.downloadAndInstallUpdate) {
+                        try {
+                          (window as any).BrnsicNative.downloadAndInstallUpdate(apkUrl);
+                          return;
+                        } catch (e) {}
+                      }
+
+                      // 2. Try native openExternalAuth (available in all installed versions v3.0+)
+                      if (typeof window !== "undefined" && (window as any).BrnsicNative?.openExternalAuth) {
+                        try {
+                          (window as any).BrnsicNative.openExternalAuth(apkUrl);
+                          return;
+                        } catch (e) {}
+                      }
+
+                      // 3. Fallback: window.open or location.href
                       try {
-                        (window as any).BrnsicNative.downloadAndInstallUpdate(apkUrl);
-                        return;
+                        window.open(apkUrl, "_system");
                       } catch (e) {}
-                    }
-
-                    // 2. Try native openExternalAuth (available in all installed versions v3.0+)
-                    if (typeof window !== "undefined" && (window as any).BrnsicNative?.openExternalAuth) {
-                      try {
-                        (window as any).BrnsicNative.openExternalAuth(apkUrl);
-                        return;
-                      } catch (e) {}
-                    }
-
-                    // 3. Fallback: window.open or location.href
-                    try {
-                      window.open(apkUrl, "_system");
-                    } catch (e) {}
-                    window.location.href = apkUrl;
-                  }}
-                  className="w-full py-3.5 px-5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(30,215,96,0.4)] cursor-pointer"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                  </svg>
-                  <span>Unduh &amp; Pasang Pembaruan APK</span>
-                </button>
+                      window.location.href = apkUrl;
+                    }}
+                    className="w-full py-3.5 px-5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2.5 shadow-[0_0_25px_rgba(30,215,96,0.4)] cursor-pointer"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="23 4 23 10 17 10"></polyline>
+                      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                    <span>Perbarui Aplikasi Sekarang</span>
+                  </button>
+                  <div className="flex flex-col gap-1 text-center mt-2">
+                    <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
+                      Setelah mengunduh, <span className="text-white font-bold">buka bilah notifikasi HP</span> (atau folder <em>Download</em> di File Manager) lalu ketuk file <strong>Brnsic.apk</strong> untuk memasang/mengupdate.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (checkAppVersionRef.current) checkAppVersionRef.current();
+                        showToast("Memeriksa status versi APK...");
+                      }}
+                      className="mt-1 text-[11px] text-[#1ed760] hover:underline font-bold py-1.5 active:scale-95 transition cursor-pointer"
+                    >
+                      Sudah memasang APK baru? Ketuk di sini untuk segarkan
+                    </button>
+                  </div>
+                </>
               ) : (
                 <button
                   onClick={async () => {
@@ -8498,7 +8294,7 @@ export default function BrnsicMusicPage() {
                     } catch (e) {}
                     window.location.reload();
                   }}
-                  className="w-full py-3.5 px-5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(30,215,96,0.4)] cursor-pointer"
+                  className="w-full py-3.5 px-5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2.5 shadow-[0_0_25px_rgba(30,215,96,0.4)] cursor-pointer"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <polyline points="23 4 23 10 17 10"></polyline>
