@@ -15,12 +15,12 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "3.3.0",
-    versionCode: 2,
-    minVersionCode: 2,
+    version: "3.4.0",
+    versionCode: 3,
+    minVersionCode: 3,
     releaseDate: "2026-10-28",
-    title: "Pembaruan Aplikasi Diperlukan",
-    notes: "Pembaruan algoritma kecerdasan musik, lirik ultra-presisi tanpa delay, dan sinkronisasi playlist permanen.",
+    title: "Pembaruan Pemutar Musik Brnsic v3.4.0",
+    notes: "Pembaruan notifikasi pemutar media Android resmi (MediaSession kartu notifikasi Spotify dengan seekbar interaktif dan kontrol layar kunci).",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: true,

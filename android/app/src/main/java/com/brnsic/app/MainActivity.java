@@ -70,9 +70,37 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    public static void notifySeekTo(int positionSeconds) {
+        if (instance != null && instance.bridge != null && instance.bridge.getWebView() != null) {
+            instance.bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    instance.bridge.getWebView().evaluateJavascript(
+                        "(function(){ if (window.__handleNativeSeekTo) { window.__handleNativeSeekTo(" + positionSeconds + "); } })();",
+                        null
+                    );
+                }
+            });
+        }
+    }
+
+    public static void notifyLikeTrack() {
+        if (instance != null && instance.bridge != null && instance.bridge.getWebView() != null) {
+            instance.bridge.getWebView().post(new Runnable() {
+                @Override
+                public void run() {
+                    instance.bridge.getWebView().evaluateJavascript(
+                        "(function(){ if (window.__handleNativeLike) { window.__handleNativeLike(); } })();",
+                        null
+                    );
+                }
+            });
+        }
+    }
+
     public class NativeAudioBridge {
         @JavascriptInterface
-        public void playAudio(String audioUrl, String title, String artist, int positionMs, String coverUrl) {
+        public void playAudioWithDuration(String audioUrl, String title, String artist, int positionMs, String coverUrl, int durationMs) {
             try {
                 Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
                 intent.setAction(BackgroundAudioService.ACTION_PLAY);
@@ -81,11 +109,29 @@ public class MainActivity extends BridgeActivity {
                 intent.putExtra(BackgroundAudioService.EXTRA_ARTIST, artist);
                 intent.putExtra(BackgroundAudioService.EXTRA_POSITION, positionMs);
                 intent.putExtra(BackgroundAudioService.EXTRA_COVER, coverUrl);
+                intent.putExtra(BackgroundAudioService.EXTRA_DURATION, durationMs);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(intent);
                 } else {
                     startService(intent);
                 }
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void playAudio(String audioUrl, String title, String artist, int positionMs, String coverUrl) {
+            playAudioWithDuration(audioUrl, title, artist, positionMs, coverUrl, 0);
+        }
+
+        @JavascriptInterface
+        public void updateNativePlaybackState(boolean isPlaying, int positionMs, int durationMs) {
+            try {
+                Intent intent = new Intent(MainActivity.this, BackgroundAudioService.class);
+                intent.setAction(BackgroundAudioService.ACTION_UPDATE_STATE);
+                intent.putExtra(BackgroundAudioService.EXTRA_IS_PLAYING, isPlaying);
+                intent.putExtra(BackgroundAudioService.EXTRA_POSITION, positionMs);
+                intent.putExtra(BackgroundAudioService.EXTRA_DURATION, durationMs);
+                startService(intent);
             } catch (Exception ignored) {}
         }
 
@@ -158,12 +204,12 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "3.3.0";
+            return "3.4.0";
         }
 
         @JavascriptInterface
         public int getAppVersionCode() {
-            return 2;
+            return 3;
         }
 
         @JavascriptInterface

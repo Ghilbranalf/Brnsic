@@ -1351,6 +1351,8 @@ export default function BrnsicMusicPage() {
   const isAlbumLoopModeRef = useRef<boolean>(false);
   const currentTrackRef = useRef<Track>(DEFAULT_CATALOG[0]);
   const playNextSongRef = useRef<(userTriggered?: boolean) => void>(() => {});
+  const handleSeekSecondsRef = useRef<(sec: number) => void>(() => {});
+  const toggleLikeRef = useRef<(id: string) => void>(() => {});
   const hasTriggeredEndRef = useRef<boolean>(false);
 
   // Back Navigation & Modal State Refs for Android hardware Back & browser popstate
@@ -1891,6 +1893,18 @@ export default function BrnsicMusicPage() {
       playPrevSong();
     };
 
+    (window as any).__handleNativeSeekTo = (positionSeconds: number) => {
+      if (handleSeekSecondsRef.current) {
+        handleSeekSecondsRef.current(positionSeconds);
+      }
+    };
+
+    (window as any).__handleNativeLike = () => {
+      if (currentTrackRef.current?.id && toggleLikeRef.current) {
+        toggleLikeRef.current(currentTrackRef.current.id);
+      }
+    };
+
     (window as any).__handleNativePlaybackState = (playing: boolean) => {
       if (!playing) {
         isUserExplicitlyPausedRef.current = true;
@@ -2007,7 +2021,18 @@ export default function BrnsicMusicPage() {
     startWebAudioKeepalive();
     if (typeof window !== "undefined") {
       try {
-        if ((window as any).BrnsicNative?.startPlayback) {
+        const durMs = Math.round((currentTrackRef.current?.duration || 210) * 1000);
+        const posMs = Math.round((currentTimeRef.current || 0) * 1000);
+        if ((window as any).BrnsicNative?.playAudioWithDuration) {
+          (window as any).BrnsicNative.playAudioWithDuration(
+            "",
+            currentTrackRef.current?.title || "Brnsic Music",
+            currentTrackRef.current?.artist || "Memutar di latar belakang",
+            posMs,
+            currentTrackRef.current?.cover || "",
+            durMs
+          );
+        } else if ((window as any).BrnsicNative?.startPlayback) {
           (window as any).BrnsicNative.startPlayback(
             currentTrackRef.current?.title || "Brnsic Music",
             currentTrackRef.current?.artist || "Memutar di latar belakang",
@@ -2160,6 +2185,7 @@ export default function BrnsicMusicPage() {
       return next;
     });
   };
+  toggleLikeRef.current = toggleLike;
 
   const toggleDislike = (song: Track) => {
     if (!song) return;
@@ -2965,6 +2991,15 @@ export default function BrnsicMusicPage() {
                   ...prev,
                   duration: roundedDur
                 }));
+                if (typeof window !== "undefined" && (window as any).BrnsicNative?.updateNativePlaybackState) {
+                  try {
+                    (window as any).BrnsicNative.updateNativePlaybackState(
+                      true,
+                      Math.round(currentTimeRef.current * 1000),
+                      roundedDur * 1000
+                    );
+                  } catch (e) {}
+                }
                 // Real-time sync to playlists/charts so the list UI duration also updates immediately!
                 setIndonesiaTop50((prev) =>
                   prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
@@ -3161,19 +3196,31 @@ export default function BrnsicMusicPage() {
 
       const isNative = typeof window !== "undefined" && Boolean((window as any).BrnsicNative?.playAudio);
 
-      // 1. Android Native Service Audio Playback (real MediaPlayer in BackgroundAudioService)
+      // 1. Android Native Service Audio Playback (real MediaPlayer with MediaSessionCompat in BackgroundAudioService)
       if (isNative) {
         try {
           if ((window as any).BrnsicNative?.isPermissionGranted && !(window as any).BrnsicNative.isPermissionGranted()) {
             (window as any).BrnsicNative.requestPermissions();
           }
-          (window as any).BrnsicNative.playAudio(
-            "",
-            song.title || "Brnsic Music",
-            song.artist || "Memutar di latar belakang",
-            0,
-            song.cover || optimisticTrack.cover || ""
-          );
+          const durMs = Math.round((song.duration || optimisticTrack.duration || 210) * 1000);
+          if ((window as any).BrnsicNative?.playAudioWithDuration) {
+            (window as any).BrnsicNative.playAudioWithDuration(
+              "",
+              song.title || "Brnsic Music",
+              song.artist || "Memutar di latar belakang",
+              0,
+              song.cover || optimisticTrack.cover || "",
+              durMs
+            );
+          } else {
+            (window as any).BrnsicNative.playAudio(
+              "",
+              song.title || "Brnsic Music",
+              song.artist || "Memutar di latar belakang",
+              0,
+              song.cover || optimisticTrack.cover || ""
+            );
+          }
         } catch (e) {}
       }
 
@@ -3846,6 +3893,7 @@ export default function BrnsicMusicPage() {
       } catch (e) {}
     }
   };
+  handleSeekSecondsRef.current = handleSeekSeconds;
 
   const handleSeekFromClientX = (clientX: number, rect: DOMRect) => {
     const clickX = Math.max(0, Math.min(rect.width, clientX - rect.left));
