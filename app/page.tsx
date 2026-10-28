@@ -2131,9 +2131,8 @@ export default function BrnsicMusicPage() {
 
   const toggleLike = (songId: string) => {
     if (!currentUser) {
-      setAuthError("Masuk dengan akun Google agar lagu favoritmu tersimpan permanen di database Supabase.");
       setIsAuthModalOpen(true);
-      showToast("Wajib masuk akun Google untuk menyimpan lagu disukai ke database");
+      showToast("Masuk dengan akun Google untuk menyimpan lagu ke favorit");
       return;
     }
     setLikedSongIds((prev) => {
@@ -2609,9 +2608,8 @@ export default function BrnsicMusicPage() {
 
   const handleCreatePlaylist = () => {
     if (!currentUser) {
-      setAuthError("Masuk dengan akun Google agar playlist kamu tersimpan permanen di database Supabase.");
       setIsAuthModalOpen(true);
-      showToast("Wajib masuk akun Google untuk membuat playlist di database");
+      showToast("Masuk dengan akun Google untuk membuat playlist");
       return;
     }
     if (!newPlaylistName.trim()) return;
@@ -2678,9 +2676,8 @@ export default function BrnsicMusicPage() {
 
   const handleAddSongToPlaylist = (playlistId: string) => {
     if (!currentUser) {
-      setAuthError("Masuk dengan akun Google agar lagu tersimpan ke playlist di database Supabase.");
       setIsAuthModalOpen(true);
-      showToast("Wajib masuk akun Google untuk menambahkan lagu ke playlist");
+      showToast("Masuk dengan akun Google untuk menambahkan lagu ke playlist");
       return;
     }
     if (!songToAddToPlaylist) return;
@@ -7795,13 +7792,6 @@ export default function BrnsicMusicPage() {
                 Simpan lagu favorit dan sinkronkan playlist musikmu.
               </p>
             </div>
-
-            {/* Error Banner */}
-            {authError && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-xs text-red-400 font-semibold text-center">
-                {authError}
-              </div>
-            )}
 
             {/* Official Google Cloud 1-Click SSO Action */}
             <div className="flex flex-col gap-3 my-2">
