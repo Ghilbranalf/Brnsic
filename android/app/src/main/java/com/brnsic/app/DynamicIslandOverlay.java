@@ -377,8 +377,8 @@ public class DynamicIslandOverlay {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER_HORIZONTAL);
 
-        int pad = dpToPx(16);
-        card.setPadding(pad, dpToPx(14), pad, dpToPx(12));
+        int pad = dpToPx(20);
+        card.setPadding(pad, dpToPx(16), pad, dpToPx(14));
 
         // Card width: 330dp
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(dpToPx(330), ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -386,12 +386,14 @@ public class DynamicIslandOverlay {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        bg.setCornerRadius(dpToPx(28));
+        // Ultra-curved pebble/squircle Dynamic Island radius (Apple signature 44dp curve)
+        bg.setCornerRadius(dpToPx(44));
         bg.setStroke(dpToPx(1), Color.parseColor("#33FFFFFF"));
         card.setBackground(bg);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             card.setElevation(dpToPx(20));
+            card.setClipToOutline(true);
         }
 
         // ROW 1: Top Row (Cover + Title/Artist + Orange Waveform + Collapse '✕' Button)
@@ -400,7 +402,7 @@ public class DynamicIslandOverlay {
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         topRow.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        // Album cover (50x50dp rounded 10dp)
+        // Album cover (50x50dp rounded 14dp)
         int coverSize = dpToPx(50);
         expandedCover = new ImageView(context);
         LinearLayout.LayoutParams coverParams = new LinearLayout.LayoutParams(coverSize, coverSize);
@@ -409,7 +411,7 @@ public class DynamicIslandOverlay {
         expandedCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         GradientDrawable coverBg = new GradientDrawable();
         coverBg.setColor(Color.parseColor("#1f1f1f"));
-        coverBg.setCornerRadius(dpToPx(10));
+        coverBg.setCornerRadius(dpToPx(14));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             expandedCover.setClipToOutline(true);
         }

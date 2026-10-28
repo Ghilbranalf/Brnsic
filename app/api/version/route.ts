@@ -15,12 +15,12 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "3.9.1",
-    versionCode: 9,
-    minVersionCode: 9,
+    version: "3.9.2",
+    versionCode: 10,
+    minVersionCode: 10,
     releaseDate: "2026-10-29",
-    title: "Pembaruan Brnsic v3.9.1",
-    notes: "Kapsul Dynamic Island diperlebar (265dp) dan dibuat lebih ramping/pendek (32dp) presisi khas Apple.",
+    title: "Pembaruan Brnsic v3.9.2",
+    notes: "Sudut kartu Dynamic Island dibuat jauh lebih rounded (44dp squircle khas Apple) dan cover album rounded 14dp.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: true,
