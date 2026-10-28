@@ -302,7 +302,8 @@ public class BackgroundAudioService extends Service implements
 
         Intent toggleIntent = new Intent(this, BackgroundAudioService.class);
         toggleIntent.setAction(isPlaying ? ACTION_PAUSE : ACTION_RESUME);
-        PendingIntent togglePendingIntent = PendingIntent.getService(this, 1, toggleIntent, flags);
+        int toggleRequestCode = isPlaying ? 101 : 102;
+        PendingIntent togglePendingIntent = PendingIntent.getService(this, toggleRequestCode, toggleIntent, flags);
 
         Intent nextIntent = new Intent(this, BackgroundAudioService.class);
         nextIntent.setAction(ACTION_NEXT);
@@ -337,6 +338,11 @@ public class BackgroundAudioService extends Service implements
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         } else {
             startForeground(NOTIFICATION_ID, notification);
+        }
+
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify(NOTIFICATION_ID, notification);
         }
     }
 
