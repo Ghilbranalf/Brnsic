@@ -177,10 +177,11 @@ export const dbCreateUser = async (
   name: string,
   email: string,
   passwordHash: string,
-  salt: string
+  salt: string,
+  explicitId?: string
 ): Promise<User> => {
   const cleanEmail = email.trim().toLowerCase();
-  const id = `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  const id = explicitId || `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
   const newUser: User = {
     id,
@@ -265,7 +266,21 @@ export const dbLogUserActivity = async (
     listenSeconds?: number;
   }
 ): Promise<User | null> => {
-  const user = await dbFindUserById(userId);
+  let user = await dbFindUserById(userId);
+  if (!user) {
+    const isGuest = userId.startsWith("dev_") || userId.startsWith("guest");
+    const cleanEmail = isGuest ? `${userId.toLowerCase()}@guest.brnsic.app` : `${userId}@user.brnsic.app`;
+    user = await dbFindUserByEmail(cleanEmail);
+    if (!user) {
+      user = await dbCreateUser(
+        isGuest ? "Pengguna Brnsic (Tamu)" : "Pengguna Brnsic",
+        cleanEmail,
+        "guest-hash",
+        "guest-salt",
+        userId
+      );
+    }
+  }
   if (!user) return null;
 
   const artist = (activity.artist || "Unknown").trim();

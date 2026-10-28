@@ -15,6 +15,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -34,7 +35,7 @@ public class DynamicIslandOverlay {
     private LinearLayout collapsedPill;
     private LinearLayout expandedCard;
 
-    // Collapsed components (Minimal, Apple-style: Cover + Live Dancing Waveform)
+    // Collapsed components (Apple-style elongated capsule: Cover on Left + Spacer + Waveform on Right)
     private ImageView collapsedCover;
     private WaveformView collapsedWave;
 
@@ -280,7 +281,9 @@ public class DynamicIslandOverlay {
             expandedTimeCurrent.setText(formatTime(currentPositionMs / 1000));
         }
         if (expandedTimeDuration != null) {
-            expandedTimeDuration.setText(formatTime(currentDurationMs / 1000));
+            long remaining = (currentDurationMs - currentPositionMs) / 1000;
+            if (remaining < 0) remaining = 0;
+            expandedTimeDuration.setText("-" + formatTime(remaining));
         }
     }
 
@@ -293,12 +296,12 @@ public class DynamicIslandOverlay {
     private void buildViews() {
         containerView = new FrameLayout(context);
 
-        // 1. COLLAPSED PILL (Minimal Apple style: Cover + Live Dancing Waveform)
+        // 1. COLLAPSED PILL (Authentic Apple Dynamic Island: Elongated Capsule with Cover on Left + Spacer + Waveform on Right)
         collapsedPill = buildCollapsedPill();
         collapsedPill.setVisibility(isExpanded ? View.GONE : View.VISIBLE);
         containerView.addView(collapsedPill);
 
-        // 2. EXPANDED LUXURY CARD (Full controls, seekbar, close button)
+        // 2. EXPANDED LUXURY CARD (Full controls, seekbar, close button, collapse gestures)
         expandedCard = buildExpandedCard();
         expandedCard.setVisibility(isExpanded ? View.VISIBLE : View.GONE);
         containerView.addView(expandedCard);
@@ -309,30 +312,35 @@ public class DynamicIslandOverlay {
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
 
-        int padHoriz = dpToPx(10);
+        // Apple Dynamic Island exact elongated pill width & height (Image 2)
+        int pillWidth = dpToPx(205);
+        int pillHeight = dpToPx(38);
+        LinearLayout.LayoutParams pillParams = new LinearLayout.LayoutParams(pillWidth, pillHeight);
+        pill.setLayoutParams(pillParams);
+
+        int padHoriz = dpToPx(9);
         int padVert = dpToPx(5);
         pill.setPadding(padHoriz, padVert, padHoriz, padVert);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        bg.setCornerRadius(dpToPx(24));
+        bg.setCornerRadius(dpToPx(19));
         bg.setStroke(dpToPx(1), Color.parseColor("#33FFFFFF"));
         pill.setBackground(bg);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            pill.setElevation(dpToPx(12));
+            pill.setElevation(dpToPx(14));
         }
 
-        // Cover on Left
-        int coverSize = dpToPx(28);
+        // Cover on Left (26dp x 26dp, rounded 7dp)
+        int coverSize = dpToPx(26);
         collapsedCover = new ImageView(context);
         LinearLayout.LayoutParams coverParams = new LinearLayout.LayoutParams(coverSize, coverSize);
-        coverParams.rightMargin = dpToPx(10);
         collapsedCover.setLayoutParams(coverParams);
         collapsedCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         GradientDrawable coverBg = new GradientDrawable();
         coverBg.setColor(Color.parseColor("#222222"));
-        coverBg.setCornerRadius(dpToPx(8));
+        coverBg.setCornerRadius(dpToPx(7));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             collapsedCover.setClipToOutline(true);
         }
@@ -340,14 +348,20 @@ public class DynamicIslandOverlay {
         if (currentCover != null) collapsedCover.setImageBitmap(currentCover);
         pill.addView(collapsedCover);
 
-        // Live Dancing Waveform on Right (Green Spotify Style)
-        collapsedWave = new WaveformView(context, Color.parseColor("#1ed760"));
-        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(48), dpToPx(18));
+        // Center Void Spacer (Creates authentic Apple Dynamic Island elongated silhouette!)
+        View spacer = new View(context);
+        LinearLayout.LayoutParams spacerParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
+        spacer.setLayoutParams(spacerParams);
+        pill.addView(spacer);
+
+        // Live Dancing Waveform on Right (Warm Amber/Orange or Green)
+        collapsedWave = new WaveformView(context, Color.parseColor("#ffaa00"));
+        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(38), dpToPx(16));
         collapsedWave.setLayoutParams(waveParams);
         pill.addView(collapsedWave);
 
-        // Tap on the pill expands to the full Luxury Card!
-        // No dragging, no extra buttons, zero misclicks!
+        // Tap anywhere on the pill smoothly expands to the luxury card!
+        // Locked in place, zero accidental drags!
         pill.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -364,9 +378,9 @@ public class DynamicIslandOverlay {
         card.setGravity(Gravity.CENTER_HORIZONTAL);
 
         int pad = dpToPx(16);
-        card.setPadding(pad, pad, pad, pad);
+        card.setPadding(pad, dpToPx(12), pad, dpToPx(14));
 
-        // Card width: 330dp
+        // Card width: 330dp matching Image 2
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(dpToPx(330), ViewGroup.LayoutParams.WRAP_CONTENT);
         card.setLayoutParams(cardParams);
 
@@ -377,16 +391,33 @@ public class DynamicIslandOverlay {
         card.setBackground(bg);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            card.setElevation(dpToPx(18));
+            card.setElevation(dpToPx(20));
         }
 
-        // ROW 1: Top Row (Cover + Title/Artist + Orange Waveform + Close 'X' Button)
+        // TOP HANDLE / COLLAPSE BAR (Pill Grab Handle to easily swipe up or tap to collapse!)
+        View topHandle = new View(context);
+        LinearLayout.LayoutParams handleParams = new LinearLayout.LayoutParams(dpToPx(36), dpToPx(4));
+        handleParams.bottomMargin = dpToPx(10);
+        topHandle.setLayoutParams(handleParams);
+        GradientDrawable handleBg = new GradientDrawable();
+        handleBg.setColor(Color.parseColor("#55FFFFFF"));
+        handleBg.setCornerRadius(dpToPx(2));
+        topHandle.setBackground(handleBg);
+        topHandle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setExpanded(false);
+            }
+        });
+        card.addView(topHandle);
+
+        // ROW 1: Top Row (Cover + Title/Artist + Orange Waveform + Collapse '✕' Button)
         LinearLayout topRow = new LinearLayout(context);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         topRow.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        // Album cover
+        // Album cover (50x50dp rounded 10dp)
         int coverSize = dpToPx(50);
         expandedCover = new ImageView(context);
         LinearLayout.LayoutParams coverParams = new LinearLayout.LayoutParams(coverSize, coverSize);
@@ -445,17 +476,18 @@ public class DynamicIslandOverlay {
         // Orange Waveform Visualizer
         expandedWave = new WaveformView(context, Color.parseColor("#ff7a00"));
         LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(42), dpToPx(18));
-        waveParams.rightMargin = dpToPx(8);
+        waveParams.rightMargin = dpToPx(6);
         expandedWave.setLayoutParams(waveParams);
         topRow.addView(expandedWave);
 
-        // Collapse Button ('X' icon - collapses card back to mini pill)
+        // Collapse Button (Tap to collapse back to mini pill!)
         expandedCloseBtn = new ImageView(context);
-        LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(dpToPx(24), dpToPx(24));
+        LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(dpToPx(28), dpToPx(28));
         expandedCloseBtn.setLayoutParams(closeParams);
         expandedCloseBtn.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         expandedCloseBtn.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
         expandedCloseBtn.setColorFilter(Color.parseColor("#888888"));
+        expandedCloseBtn.setPadding(dpToPx(3), dpToPx(3), dpToPx(3), dpToPx(3));
         expandedCloseBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -482,6 +514,11 @@ public class DynamicIslandOverlay {
                     if (expandedTimeCurrent != null) {
                         expandedTimeCurrent.setText(formatTime(targetPos / 1000));
                     }
+                    if (expandedTimeDuration != null) {
+                        long rem = (currentDurationMs - targetPos) / 1000;
+                        if (rem < 0) rem = 0;
+                        expandedTimeDuration.setText("-" + formatTime(rem));
+                    }
                 }
             }
 
@@ -505,7 +542,7 @@ public class DynamicIslandOverlay {
         });
         card.addView(expandedSeekBar);
 
-        // Timestamps (00:13 ... 03:30)
+        // Timestamps (01:06 ... -03:26)
         LinearLayout timeRow = new LinearLayout(context);
         timeRow.setOrientation(LinearLayout.HORIZONTAL);
         timeRow.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -519,7 +556,7 @@ public class DynamicIslandOverlay {
         timeRow.addView(expandedTimeCurrent);
 
         expandedTimeDuration = new TextView(context);
-        expandedTimeDuration.setText("00:00");
+        expandedTimeDuration.setText("-00:00");
         expandedTimeDuration.setTextColor(Color.parseColor("#999999"));
         expandedTimeDuration.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         expandedTimeDuration.setGravity(Gravity.END);
@@ -533,12 +570,12 @@ public class DynamicIslandOverlay {
         controlsRow.setOrientation(LinearLayout.HORIZONTAL);
         controlsRow.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams controlsParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        controlsParams.topMargin = dpToPx(10);
+        controlsParams.topMargin = dpToPx(8);
         controlsRow.setLayoutParams(controlsParams);
 
         // Previous
         expandedPrev = new ImageView(context);
-        LinearLayout.LayoutParams prevParams = new LinearLayout.LayoutParams(dpToPx(32), dpToPx(32));
+        LinearLayout.LayoutParams prevParams = new LinearLayout.LayoutParams(dpToPx(36), dpToPx(36));
         prevParams.rightMargin = dpToPx(32);
         expandedPrev.setLayoutParams(prevParams);
         expandedPrev.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
@@ -554,7 +591,7 @@ public class DynamicIslandOverlay {
 
         // Play/Pause (Center large)
         expandedPlayPause = new ImageView(context);
-        LinearLayout.LayoutParams ppParams = new LinearLayout.LayoutParams(dpToPx(40), dpToPx(40));
+        LinearLayout.LayoutParams ppParams = new LinearLayout.LayoutParams(dpToPx(44), dpToPx(44));
         expandedPlayPause.setLayoutParams(ppParams);
         expandedPlayPause.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         expandedPlayPause.setImageResource(isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play);
@@ -569,7 +606,7 @@ public class DynamicIslandOverlay {
 
         // Next
         expandedNext = new ImageView(context);
-        LinearLayout.LayoutParams nextBtnParams = new LinearLayout.LayoutParams(dpToPx(32), dpToPx(32));
+        LinearLayout.LayoutParams nextBtnParams = new LinearLayout.LayoutParams(dpToPx(36), dpToPx(36));
         nextBtnParams.leftMargin = dpToPx(32);
         expandedNext.setLayoutParams(nextBtnParams);
         expandedNext.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
@@ -585,20 +622,92 @@ public class DynamicIslandOverlay {
 
         card.addView(controlsRow);
 
-        // ROW 4: Subtle "Sembunyikan Overlay" button
-        TextView hideBtn = new TextView(context);
-        hideBtn.setText("Sembunyikan Dynamic Island");
-        hideBtn.setTextColor(Color.parseColor("#66FFFFFF"));
-        hideBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        hideBtn.setGravity(Gravity.CENTER);
-        hideBtn.setPadding(0, dpToPx(12), 0, dpToPx(2));
-        hideBtn.setOnClickListener(new View.OnClickListener() {
+        // ROW 4: Intuitive Actions Row ("⌃ Tutup ke Kapsul" & "✕ Sembunyikan")
+        LinearLayout actionRow = new LinearLayout(context);
+        actionRow.setOrientation(LinearLayout.HORIZONTAL);
+        actionRow.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams actionRowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        actionRowParams.topMargin = dpToPx(14);
+        actionRow.setLayoutParams(actionRowParams);
+
+        // Button: Tutup ke Kapsul (Prominently collapse back to pill!)
+        TextView collapsePillBtn = new TextView(context);
+        collapsePillBtn.setText("⌃ Tutup ke Kapsul");
+        collapsePillBtn.setTextColor(Color.WHITE);
+        collapsePillBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        collapsePillBtn.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        collapsePillBtn.setPadding(dpToPx(14), dpToPx(6), dpToPx(14), dpToPx(6));
+        GradientDrawable collapseBg = new GradientDrawable();
+        collapseBg.setColor(Color.parseColor("#22FFFFFF"));
+        collapseBg.setCornerRadius(dpToPx(14));
+        collapsePillBtn.setBackground(collapseBg);
+        collapsePillBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setExpanded(false);
+            }
+        });
+        actionRow.addView(collapsePillBtn);
+
+        // Spacer between buttons
+        View actionSpacer = new View(context);
+        actionSpacer.setLayoutParams(new LinearLayout.LayoutParams(dpToPx(12), 1));
+        actionRow.addView(actionSpacer);
+
+        // Button: Sembunyikan Overlay
+        TextView dismissBtn = new TextView(context);
+        dismissBtn.setText("Sembunyikan");
+        dismissBtn.setTextColor(Color.parseColor("#88FFFFFF"));
+        dismissBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        dismissBtn.setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6));
+        dismissBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 dismiss();
             }
         });
-        card.addView(hideBtn);
+        actionRow.addView(dismissBtn);
+
+        card.addView(actionRow);
+
+        // Intuitive Gestures:
+        // 1. Swipe UP on the card -> Immediately collapses back to the pill!
+        // 2. Simple Tap on empty card background -> Immediately collapses back to the pill!
+        card.setOnTouchListener(new View.OnTouchListener() {
+            private float touchDownY = 0;
+            private float touchDownX = 0;
+            private long touchDownTime = 0;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        touchDownY = event.getRawY();
+                        touchDownX = event.getRawX();
+                        touchDownTime = System.currentTimeMillis();
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                        float diffY = event.getRawY() - touchDownY;
+                        float diffX = event.getRawX() - touchDownX;
+                        long duration = System.currentTimeMillis() - touchDownTime;
+
+                        // Swipe UP -> collapse to pill!
+                        if (diffY < -dpToPx(30)) {
+                            setExpanded(false);
+                            return true;
+                        }
+
+                        // Tap on background -> collapse to pill!
+                        if (duration < 300 && Math.abs(diffX) < dpToPx(15) && Math.abs(diffY) < dpToPx(15)) {
+                            setExpanded(false);
+                            return true;
+                        }
+                        return true;
+                }
+                return false;
+            }
+        });
 
         return card;
     }

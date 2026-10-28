@@ -2409,15 +2409,28 @@ export default function BrnsicMusicPage() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
+      let devId = "";
+      if (typeof window !== "undefined") {
+        try {
+          devId = localStorage.getItem("brnsic_device_id") || "";
+          if (!devId) {
+            devId = `dev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+            localStorage.setItem("brnsic_device_id", devId);
+          }
+        } catch (e) {}
+      }
+
       fetch("/api/user/activity", {
         method: "POST",
         headers,
         credentials: "include",
         body: JSON.stringify({
+          deviceId: devId,
           songId,
           title: song.title || song.trackName,
           artist,
           genre: song.genre,
+          cover: song.cover || currentTrack?.cover || "",
           action,
           duration: currentTrack?.duration || 210,
           listenSeconds: Math.floor(currentTime)
@@ -5676,7 +5689,7 @@ export default function BrnsicMusicPage() {
                     {currentView === "top50-indo"
                       ? "Peringkat harian lagu yang paling banyak diputar di Indonesia. Diperbarui otomatis setiap 15 menit."
                       : currentView === "most-played-indo"
-                      ? "Daftar lagu paling sering diputar penikmat musik Indonesia: Bernadya, Hindia, Sal Priadi, Juicy Luicy, Mahalini, Tulus, Sheila On 7."
+                      ? "Peringkat lagu yang paling sering diputar oleh seluruh pendengar Brnsic berdasarkan pencatatan database real-time."
                       : "Lagu viral media sosial dan trending chart."}
                   </p>
                   <div className="text-xs text-[#b3b3b3] mt-2 flex items-center justify-center sm:justify-start gap-2">
@@ -5726,15 +5739,7 @@ export default function BrnsicMusicPage() {
 
               {/* Numbered Song List - ROUNDED ROWS */}
               <div className="px-6 pb-6 flex flex-col gap-1">
-                {(currentView === "top50-indo"
-                  ? indonesiaTop50
-                  : currentView === "most-played-indo"
-                  ? mostPlayedIndonesia
-                  : currentView === "viral-indo"
-                  ? viralIndonesia
-                  : globalTrending
-                ).map((track: any, i) => {
-                  const isCurrent = track.title === currentTrack.title;
+                {(() => {
                   const targetList =
                     currentView === "top50-indo"
                       ? indonesiaTop50
@@ -5744,64 +5749,83 @@ export default function BrnsicMusicPage() {
                       ? viralIndonesia
                       : globalTrending;
 
-                  return (
-                    <div
-                      key={track.id || i}
-                      onClick={() => handlePlayFromList(track, targetList, i)}
-                      className={`grid grid-cols-[36px_1fr_auto_50px] sm:grid-cols-[40px_1fr_180px_auto_60px] items-center gap-3 px-3.5 py-2.5 rounded-xl cursor-pointer transition group ${
-                        isCurrent
-                          ? "bg-white/15 text-white shadow-sm"
-                          : "hover:bg-white/10 text-[#b3b3b3] hover:text-white"
-                      }`}
-                    >
-                      <div className="font-semibold text-xs text-center">{i + 1}</div>
-                      <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={track.cover}
-                          alt="thumb"
-                          onError={handleImgError}
-                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <div
-                            className={`font-semibold text-sm truncate ${
-                              isCurrent ? "text-[#1ed760]" : "text-white group-hover:text-[#1ed760]"
-                            }`}
-                          >
-                            {track.title}
-                          </div>
-                          <div className="text-xs text-[#b3b3b3] truncate">{track.artist}</div>
+                  if (targetList.length === 0) {
+                    return (
+                      <div className="text-center py-20 text-[#b3b3b3]">
+                        <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 text-[#1ed760]">
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                          </svg>
                         </div>
+                        <p className="text-base font-bold text-white mb-1">Riwayat Telah Direset &amp; Siap Mencatat Real-Time</p>
+                        <p className="text-xs max-w-sm mx-auto text-white/60">
+                          Mulai putar lagu apa saja di Brnsic sekarang! Setiap lagu yang diputar akan langsung dicatat ke database Supabase dan membentuk urutan lagu paling sering diputar secara nyata.
+                        </p>
                       </div>
+                    );
+                  }
 
+                  return targetList.map((track: any, i) => {
+                    const isCurrent = track.title === currentTrack.title;
+                    return (
                       <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openAlbumView(track.album, track.artist, track.collectionId);
-                        }}
-                        className="hidden sm:block text-xs truncate text-[#b3b3b3] hover:text-white hover:underline cursor-pointer"
+                        key={track.id || i}
+                        onClick={() => handlePlayFromList(track, targetList, i)}
+                        className={`grid grid-cols-[36px_1fr_auto_50px] sm:grid-cols-[40px_1fr_180px_auto_60px] items-center gap-3 px-3.5 py-2.5 rounded-xl cursor-pointer transition group ${
+                          isCurrent
+                            ? "bg-white/15 text-white shadow-sm"
+                            : "hover:bg-white/10 text-[#b3b3b3] hover:text-white"
+                        }`}
                       >
-                        {track.album}
-                      </div>
+                        <div className="font-semibold text-xs text-center">{i + 1}</div>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src={track.cover}
+                            alt="thumb"
+                            onError={handleImgError}
+                            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <div
+                              className={`font-semibold text-sm truncate ${
+                                isCurrent ? "text-[#1ed760]" : "text-white group-hover:text-[#1ed760]"
+                              }`}
+                            >
+                              {track.title}
+                            </div>
+                            <div className="text-xs text-[#b3b3b3] truncate">{track.artist}</div>
+                          </div>
+                        </div>
 
-                      <div className="flex items-center justify-end">
-                        <button
+                        <div
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSongToAddToPlaylist(track);
+                            openAlbumView(track.album, track.artist, track.collectionId);
                           }}
-                          className="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition"
+                          className="hidden sm:block text-xs truncate text-[#b3b3b3] hover:text-white hover:underline cursor-pointer"
                         >
-                          + Playlist
-                        </button>
-                      </div>
+                          {track.album}
+                        </div>
 
-                      <div className="text-right text-xs font-medium text-[#b3b3b3]">
-                        {formatTime(track.duration)}
+                        <div className="flex items-center justify-end">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSongToAddToPlaylist(track);
+                            }}
+                            className="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition"
+                          >
+                            + Playlist
+                          </button>
+                        </div>
+
+                        <div className="text-right text-xs font-medium text-[#b3b3b3]">
+                          {formatTime(track.duration)}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}

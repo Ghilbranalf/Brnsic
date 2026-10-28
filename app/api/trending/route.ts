@@ -336,9 +336,56 @@ export async function GET() {
       }
     }
 
+    // Real Aggregated Most Played Songs from Supabase PostgreSQL Database (No Dummy Data!)
+    let mostPlayedIndonesia: any[] = [];
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      const dbPlays = await prisma.userActivity.groupBy({
+        by: ["title", "artist"],
+        where: { action: "play" },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 50
+      });
+
+      if (dbPlays && dbPlays.length > 0) {
+        mostPlayedIndonesia = await Promise.all(
+          dbPlays.map(async (row, idx) => {
+            const latest = await prisma.userActivity.findFirst({
+              where: { title: row.title, artist: row.artist },
+              orderBy: { createdAt: "desc" }
+            });
+            let cover = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=600&auto=format&fit=crop";
+            if (latest?.genre) {
+              try {
+                if (latest.genre.startsWith("{")) {
+                  const parsed = JSON.parse(latest.genre);
+                  if (parsed.cover) cover = parsed.cover;
+                } else if (latest.genre.startsWith("http")) {
+                  cover = latest.genre;
+                }
+              } catch (e) {}
+            }
+            return {
+              id: latest?.songId || `real-play-${idx}-${encodeURIComponent(row.title)}`,
+              title: row.title,
+              artist: row.artist,
+              album: "Diputar di Brnsic",
+              duration: latest?.duration || 210,
+              cover,
+              plays: `${row._count.id} kali diputar`,
+              rank: idx + 1
+            };
+          })
+        );
+      }
+    } catch (dbErr) {
+      console.error("Prisma most-played query error:", dbErr);
+    }
+
     return NextResponse.json({
       indonesiaTop50,
-      mostPlayedIndonesia: MOST_PLAYED_INDONESIA,
+      mostPlayedIndonesia,
       viralIndonesia,
       globalTrending,
       popularArtists
@@ -347,7 +394,7 @@ export async function GET() {
     return NextResponse.json(
       {
         error: err.message,
-        mostPlayedIndonesia: MOST_PLAYED_INDONESIA
+        mostPlayedIndonesia: []
       },
       { status: 500 }
     );

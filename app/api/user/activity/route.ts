@@ -8,25 +8,26 @@ export async function POST(req: Request) {
   try {
     const user = await getAuthUser(req);
     const body = await req.json();
-    const { songId, title, artist, genre, action, duration, listenSeconds } = body || {};
+    const { songId, title, artist, genre, action, duration, listenSeconds, deviceId, cover } = body || {};
 
     if (!title || !artist || !action) {
       return NextResponse.json({ error: "Data interaksi tidak lengkap" }, { status: 400 });
     }
 
-    if (!user) {
-      // Guest mode: interaction accepted, stored locally by client
-      return NextResponse.json({ success: true, guest: true });
-    }
+    // Determine target user ID (Logged-in user OR Persistent Guest device)
+    const targetUserId = user?.id || (deviceId ? `${deviceId}` : "guest_device");
 
-    const updatedUser = await dbLogUserActivity(user.id, {
+    // Package genre and cover into metadata string so cover is preserved in UserActivity
+    const metaGenre = cover ? JSON.stringify({ genre: genre || "Pop", cover }) : (genre || null);
+
+    const updatedUser = await dbLogUserActivity(targetUserId, {
       songId: songId || title,
-      title,
-      artist,
-      genre,
+      title: title.trim(),
+      artist: artist.trim(),
+      genre: metaGenre,
       action,
-      duration,
-      listenSeconds
+      duration: duration || null,
+      listenSeconds: listenSeconds || null
     });
 
     if (!updatedUser) {
