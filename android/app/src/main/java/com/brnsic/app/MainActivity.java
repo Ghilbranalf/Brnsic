@@ -205,12 +205,12 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "3.4.0";
+            return "3.5.0";
         }
 
         @JavascriptInterface
         public int getAppVersionCode() {
-            return 3;
+            return 4;
         }
 
         @JavascriptInterface
@@ -278,6 +278,25 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public boolean isOverlayPermissionGranted() {
+            return DynamicIslandOverlay.canDrawOverlay(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void requestOverlayPermission() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                try {
+                    if (!android.provider.Settings.canDrawOverlays(MainActivity.this)) {
+                        Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                android.net.Uri.parse("package:" + getPackageName()));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        @JavascriptInterface
         public boolean isNativeApp() {
             return true;
         }
@@ -330,6 +349,16 @@ public class MainActivity extends BridgeActivity {
                 if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                     requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
                     return;
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (!android.provider.Settings.canDrawOverlays(this)) {
+                    try {
+                        Intent overlayIntent = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                android.net.Uri.parse("package:" + getPackageName()));
+                        overlayIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(overlayIntent);
+                    } catch (Exception ignored) {}
                 }
             }
             promptBatteryOptimization();
@@ -478,6 +507,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        BackgroundAudioService.setAppForegroundState(true);
         try {
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().onResume();
@@ -489,6 +519,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         super.onPause();
+        BackgroundAudioService.setAppForegroundState(false);
         try {
             if (wakeLock != null && !wakeLock.isHeld()) {
                 wakeLock.acquire(180 * 60 * 1000L); // 3 hours max wake lock while playing
@@ -503,6 +534,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onStop() {
         super.onStop();
+        BackgroundAudioService.setAppForegroundState(false);
         try {
             if (wakeLock != null && !wakeLock.isHeld()) {
                 wakeLock.acquire(180 * 60 * 1000L);

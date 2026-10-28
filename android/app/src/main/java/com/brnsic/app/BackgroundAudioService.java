@@ -60,6 +60,10 @@ public class BackgroundAudioService extends Service implements
     private MediaPlayer mediaPlayer;
     private WifiManager.WifiLock wifiLock;
     private MediaSessionCompat mediaSession;
+    private DynamicIslandOverlay dynamicIslandOverlay;
+
+    private static boolean isAppInForeground = true;
+    private static BackgroundAudioService activeInstance = null;
 
     private String currentTitle = "Brnsic Music";
     private String currentArtist = "Memutar di latar belakang";
@@ -72,9 +76,33 @@ public class BackgroundAudioService extends Service implements
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    public static void setAppForegroundState(boolean inForeground) {
+        isAppInForeground = inForeground;
+        if (activeInstance != null) {
+            activeInstance.mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    activeInstance.refreshOverlayState();
+                }
+            });
+        }
+    }
+
+    private void refreshOverlayState() {
+        if (dynamicIslandOverlay == null) return;
+        if (isPlaybackActive && !isAppInForeground && DynamicIslandOverlay.canDrawOverlay(this)) {
+            dynamicIslandOverlay.show();
+            dynamicIslandOverlay.update(currentCoverBitmap, isPlaybackActive);
+        } else {
+            dynamicIslandOverlay.hide();
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
+        activeInstance = this;
+        dynamicIslandOverlay = new DynamicIslandOverlay(this);
         createNotificationChannel();
         initMediaSession();
         initMediaPlayer();
@@ -329,6 +357,9 @@ public class BackgroundAudioService extends Service implements
                                     currentCoverBitmap = bitmap;
                                     updateMediaMetadata();
                                     startForegroundNotification(currentTitle, currentArtist, isPlaybackActive);
+                                    if (dynamicIslandOverlay != null) {
+                                        dynamicIslandOverlay.update(currentCoverBitmap, isPlaybackActive);
+                                    }
                                 }
                             }
                         });
@@ -381,6 +412,7 @@ public class BackgroundAudioService extends Service implements
             }
             updatePlaybackState(false, currentPositionMs);
             startForegroundNotification(currentTitle, currentArtist, false);
+            refreshOverlayState();
         } catch (Exception ignored) {}
     }
 
@@ -394,6 +426,7 @@ public class BackgroundAudioService extends Service implements
             }
             updatePlaybackState(true, currentPositionMs);
             startForegroundNotification(currentTitle, currentArtist, true);
+            refreshOverlayState();
         } catch (Exception ignored) {}
     }
 
@@ -431,6 +464,9 @@ public class BackgroundAudioService extends Service implements
             }
         } catch (Exception ignored) {}
 
+        if (dynamicIslandOverlay != null) {
+            dynamicIslandOverlay.hide();
+        }
         stopForeground(true);
         stopSelf();
     }
@@ -446,6 +482,7 @@ public class BackgroundAudioService extends Service implements
             isPlaybackActive = true;
             updatePlaybackState(true, currentPositionMs);
             startForegroundNotification(currentTitle, currentArtist, true);
+            refreshOverlayState();
         } catch (Exception ignored) {}
     }
 
@@ -454,6 +491,7 @@ public class BackgroundAudioService extends Service implements
         isPlaybackActive = false;
         updatePlaybackState(false, currentPositionMs);
         startForegroundNotification(currentTitle, currentArtist, false);
+        refreshOverlayState();
         MainActivity.notifyTrackCompleted();
     }
 
@@ -558,6 +596,13 @@ public class BackgroundAudioService extends Service implements
 
     @Override
     public void onDestroy() {
+        if (dynamicIslandOverlay != null) {
+            dynamicIslandOverlay.hide();
+            dynamicIslandOverlay = null;
+        }
+        if (activeInstance == this) {
+            activeInstance = null;
+        }
         if (mediaSession != null) {
             mediaSession.setActive(false);
             mediaSession.release();

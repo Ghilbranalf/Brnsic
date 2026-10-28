@@ -3234,6 +3234,10 @@ export default function BrnsicMusicPage() {
           if ((window as any).BrnsicNative?.isPermissionGranted && !(window as any).BrnsicNative.isPermissionGranted()) {
             (window as any).BrnsicNative.requestPermissions();
           }
+          if ((window as any).BrnsicNative?.isOverlayPermissionGranted && !(window as any).BrnsicNative.isOverlayPermissionGranted()) {
+            (window as any).BrnsicNative.requestOverlayPermission();
+            showToast("Aktifkan izin 'Tampilkan di atas aplikasi lain' agar Dynamic Island muncul di Home Screen");
+          }
           const durMs = Math.round((song.duration || optimisticTrack.duration || 210) * 1000);
           if ((window as any).BrnsicNative?.playAudioWithDuration) {
             (window as any).BrnsicNative.playAudioWithDuration(

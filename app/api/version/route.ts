@@ -15,9 +15,9 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "3.4.0",
-    versionCode: 3,
-    minVersionCode: 3,
+    version: "3.5.0",
+    versionCode: 4,
+    minVersionCode: 4,
     releaseDate: "2026-10-28",
     title: "Pembaruan Aplikasi Diperlukan",
     notes: "Pembaruan pemutar musik resmi dan peningkatan performa.",
