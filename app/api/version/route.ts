@@ -15,12 +15,12 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "3.8.0",
-    versionCode: 7,
-    minVersionCode: 7,
+    version: "3.9.0",
+    versionCode: 8,
+    minVersionCode: 8,
     releaseDate: "2026-10-29",
-    title: "Pembaruan Brnsic v3.8.0",
-    notes: "Dynamic Island mepet paling atas sejajar status bar, kartu pintasan Spotify 4-grid, dan reset selera bersih.",
+    title: "Pembaruan Brnsic v3.9.0",
+    notes: "Kapsul Dynamic Island diperlebar & diturunkan presisi, tombol teks bawah dihapus & diganti grab bar panjang di bawah kartu.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: true,

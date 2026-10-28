@@ -144,9 +144,8 @@ public class DynamicIslandOverlay {
         String position = prefs.getString("overlay_position", "center");
         int offsetYExtra = prefs.getInt("overlay_offset_y", 0);
 
-        // Position flush at the very top of the screen ("atasin sampe full")
-        // Default top position: 4dp from the absolute top edge of the screen
-        int safeTopY = dpToPx(4) + offsetYExtra;
+        // Position slightly below top edge ("di bwahin dikit aja" - 11dp default)
+        int safeTopY = dpToPx(11) + offsetYExtra;
 
         if ("left".equals(position)) {
             layoutParams.gravity = Gravity.TOP | Gravity.START;
@@ -313,19 +312,19 @@ public class DynamicIslandOverlay {
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
 
-        // Apple Dynamic Island exact elongated pill width & height (Image 2)
-        int pillWidth = dpToPx(205);
-        int pillHeight = dpToPx(34);
+        // Apple Dynamic Island exact elongated pill width & height ("di lebarkan dikit biar ga kekecilan")
+        int pillWidth = dpToPx(235);
+        int pillHeight = dpToPx(38);
         LinearLayout.LayoutParams pillParams = new LinearLayout.LayoutParams(pillWidth, pillHeight);
         pill.setLayoutParams(pillParams);
 
-        int padHoriz = dpToPx(8);
-        int padVert = dpToPx(4);
+        int padHoriz = dpToPx(10);
+        int padVert = dpToPx(5);
         pill.setPadding(padHoriz, padVert, padHoriz, padVert);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        bg.setCornerRadius(dpToPx(17));
+        bg.setCornerRadius(dpToPx(19));
         bg.setStroke(dpToPx(1), Color.parseColor("#33FFFFFF"));
         pill.setBackground(bg);
 
@@ -333,15 +332,15 @@ public class DynamicIslandOverlay {
             pill.setElevation(dpToPx(14));
         }
 
-        // Cover on Left (24dp x 24dp, rounded 6dp)
-        int coverSize = dpToPx(24);
+        // Cover on Left (27dp x 27dp, rounded 7dp)
+        int coverSize = dpToPx(27);
         collapsedCover = new ImageView(context);
         LinearLayout.LayoutParams coverParams = new LinearLayout.LayoutParams(coverSize, coverSize);
         collapsedCover.setLayoutParams(coverParams);
         collapsedCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         GradientDrawable coverBg = new GradientDrawable();
         coverBg.setColor(Color.parseColor("#222222"));
-        coverBg.setCornerRadius(dpToPx(6));
+        coverBg.setCornerRadius(dpToPx(7));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             collapsedCover.setClipToOutline(true);
         }
@@ -357,7 +356,7 @@ public class DynamicIslandOverlay {
 
         // Live Dancing Waveform on Right (Warm Amber/Orange or Green)
         collapsedWave = new WaveformView(context, Color.parseColor("#ffaa00"));
-        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(38), dpToPx(16));
+        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(42), dpToPx(17));
         collapsedWave.setLayoutParams(waveParams);
         pill.addView(collapsedWave);
 
@@ -379,9 +378,9 @@ public class DynamicIslandOverlay {
         card.setGravity(Gravity.CENTER_HORIZONTAL);
 
         int pad = dpToPx(16);
-        card.setPadding(pad, dpToPx(12), pad, dpToPx(14));
+        card.setPadding(pad, dpToPx(14), pad, dpToPx(12));
 
-        // Card width: 330dp matching Image 2
+        // Card width: 330dp
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(dpToPx(330), ViewGroup.LayoutParams.WRAP_CONTENT);
         card.setLayoutParams(cardParams);
 
@@ -394,23 +393,6 @@ public class DynamicIslandOverlay {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             card.setElevation(dpToPx(20));
         }
-
-        // TOP HANDLE / COLLAPSE BAR (Pill Grab Handle to easily swipe up or tap to collapse!)
-        View topHandle = new View(context);
-        LinearLayout.LayoutParams handleParams = new LinearLayout.LayoutParams(dpToPx(36), dpToPx(4));
-        handleParams.bottomMargin = dpToPx(10);
-        topHandle.setLayoutParams(handleParams);
-        GradientDrawable handleBg = new GradientDrawable();
-        handleBg.setColor(Color.parseColor("#55FFFFFF"));
-        handleBg.setCornerRadius(dpToPx(2));
-        topHandle.setBackground(handleBg);
-        topHandle.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                setExpanded(false);
-            }
-        });
-        card.addView(topHandle);
 
         // ROW 1: Top Row (Cover + Title/Artist + Orange Waveform + Collapse '✕' Button)
         LinearLayout topRow = new LinearLayout(context);
@@ -623,53 +605,24 @@ public class DynamicIslandOverlay {
 
         card.addView(controlsRow);
 
-        // ROW 4: Intuitive Actions Row ("⌃ Tutup ke Kapsul" & "✕ Sembunyikan")
-        LinearLayout actionRow = new LinearLayout(context);
-        actionRow.setOrientation(LinearLayout.HORIZONTAL);
-        actionRow.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams actionRowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        actionRowParams.topMargin = dpToPx(14);
-        actionRow.setLayoutParams(actionRowParams);
-
-        // Button: Tutup ke Kapsul (Prominently collapse back to pill!)
-        TextView collapsePillBtn = new TextView(context);
-        collapsePillBtn.setText("⌃ Tutup ke Kapsul");
-        collapsePillBtn.setTextColor(Color.WHITE);
-        collapsePillBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        collapsePillBtn.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        collapsePillBtn.setPadding(dpToPx(14), dpToPx(6), dpToPx(14), dpToPx(6));
-        GradientDrawable collapseBg = new GradientDrawable();
-        collapseBg.setColor(Color.parseColor("#22FFFFFF"));
-        collapseBg.setCornerRadius(dpToPx(14));
-        collapsePillBtn.setBackground(collapseBg);
-        collapsePillBtn.setOnClickListener(new View.OnClickListener() {
+        // BOTTOM HANDLE / COLLAPSE BAR ("lalu ini taruh bawah dan panjangkan dikit")
+        // Moved from top to bottom, lengthened to 72dp, rounded bar
+        View bottomHandle = new View(context);
+        LinearLayout.LayoutParams handleParams = new LinearLayout.LayoutParams(dpToPx(72), dpToPx(5));
+        handleParams.topMargin = dpToPx(16);
+        handleParams.bottomMargin = dpToPx(4);
+        bottomHandle.setLayoutParams(handleParams);
+        GradientDrawable handleBg = new GradientDrawable();
+        handleBg.setColor(Color.parseColor("#55FFFFFF"));
+        handleBg.setCornerRadius(dpToPx(3));
+        bottomHandle.setBackground(handleBg);
+        bottomHandle.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 setExpanded(false);
             }
         });
-        actionRow.addView(collapsePillBtn);
-
-        // Spacer between buttons
-        View actionSpacer = new View(context);
-        actionSpacer.setLayoutParams(new LinearLayout.LayoutParams(dpToPx(12), 1));
-        actionRow.addView(actionSpacer);
-
-        // Button: Sembunyikan Overlay
-        TextView dismissBtn = new TextView(context);
-        dismissBtn.setText("Sembunyikan");
-        dismissBtn.setTextColor(Color.parseColor("#88FFFFFF"));
-        dismissBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        dismissBtn.setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6));
-        dismissBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                dismiss();
-            }
-        });
-        actionRow.addView(dismissBtn);
-
-        card.addView(actionRow);
+        card.addView(bottomHandle);
 
         // Intuitive Gestures:
         // 1. Swipe UP on the card -> Immediately collapses back to the pill!
