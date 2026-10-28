@@ -1267,7 +1267,15 @@ export default function BrnsicMusicPage() {
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
 
   // 15. User Authentication & Cloud Preference Sync (Google-Only Auth with Supabase)
-  const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<SafeUser | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("brnsic_user_profile");
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return null;
+  });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [googleEmail, setGoogleEmail] = useState<string>("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -1320,6 +1328,19 @@ export default function BrnsicMusicPage() {
   const currentTrackRef = useRef<Track>(DEFAULT_CATALOG[0]);
   const playNextSongRef = useRef<(userTriggered?: boolean) => void>(() => {});
   const hasTriggeredEndRef = useRef<boolean>(false);
+
+  // Back Navigation & Modal State Refs for Android hardware Back & browser popstate
+  const isAuthModalOpenRef = useRef<boolean>(false);
+  const isMobilePlayerOpenRef = useRef<boolean>(false);
+  const isZoomedRef = useRef<boolean>(false);
+  const currentViewRef = useRef<string>("home");
+  const isOnboardingModalOpenRef = useRef<boolean>(false);
+
+  useEffect(() => { isAuthModalOpenRef.current = isAuthModalOpen; }, [isAuthModalOpen]);
+  useEffect(() => { isMobilePlayerOpenRef.current = isMobilePlayerOpen; }, [isMobilePlayerOpen]);
+  useEffect(() => { isZoomedRef.current = isZoomed; }, [isZoomed]);
+  useEffect(() => { currentViewRef.current = currentView; }, [currentView]);
+  useEffect(() => { isOnboardingModalOpenRef.current = isOnboardingModalOpen; }, [isOnboardingModalOpen]);
 
   // Unified Bulletproof Track Completion Trigger
   const handleTrackEnded = (source = "unknown") => {
@@ -1556,6 +1577,9 @@ export default function BrnsicMusicPage() {
           const data = await res.json();
           if (data.authenticated && data.user) {
             setCurrentUser(data.user);
+            try {
+              localStorage.setItem("brnsic_user_profile", JSON.stringify(data.user));
+            } catch (e) {}
             setIsAuthModalOpen(false);
             if (data.user.taste) {
               setUserTaste(data.user.taste);
@@ -1586,22 +1610,35 @@ export default function BrnsicMusicPage() {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const urlToken = urlParams.get("token");
+      const urlUser = urlParams.get("user");
       if (urlToken) {
         try {
           localStorage.setItem("brnsic_auth_token", urlToken);
         } catch (e) {}
       }
+      if (urlUser) {
+        try {
+          const parsedUser = JSON.parse(decodeURIComponent(urlUser));
+          if (parsedUser && parsedUser.id) {
+            setCurrentUser(parsedUser);
+            try {
+              localStorage.setItem("brnsic_user_profile", JSON.stringify(parsedUser));
+            } catch (e) {}
+            setIsAuthModalOpen(false);
+          }
+        } catch (e) {}
+      }
 
       if (urlParams.get("login_success") === "true") {
         showToast("Login Google Berhasil! Selamat datang di Brnsic.");
-        window.history.replaceState(null, "", window.location.pathname);
+        window.history.replaceState({ page: "home" }, "", "/");
         if (urlToken) {
           checkAuthSession(urlToken);
         }
       } else if (urlParams.get("auth_error")) {
         setAuthError(decodeURIComponent(urlParams.get("auth_error") || "Gagal masuk"));
         setIsAuthModalOpen(true);
-        window.history.replaceState(null, "", window.location.pathname);
+        window.history.replaceState({ page: "home" }, "", "/");
       }
     }
 
@@ -1619,6 +1656,9 @@ export default function BrnsicMusicPage() {
           .then((d) => {
             if (d.user) {
               setCurrentUser(d.user);
+              try {
+                localStorage.setItem("brnsic_user_profile", JSON.stringify(d.user));
+              } catch (e) {}
               if (d.token) {
                 try {
                   localStorage.setItem("brnsic_auth_token", d.token);
@@ -1637,21 +1677,86 @@ export default function BrnsicMusicPage() {
           })
           .catch(() => {})
           .finally(() => {
-            window.history.replaceState(null, "", window.location.pathname);
+            window.history.replaceState({ page: "home" }, "", "/");
           });
       }
     }
 
-    (window as any).__handleNativeAuthToken = (token: string) => {
+    (window as any).__handleNativeAuthToken = (token: string, rawUser?: any) => {
       if (token) {
         try {
           localStorage.setItem("brnsic_auth_token", token);
         } catch (e) {}
+        if (rawUser) {
+          try {
+            const parsed = typeof rawUser === "string" ? JSON.parse(decodeURIComponent(rawUser)) : rawUser;
+            if (parsed && parsed.id) {
+              setCurrentUser(parsed);
+              try {
+                localStorage.setItem("brnsic_user_profile", JSON.stringify(parsed));
+              } catch (e) {}
+            }
+          } catch (e) {}
+        }
         checkAuthSession(token);
         setIsAuthModalOpen(false);
         showToast("Berhasil masuk dengan Google!");
       }
     };
+
+    // Native Android Hardware Back & Web Browser PopState Handler
+    // Prevents ever navigating backward into Google OAuth login URL!
+    (window as any).__handleNativeBack = () => {
+      if (isAuthModalOpenRef.current) {
+        setIsAuthModalOpen(false);
+        return true;
+      }
+      if (isMobilePlayerOpenRef.current) {
+        setIsMobilePlayerOpen(false);
+        return true;
+      }
+      if (isZoomedRef.current) {
+        setIsZoomed(false);
+        return true;
+      }
+      if (currentViewRef.current !== "home") {
+        setCurrentView("home");
+        setSearchQuery("");
+        return true;
+      }
+      if (isOnboardingModalOpenRef.current) {
+        setIsOnboardingModalOpen(false);
+        return true;
+      }
+      return false;
+    };
+
+    const handlePopState = () => {
+      if (isAuthModalOpenRef.current) {
+        setIsAuthModalOpen(false);
+        window.history.pushState({ page: "home" }, "", "/");
+        return;
+      }
+      if (isMobilePlayerOpenRef.current) {
+        setIsMobilePlayerOpen(false);
+        window.history.pushState({ page: "home" }, "", "/");
+        return;
+      }
+      if (isZoomedRef.current) {
+        setIsZoomed(false);
+        window.history.pushState({ page: "home" }, "", "/");
+        return;
+      }
+      if (currentViewRef.current !== "home") {
+        setCurrentView("home");
+        setSearchQuery("");
+        window.history.pushState({ page: "home" }, "", "/");
+        return;
+      }
+      window.history.replaceState({ page: "home" }, "", "/");
+    };
+
+    window.addEventListener("popstate", handlePopState);
 
     (window as any).__handleNativeTrackCompleted = () => {
       handleTrackEnded("native-android-completed");
@@ -1688,14 +1793,10 @@ export default function BrnsicMusicPage() {
 
     checkAuthSession();
 
-    // Prompt user to LOGIN first before choosing genres
-    const savedToken = typeof localStorage !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null;
-    if (!savedToken) {
-      const authTimer = setTimeout(() => {
-        setIsAuthModalOpen(true);
-      }, 1400);
-      return () => clearTimeout(authTimer);
-    }
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
   }, []);
 
   // Continuous Background Audio Keepalive & Anti-Throttle Shield
@@ -2147,7 +2248,7 @@ export default function BrnsicMusicPage() {
       if (oauthRes && oauthRes.ok) {
         const oauthData = await oauthRes.json();
         if (oauthData.url && oauthData.enabled) {
-          window.location.href = oauthData.url;
+          window.location.replace(oauthData.url);
           return;
         }
       }
@@ -2180,6 +2281,9 @@ export default function BrnsicMusicPage() {
       }
 
       setCurrentUser(data.user);
+      try {
+        localStorage.setItem("brnsic_user_profile", JSON.stringify(data.user));
+      } catch (e) {}
       setIsAuthModalOpen(false);
       setGoogleEmail("");
 
@@ -2237,6 +2341,7 @@ export default function BrnsicMusicPage() {
     } catch (e) {}
     try {
       localStorage.removeItem("brnsic_auth_token");
+      localStorage.removeItem("brnsic_user_profile");
     } catch (e) {}
     setCurrentUser(null);
     setIsProfileDropdownOpen(false);

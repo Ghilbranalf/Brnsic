@@ -296,21 +296,47 @@ public class MainActivity extends BridgeActivity {
             if (intent != null && intent.getData() != null) {
                 android.net.Uri uri = intent.getData();
                 if ("brnsic".equals(uri.getScheme())) {
-                    String token = uri.getQueryParameter("token");
+                    final String token = uri.getQueryParameter("token");
+                    final String user = uri.getQueryParameter("user");
                     if (token != null && !token.isEmpty() && bridge != null && bridge.getWebView() != null) {
                         bridge.getWebView().post(new Runnable() {
                             @Override
                             public void run() {
-                                bridge.getWebView().evaluateJavascript(
-                                    "(function(){ if (window.__handleNativeAuthToken) { window.__handleNativeAuthToken('" + token + "'); } else { localStorage.setItem('brnsic_auth_token', '" + token + "'); window.location.href = '/?login_success=true&token=" + token + "'; } })();",
-                                    null
-                                );
+                                String userParam = user != null ? "'" + user.replace("'", "\\'") + "'" : "null";
+                                String script = "(function(){ " +
+                                    "try { localStorage.setItem('brnsic_auth_token', '" + token + "'); } catch(e){} " +
+                                    (user != null ? "try { localStorage.setItem('brnsic_user_profile', decodeURIComponent('" + user.replace("'", "\\'") + "')); } catch(e){} " : "") +
+                                    "if (window.__handleNativeAuthToken) { window.__handleNativeAuthToken('" + token + "', " + userParam + "); } else { window.location.replace('/?login_success=true&token=" + token + "'); } " +
+                                    "})();";
+                                bridge.getWebView().evaluateJavascript(script, null);
+                                bridge.getWebView().clearHistory();
                             }
                         });
                     }
                 }
             }
         } catch (Exception ignored) {}
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (bridge != null && bridge.getWebView() != null) {
+            WebView webView = bridge.getWebView();
+            webView.evaluateJavascript(
+                "(function(){ if (window.__handleNativeBack && window.__handleNativeBack()) { return 'handled'; } return 'unhandled'; })()",
+                new android.webkit.ValueCallback<String>() {
+                    @Override
+                    public void onReceiveValue(String value) {
+                        if (value == null || !value.contains("handled") || value.contains("unhandled")) {
+                            // If web did not consume back press (e.g. user is on home screen), minimize to background like Spotify
+                            moveTaskToBack(true);
+                        }
+                    }
+                }
+            );
+            return;
+        }
+        super.onBackPressed();
     }
 
     @Override

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbFindUserByEmail, dbCreateUser, dbUpdateUser } from "@/lib/db";
-import { createSessionToken } from "@/lib/auth";
+import { createSessionToken, toSafeUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -80,10 +80,12 @@ export async function GET(req: NextRequest) {
 
     // 4. Create secure JWT session token
     const sessionToken = createSessionToken(user.id, user.email);
+    const safeUser = toSafeUser(user);
+    const userJson = encodeURIComponent(JSON.stringify(safeUser));
 
     // If request originated from Android native APK, return deep link to switch back to APK!
     if (state === "native_apk") {
-      const deepLink = `brnsic://auth?login_success=true&token=${encodeURIComponent(sessionToken)}`;
+      const deepLink = `brnsic://auth?login_success=true&token=${encodeURIComponent(sessionToken)}&user=${userJson}`;
       const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -105,10 +107,7 @@ export async function GET(req: NextRequest) {
   </div>
   <script>
     var target = "${deepLink}";
-    window.location.href = target;
-    setTimeout(function() {
-      window.location.href = target;
-    }, 200);
+    window.location.replace(target);
   </script>
 </body>
 </html>`;
@@ -126,8 +125,27 @@ export async function GET(req: NextRequest) {
       return response;
     }
 
-    const redirectUrl = new URL(`/?login_success=true&token=${encodeURIComponent(sessionToken)}`, origin);
-    const redirectResponse = NextResponse.redirect(redirectUrl);
+    const redirectUrl = `/?login_success=true&token=${encodeURIComponent(sessionToken)}&user=${userJson}`;
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Login Berhasil</title>
+</head>
+<body style="background:#000;color:#fff;">
+  <script>
+    try {
+      localStorage.setItem("brnsic_auth_token", "${sessionToken}");
+      localStorage.setItem("brnsic_user_profile", decodeURIComponent("${userJson}"));
+    } catch (e) {}
+    window.location.replace("${redirectUrl}");
+  </script>
+</body>
+</html>`;
+
+    const redirectResponse = new NextResponse(html, {
+      headers: { "Content-Type": "text/html; charset=utf-8" }
+    });
     redirectResponse.cookies.set("brnsic_session", sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
