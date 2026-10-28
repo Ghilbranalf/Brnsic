@@ -1381,6 +1381,24 @@ export default function BrnsicMusicPage() {
   const [installStatus, setInstallStatus] = useState<string>("Menyiapkan pengunduhan...");
   const [isInstallReady, setIsInstallReady] = useState<boolean>(false);
   const [showPermissionBanner, setShowPermissionBanner] = useState<boolean>(false);
+  const [isDynamicIslandEnabled, setIsDynamicIslandEnabled] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const val = localStorage.getItem("brnsic_island_enabled");
+        if (val !== null) return val === "true";
+      } catch (e) {}
+    }
+    return true;
+  });
+  const [islandPosition, setIslandPosition] = useState<"center" | "left" | "right">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const val = localStorage.getItem("brnsic_island_pos");
+        if (val === "left" || val === "right") return val;
+      } catch (e) {}
+    }
+    return "center";
+  });
 
   // 12. Update Popup State
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
@@ -2419,6 +2437,37 @@ export default function BrnsicMusicPage() {
         })
         .catch(() => {});
     } catch (e) {}
+  };
+
+  const handleToggleDynamicIsland = (enabled: boolean) => {
+    setIsDynamicIslandEnabled(enabled);
+    try {
+      localStorage.setItem("brnsic_island_enabled", enabled ? "true" : "false");
+      if ((window as any).BrnsicNative?.setDynamicIslandEnabled) {
+        (window as any).BrnsicNative.setDynamicIslandEnabled(enabled);
+      }
+    } catch (e) {}
+    showToast(enabled ? "Dynamic Island diaktifkan" : "Dynamic Island dinonaktifkan (Solusi jika HP sudah ada capsule bawaan)");
+  };
+
+  const handleRestoreDynamicIsland = () => {
+    try {
+      if ((window as any).BrnsicNative?.restoreDynamicIsland) {
+        (window as any).BrnsicNative.restoreDynamicIsland();
+      }
+    } catch (e) {}
+    showToast("Dynamic Island ditampilkan kembali di layar utama");
+  };
+
+  const handleChangeIslandPosition = (pos: "center" | "left" | "right") => {
+    setIslandPosition(pos);
+    try {
+      localStorage.setItem("brnsic_island_pos", pos);
+      if ((window as any).BrnsicNative?.setDynamicIslandPosition) {
+        (window as any).BrnsicNative.setDynamicIslandPosition(pos, 0);
+      }
+    } catch (e) {}
+    showToast(`Posisi Dynamic Island: ${pos === "center" ? "Tengah (Di Bawah Kamera)" : pos === "left" ? "Kiri Atas" : "Kanan Atas"}`);
   };
 
   const toggleLike = (songId: string) => {
@@ -8510,6 +8559,83 @@ export default function BrnsicMusicPage() {
                 </div>
                 <span className="text-white/40 text-[11px]">{dislikedTracks.length} lagu</span>
               </button>
+
+              {/* Dynamic Island Settings Card */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#1ed760] animate-pulse"></span>
+                    <span className="text-xs font-bold text-white">Dynamic Island (Layar Utama)</span>
+                  </div>
+                  <button
+                    onClick={() => handleToggleDynamicIsland(!isDynamicIslandEnabled)}
+                    className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 ease-in-out cursor-pointer ${
+                      isDynamicIslandEnabled ? "bg-[#1ed760]" : "bg-white/20"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full transition-transform duration-200 ease-in-out ${
+                        isDynamicIslandEnabled ? "translate-x-5 bg-black" : "translate-x-0 bg-white"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
+                  Kapsul mengambang di layar HP saat memutar musik di latar belakang.
+                  Matikan jika HP kamu sudah memiliki Dynamic Island bawaan.
+                </p>
+
+                {isDynamicIslandEnabled && (
+                  <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-white/70">Posisi Kapsul:</span>
+                      <button
+                        onClick={handleRestoreDynamicIsland}
+                        className="text-[10px] font-bold text-[#1ed760] hover:underline cursor-pointer"
+                      >
+                        + Tampilkan Kembali
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        onClick={() => handleChangeIslandPosition("left")}
+                        className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition text-center ${
+                          islandPosition === "left"
+                            ? "bg-[#1ed760] text-black shadow-sm"
+                            : "bg-white/10 text-white/80 hover:bg-white/20"
+                        }`}
+                        title="Untuk HP dengan kamera di tengah atau kanan"
+                      >
+                        Kiri Atas
+                      </button>
+                      <button
+                        onClick={() => handleChangeIslandPosition("center")}
+                        className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition text-center ${
+                          islandPosition === "center"
+                            ? "bg-[#1ed760] text-black shadow-sm"
+                            : "bg-white/10 text-white/80 hover:bg-white/20"
+                        }`}
+                        title="Tengah di bawah kamera punch-hole"
+                      >
+                        Tengah
+                      </button>
+                      <button
+                        onClick={() => handleChangeIslandPosition("right")}
+                        className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition text-center ${
+                          islandPosition === "right"
+                            ? "bg-[#1ed760] text-black shadow-sm"
+                            : "bg-white/10 text-white/80 hover:bg-white/20"
+                        }`}
+                        title="Untuk HP dengan kamera di kiri"
+                      >
+                        Kanan Atas
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {!isInsideNativeApk && (
                 <button

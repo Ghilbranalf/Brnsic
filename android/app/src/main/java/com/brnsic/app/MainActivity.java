@@ -283,6 +283,33 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public void restoreDynamicIsland() {
+            BackgroundAudioService.restoreDynamicIsland();
+        }
+
+        @JavascriptInterface
+        public void setDynamicIslandEnabled(boolean enabled) {
+            BackgroundAudioService.setDynamicIslandEnabled(enabled);
+        }
+
+        @JavascriptInterface
+        public boolean isDynamicIslandEnabled() {
+            android.content.SharedPreferences prefs = getSharedPreferences("brnsic_overlay_prefs", Context.MODE_PRIVATE);
+            return prefs.getBoolean("overlay_enabled", true);
+        }
+
+        @JavascriptInterface
+        public void setDynamicIslandPosition(String position, int offsetY) {
+            BackgroundAudioService.setDynamicIslandPosition(position, offsetY);
+        }
+
+        @JavascriptInterface
+        public String getDynamicIslandPosition() {
+            android.content.SharedPreferences prefs = getSharedPreferences("brnsic_overlay_prefs", Context.MODE_PRIVATE);
+            return prefs.getString("overlay_position", "center");
+        }
+
+        @JavascriptInterface
         public void requestOverlayPermission() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 try {

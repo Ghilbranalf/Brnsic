@@ -1,6 +1,5 @@
 package com.brnsic.app;
 
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -16,7 +15,6 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.util.TypedValue;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -36,11 +34,9 @@ public class DynamicIslandOverlay {
     private LinearLayout collapsedPill;
     private LinearLayout expandedCard;
 
-    // Collapsed components
+    // Collapsed components (Minimal, Apple-style: Cover + Live Dancing Waveform)
     private ImageView collapsedCover;
     private WaveformView collapsedWave;
-    private ImageView collapsedPlayPause;
-    private ImageView collapsedNext;
 
     // Expanded components
     private ImageView expandedCover;
@@ -68,12 +64,6 @@ public class DynamicIslandOverlay {
     private String currentArtist = "Memutar di latar belakang";
     private long currentPositionMs = 0;
     private long currentDurationMs = 210000;
-
-    // Drag tracking
-    private int initialX;
-    private int initialY;
-    private float initialTouchX;
-    private float initialTouchY;
 
     private final Handler progressHandler = new Handler(Looper.getMainLooper());
     private final Runnable progressUpdater = new Runnable() {
@@ -105,6 +95,8 @@ public class DynamicIslandOverlay {
 
     public void show() {
         if (!canDrawOverlay(context)) return;
+        boolean isEnabled = prefs.getBoolean("overlay_enabled", true);
+        if (!isEnabled) return;
         if (isDismissed) return;
         if (isAdded) return;
 
@@ -130,22 +122,48 @@ public class DynamicIslandOverlay {
                     PixelFormat.TRANSLUCENT
             );
 
-            layoutParams.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-
-            // Compute safe default position below status bar/punch-hole
-            int defaultY = dpToPx(14);
-            int resId = context.getResources().getIdentifier("status_bar_height", "dimen", "android");
-            if (resId > 0) {
-                defaultY = context.getResources().getDimensionPixelSize(resId) + dpToPx(6);
-            }
-
-            layoutParams.x = prefs.getInt("overlay_x", 0);
-            layoutParams.y = prefs.getInt("overlay_y", defaultY);
+            applyPositionConfigInternal();
 
             windowManager.addView(containerView, layoutParams);
             isAdded = true;
 
             applyDataToViews();
+        } catch (Exception ignored) {}
+    }
+
+    private void applyPositionConfigInternal() {
+        if (layoutParams == null) return;
+
+        int statusBarHeight = dpToPx(32);
+        int resId = context.getResources().getIdentifier("status_bar_height", "dimen", "android");
+        if (resId > 0) {
+            statusBarHeight = context.getResources().getDimensionPixelSize(resId);
+        }
+
+        String position = prefs.getString("overlay_position", "center");
+        int offsetYExtra = prefs.getInt("overlay_offset_y", 0);
+
+        // Safe clearance below status bar and punch-hole camera (10dp padding below status bar)
+        int safeTopY = statusBarHeight + dpToPx(10) + offsetYExtra;
+
+        if ("left".equals(position)) {
+            layoutParams.gravity = Gravity.TOP | Gravity.START;
+            layoutParams.x = dpToPx(16);
+        } else if ("right".equals(position)) {
+            layoutParams.gravity = Gravity.TOP | Gravity.END;
+            layoutParams.x = dpToPx(16);
+        } else {
+            layoutParams.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+            layoutParams.x = 0;
+        }
+        layoutParams.y = safeTopY;
+    }
+
+    public void applyPositionConfig() {
+        if (layoutParams == null || containerView == null || !isAdded) return;
+        try {
+            applyPositionConfigInternal();
+            windowManager.updateViewLayout(containerView, layoutParams);
         } catch (Exception ignored) {}
     }
 
@@ -169,9 +187,13 @@ public class DynamicIslandOverlay {
         this.isDismissed = false;
     }
 
+    public boolean isDismissed() {
+        return this.isDismissed;
+    }
+
     public void update(Bitmap cover, String title, String artist, boolean playing, long positionMs, long durationMs) {
         if (title != null && !title.equals(this.currentTitle)) {
-            // Reset dismissal when track changes to display the new song
+            // Auto restore when new song plays so user always gets the pill
             this.isDismissed = false;
         }
 
@@ -224,14 +246,11 @@ public class DynamicIslandOverlay {
         if (collapsedCover != null && currentCover != null) {
             collapsedCover.setImageBitmap(currentCover);
         }
-        if (collapsedPlayPause != null) {
-            collapsedPlayPause.setImageResource(isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play);
-        }
         if (collapsedWave != null) {
             collapsedWave.setPlaying(isPlaying);
         }
 
-        // Expanded UI (Image 3)
+        // Expanded UI (Full Luxury Card)
         if (expandedCover != null && currentCover != null) {
             expandedCover.setImageBitmap(currentCover);
         }
@@ -274,12 +293,12 @@ public class DynamicIslandOverlay {
     private void buildViews() {
         containerView = new FrameLayout(context);
 
-        // 1. COLLAPSED PILL (IMAGE 1)
+        // 1. COLLAPSED PILL (Minimal Apple style: Cover + Live Dancing Waveform)
         collapsedPill = buildCollapsedPill();
         collapsedPill.setVisibility(isExpanded ? View.GONE : View.VISIBLE);
         containerView.addView(collapsedPill);
 
-        // 2. EXPANDED LUXURY CARD (IMAGE 3)
+        // 2. EXPANDED LUXURY CARD (Full controls, seekbar, close button)
         expandedCard = buildExpandedCard();
         expandedCard.setVisibility(isExpanded ? View.VISIBLE : View.GONE);
         containerView.addView(expandedCard);
@@ -290,30 +309,30 @@ public class DynamicIslandOverlay {
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
 
-        int padHoriz = dpToPx(8);
-        int padVert = dpToPx(4);
+        int padHoriz = dpToPx(10);
+        int padVert = dpToPx(5);
         pill.setPadding(padHoriz, padVert, padHoriz, padVert);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        bg.setCornerRadius(dpToPx(20));
+        bg.setCornerRadius(dpToPx(24));
         bg.setStroke(dpToPx(1), Color.parseColor("#33FFFFFF"));
         pill.setBackground(bg);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            pill.setElevation(dpToPx(10));
+            pill.setElevation(dpToPx(12));
         }
 
-        // Cover
+        // Cover on Left
         int coverSize = dpToPx(28);
         collapsedCover = new ImageView(context);
         LinearLayout.LayoutParams coverParams = new LinearLayout.LayoutParams(coverSize, coverSize);
-        coverParams.rightMargin = dpToPx(8);
+        coverParams.rightMargin = dpToPx(10);
         collapsedCover.setLayoutParams(coverParams);
         collapsedCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         GradientDrawable coverBg = new GradientDrawable();
         coverBg.setColor(Color.parseColor("#222222"));
-        coverBg.setCornerRadius(dpToPx(6));
+        coverBg.setCornerRadius(dpToPx(8));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             collapsedCover.setClipToOutline(true);
         }
@@ -321,45 +340,20 @@ public class DynamicIslandOverlay {
         if (currentCover != null) collapsedCover.setImageBitmap(currentCover);
         pill.addView(collapsedCover);
 
-        // Waveform
-        collapsedWave = new WaveformView(context, Color.WHITE);
-        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(46), dpToPx(18));
-        waveParams.rightMargin = dpToPx(10);
+        // Live Dancing Waveform on Right (Green Spotify Style)
+        collapsedWave = new WaveformView(context, Color.parseColor("#1ed760"));
+        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(48), dpToPx(18));
         collapsedWave.setLayoutParams(waveParams);
         pill.addView(collapsedWave);
 
-        // Play/Pause
-        collapsedPlayPause = new ImageView(context);
-        LinearLayout.LayoutParams playParams = new LinearLayout.LayoutParams(dpToPx(24), dpToPx(24));
-        playParams.rightMargin = dpToPx(6);
-        collapsedPlayPause.setLayoutParams(playParams);
-        collapsedPlayPause.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        collapsedPlayPause.setColorFilter(Color.WHITE);
-        collapsedPlayPause.setOnClickListener(new View.OnClickListener() {
+        // Tap on the pill expands to the full Luxury Card!
+        // No dragging, no extra buttons, zero misclicks!
+        pill.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sendAction(isPlaying ? BackgroundAudioService.ACTION_PAUSE : BackgroundAudioService.ACTION_RESUME);
+                setExpanded(true);
             }
         });
-        pill.addView(collapsedPlayPause);
-
-        // Next
-        collapsedNext = new ImageView(context);
-        LinearLayout.LayoutParams nextParams = new LinearLayout.LayoutParams(dpToPx(24), dpToPx(24));
-        collapsedNext.setLayoutParams(nextParams);
-        collapsedNext.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        collapsedNext.setImageResource(android.R.drawable.ic_media_next);
-        collapsedNext.setColorFilter(Color.WHITE);
-        collapsedNext.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                sendAction(BackgroundAudioService.ACTION_NEXT);
-            }
-        });
-        pill.addView(collapsedNext);
-
-        // Touch listener for dragging, tapping to expand, or swiping to dismiss
-        attachTouchListener(pill, true);
 
         return pill;
     }
@@ -383,7 +377,7 @@ public class DynamicIslandOverlay {
         card.setBackground(bg);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            card.setElevation(dpToPx(16));
+            card.setElevation(dpToPx(18));
         }
 
         // ROW 1: Top Row (Cover + Title/Artist + Orange Waveform + Close 'X' Button)
@@ -448,14 +442,14 @@ public class DynamicIslandOverlay {
 
         topRow.addView(infoCol);
 
-        // Orange Waveform Visualizer (As in Image 3)
+        // Orange Waveform Visualizer
         expandedWave = new WaveformView(context, Color.parseColor("#ff7a00"));
         LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(42), dpToPx(18));
         waveParams.rightMargin = dpToPx(8);
         expandedWave.setLayoutParams(waveParams);
         topRow.addView(expandedWave);
 
-        // Hide / Dismiss Button ('X')
+        // Collapse Button ('X' icon - collapses card back to mini pill)
         expandedCloseBtn = new ImageView(context);
         LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(dpToPx(24), dpToPx(24));
         expandedCloseBtn.setLayoutParams(closeParams);
@@ -465,7 +459,7 @@ public class DynamicIslandOverlay {
         expandedCloseBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                dismiss();
+                setExpanded(false);
             }
         });
         topRow.addView(expandedCloseBtn);
@@ -591,70 +585,22 @@ public class DynamicIslandOverlay {
 
         card.addView(controlsRow);
 
-        // Touch listener for dragging or collapsing
-        attachTouchListener(card, false);
-
-        return card;
-    }
-
-    private void attachTouchListener(final View view, final boolean isCollapsedView) {
-        view.setOnTouchListener(new View.OnTouchListener() {
-            private long touchStartTime;
-
+        // ROW 4: Subtle "Sembunyikan Overlay" button
+        TextView hideBtn = new TextView(context);
+        hideBtn.setText("Sembunyikan Dynamic Island");
+        hideBtn.setTextColor(Color.parseColor("#66FFFFFF"));
+        hideBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        hideBtn.setGravity(Gravity.CENTER);
+        hideBtn.setPadding(0, dpToPx(12), 0, dpToPx(2));
+        hideBtn.setOnClickListener(new View.OnClickListener() {
             @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        touchStartTime = System.currentTimeMillis();
-                        if (layoutParams != null) {
-                            initialX = layoutParams.x;
-                            initialY = layoutParams.y;
-                        }
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
-                        return true;
-
-                    case MotionEvent.ACTION_MOVE:
-                        if (layoutParams != null && isAdded) {
-                            layoutParams.x = initialX + (int) (event.getRawX() - initialTouchX);
-                            layoutParams.y = initialY + (int) (event.getRawY() - initialTouchY);
-                            try {
-                                windowManager.updateViewLayout(containerView, layoutParams);
-                            } catch (Exception ignored) {}
-                        }
-                        return true;
-
-                    case MotionEvent.ACTION_UP:
-                        long duration = System.currentTimeMillis() - touchStartTime;
-                        float diffX = Math.abs(event.getRawX() - initialTouchX);
-                        float diffY = Math.abs(event.getRawY() - initialTouchY);
-
-                        if (layoutParams != null) {
-                            // Persist user's preferred X/Y coordinate so it never collides with notches
-                            prefs.edit().putInt("overlay_x", layoutParams.x).putInt("overlay_y", layoutParams.y).apply();
-                        }
-
-                        // Fast horizontal swipe on collapsed pill -> dismiss/hide overlay
-                        if (isCollapsedView && duration < 350 && (event.getRawX() - initialTouchX > dpToPx(50) || initialTouchX - event.getRawX() > dpToPx(50))) {
-                            dismiss();
-                            return true;
-                        }
-
-                        // Tap event
-                        if (duration < 300 && diffX < 12 && diffY < 12) {
-                            if (isCollapsedView) {
-                                // Tap on collapsed pill -> Expand to luxury card (Image 3)
-                                setExpanded(true);
-                            } else {
-                                // Tap on background of expanded card -> Collapse back to pill
-                                setExpanded(false);
-                            }
-                        }
-                        return true;
-                }
-                return false;
+            public void onClick(View v) {
+                dismiss();
             }
         });
+        card.addView(hideBtn);
+
+        return card;
     }
 
     private void sendAction(String action) {
@@ -681,51 +627,75 @@ public class DynamicIslandOverlay {
         );
     }
 
-    // --- Custom Waveform Visualizer View ---
+    // --- Dynamic Music Waveform Visualizer View ---
     public static class WaveformView extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final float[] baseScale = new float[]{0.3f, 0.55f, 0.85f, 1.0f, 0.7f, 0.95f, 0.45f, 0.65f, 0.25f};
-        private final float[] animHeights = new float[9];
-        private ValueAnimator animator;
-        private boolean playing = false;
+        private final int barCount = 7;
+        private final float[] currentHeights = new float[barCount];
+        private final float[] targetHeights = new float[barCount];
+        private final java.util.Random random = new java.util.Random();
+        private final Handler animHandler = new Handler(Looper.getMainLooper());
+        private boolean isPlaying = false;
+        private int tickCount = 0;
+
+        private final Runnable animRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isPlaying) {
+                    boolean stillDecaying = false;
+                    for (int i = 0; i < barCount; i++) {
+                        if (currentHeights[i] > 0.18f) {
+                            currentHeights[i] -= 0.04f;
+                            stillDecaying = true;
+                        } else {
+                            currentHeights[i] = 0.18f;
+                        }
+                    }
+                    invalidate();
+                    if (stillDecaying) {
+                        animHandler.postDelayed(this, 30);
+                    }
+                    return;
+                }
+
+                tickCount++;
+                if (tickCount % 2 == 0) {
+                    for (int i = 0; i < barCount; i++) {
+                        float min = (i >= 2 && i <= 4) ? 0.45f : 0.25f;
+                        float max = (i >= 2 && i <= 4) ? 1.0f : 0.8f;
+                        targetHeights[i] = min + (random.nextFloat() * (max - min));
+                    }
+                }
+
+                for (int i = 0; i < barCount; i++) {
+                    currentHeights[i] += (targetHeights[i] - currentHeights[i]) * 0.4f;
+                }
+
+                invalidate();
+                animHandler.postDelayed(this, 35); // ~30 fps buttery smooth visualizer
+            }
+        };
 
         public WaveformView(Context context, int waveColor) {
             super(context);
             paint.setColor(waveColor);
             paint.setStyle(Paint.Style.FILL);
-            setupAnimation();
-        }
-
-        private void setupAnimation() {
-            for (int i = 0; i < animHeights.length; i++) animHeights[i] = 0.25f;
-
-            animator = ValueAnimator.ofFloat(0f, 1f);
-            animator.setDuration(700);
-            animator.setRepeatMode(ValueAnimator.REVERSE);
-            animator.setRepeatCount(ValueAnimator.INFINITE);
-            animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animation) {
-                    float val = (float) animation.getAnimatedValue();
-                    for (int i = 0; i < animHeights.length; i++) {
-                        double phase = (i * 0.8) + (val * Math.PI * 2);
-                        float wave = (float) ((Math.sin(phase) + 1.0) / 2.0);
-                        animHeights[i] = 0.2f + (baseScale[i] * 0.8f * wave);
-                    }
-                    invalidate();
-                }
-            });
+            for (int i = 0; i < barCount; i++) {
+                currentHeights[i] = 0.2f;
+                targetHeights[i] = 0.2f;
+            }
         }
 
         public void setPlaying(boolean isPlaying) {
-            this.playing = isPlaying;
-            if (isPlaying) {
-                if (!animator.isRunning()) animator.start();
-            } else {
-                animator.cancel();
-                for (int i = 0; i < animHeights.length; i++) animHeights[i] = 0.25f;
-                invalidate();
-            }
+            this.isPlaying = isPlaying;
+            animHandler.removeCallbacks(animRunnable);
+            animHandler.post(animRunnable);
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            super.onDetachedFromWindow();
+            animHandler.removeCallbacks(animRunnable);
         }
 
         @Override
@@ -735,14 +705,13 @@ public class DynamicIslandOverlay {
             int h = getHeight();
             if (w == 0 || h == 0) return;
 
-            int count = animHeights.length;
-            float barW = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2.5f, getResources().getDisplayMetrics());
-            float gap = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 2.2f, getResources().getDisplayMetrics());
-            float totalW = (count * barW) + ((count - 1) * gap);
+            float barW = dpToPx(3.0f);
+            float gap = dpToPx(2.5f);
+            float totalW = (barCount * barW) + ((barCount - 1) * gap);
             float startX = (w - totalW) / 2f;
 
-            for (int i = 0; i < count; i++) {
-                float barH = Math.max(dpToPx(3), h * animHeights[i]);
+            for (int i = 0; i < barCount; i++) {
+                float barH = Math.max(dpToPx(3), h * currentHeights[i]);
                 float left = startX + (i * (barW + gap));
                 float top = (h - barH) / 2f;
                 float right = left + barW;

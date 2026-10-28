@@ -88,6 +88,55 @@ public class BackgroundAudioService extends Service implements
         }
     }
 
+    public static void restoreDynamicIsland() {
+        if (activeInstance != null) {
+            activeInstance.mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (activeInstance.dynamicIslandOverlay != null) {
+                        activeInstance.dynamicIslandOverlay.resetDismissed();
+                        activeInstance.refreshOverlayState();
+                    }
+                }
+            });
+        }
+    }
+
+    public static void setDynamicIslandEnabled(final boolean enabled) {
+        if (activeInstance != null) {
+            android.content.SharedPreferences prefs = activeInstance.getSharedPreferences("brnsic_overlay_prefs", Context.MODE_PRIVATE);
+            prefs.edit().putBoolean("overlay_enabled", enabled).apply();
+            activeInstance.mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (activeInstance.dynamicIslandOverlay != null) {
+                        if (!enabled) {
+                            activeInstance.dynamicIslandOverlay.hide();
+                        } else {
+                            activeInstance.dynamicIslandOverlay.resetDismissed();
+                            activeInstance.refreshOverlayState();
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    public static void setDynamicIslandPosition(final String position, final int offsetY) {
+        if (activeInstance != null) {
+            android.content.SharedPreferences prefs = activeInstance.getSharedPreferences("brnsic_overlay_prefs", Context.MODE_PRIVATE);
+            prefs.edit().putString("overlay_position", position).putInt("overlay_offset_y", offsetY).apply();
+            activeInstance.mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (activeInstance.dynamicIslandOverlay != null) {
+                        activeInstance.dynamicIslandOverlay.applyPositionConfig();
+                    }
+                }
+            });
+        }
+    }
+
     private void refreshOverlayState() {
         if (dynamicIslandOverlay == null) return;
         if (isPlaybackActive && !isAppInForeground && DynamicIslandOverlay.canDrawOverlay(this)) {
