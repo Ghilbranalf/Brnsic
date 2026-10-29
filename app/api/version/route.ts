@@ -15,12 +15,12 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "3.9.9",
-    versionCode: 17,
-    minVersionCode: 17,
+    version: "4.0.0",
+    versionCode: 18,
+    minVersionCode: 18,
     releaseDate: "2026-10-29",
-    title: "Pembaruan Brnsic v3.9.9",
-    notes: "Radio genre presisi tinggi, perbaikan resume lagu setelah tutup APK, prioritas rekomendasi beranda, dan eliminasi error hidrasi React.",
+    title: "Pembaruan Brnsic v4.0.0",
+    notes: "Fitur Putar Berikutnya & Tambah ke Antrean, tombol Acak Lagu di Playlist, data rekomendasi 100% real-time artis & genre, serta eliminasi total data dummy.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: true,

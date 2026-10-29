@@ -51,6 +51,17 @@ export const ARTIST_EMBEDDINGS: Record<string, FeatureVector> = {
   "nadhif basalamah": [0.75, 0.5, 0.5, 0.45, 0.8, 0.85, 0.1, 0.0, 0.6, 0.3, 0.2, 0.85],
   "raisa": [0.55, 0.6, 0.6, 0.6, 0.9, 0.3, 0.2, 0.0, 0.75, 0.4, 0.5, 0.75],
   "bruno mars": [0.3, 0.85, 0.85, 0.85, 0.3, 0.2, 0.3, 0.0, 0.9, 1.0, 0.4, 0.95],
+  "bleachers": [0.35, 0.85, 0.7, 0.75, 0.1, 0.9, 0.75, 0.0, 0.3, 0.95, 0.6, 0.85],
+  "the 1975": [0.3, 0.85, 0.65, 0.8, 0.1, 0.9, 0.7, 0.0, 0.5, 0.95, 0.4, 0.9],
+  "lorde": [0.4, 0.75, 0.5, 0.7, 0.1, 0.9, 0.3, 0.0, 0.5, 0.95, 0.3, 0.85],
+  "lana del rey": [0.6, 0.5, 0.3, 0.45, 0.1, 0.85, 0.4, 0.0, 0.4, 0.95, 0.6, 0.9],
+  "wallows": [0.3, 0.85, 0.75, 0.75, 0.1, 0.95, 0.8, 0.0, 0.3, 0.9, 0.3, 0.85],
+  "coin": [0.25, 0.9, 0.8, 0.85, 0.1, 0.9, 0.7, 0.0, 0.4, 0.9, 0.3, 0.8],
+  "fun.": [0.35, 0.9, 0.75, 0.7, 0.1, 0.8, 0.6, 0.0, 0.3, 0.95, 0.7, 0.85],
+  "clairo": [0.7, 0.45, 0.45, 0.5, 0.1, 0.95, 0.2, 0.0, 0.5, 0.9, 0.2, 0.85],
+  "phoebe bridgers": [0.85, 0.4, 0.25, 0.35, 0.1, 0.95, 0.3, 0.0, 0.3, 0.9, 0.2, 0.85],
+  "chappell roan": [0.25, 0.9, 0.85, 0.85, 0.1, 0.7, 0.5, 0.0, 0.5, 1.0, 0.5, 0.98],
+  "gracie abrams": [0.75, 0.5, 0.4, 0.5, 0.1, 0.9, 0.2, 0.0, 0.4, 0.95, 0.2, 0.9],
   "billie eilish": [0.5, 0.55, 0.4, 0.6, 0.2, 0.6, 0.3, 0.0, 0.6, 1.0, 0.2, 0.9],
   "lady gaga": [0.25, 0.9, 0.8, 0.85, 0.3, 0.1, 0.4, 0.0, 0.6, 1.0, 0.6, 0.9],
   "taylor swift": [0.45, 0.75, 0.65, 0.65, 0.3, 0.4, 0.4, 0.0, 0.3, 1.0, 0.7, 0.95],
@@ -184,9 +195,10 @@ export function trainUserVectorOnInteraction(
 export function rankTracksByDeepLearning(
   userVector: FeatureVector,
   candidates: any[],
-  recentCooldown: string[],
-  dislikedIds: string[],
-  count: number = 24
+  recentCooldown: string[] = [],
+  dislikedIds: string[] = [],
+  count: number = 24,
+  allowRecent: boolean = false
 ): any[] {
   const seen = new Set<string>();
   const scored: Array<{ track: any; finalScore: number }> = [];
@@ -203,16 +215,23 @@ export function rankTracksByDeepLearning(
     if (!cleanTitle || seen.has(cleanTitle)) continue;
     seen.add(cleanTitle);
 
-    // Hard Filtration: Disliked or Cooldown songs are excluded
+    // Hard Filtration: Disliked songs are always excluded
     if (dislikeSet.has(trackId) || dislikeSet.has(cleanTitle)) continue;
-    if (cooldownSet.has(cleanTitle)) continue;
+
+    // Cooldown only applies to automated autoplay radio queues to prevent loops,
+    // NEVER ban user's favorite tracks from their home personalized shelf!
+    const isRecent = cooldownSet.has(cleanTitle);
+    if (!allowRecent && isRecent) continue;
 
     const trackVector = getArtistFeatureVector(t.artist || t.artistName || "");
     const cosine = computeCosineSimilarity(userVector, trackVector);
 
+    // If the song was played by the user recently, boost its relevance on personalized shelves!
+    const familiarityBoost = (allowRecent && isRecent) ? 0.25 : 0;
+
     // UCB1 Exploration Term (Balances familiar songs with fresh discoveries)
     const explorationTerm = 0.08 * Math.sqrt(Math.log(candidates.length + 1) / (i + 1));
-    const finalScore = cosine + explorationTerm;
+    const finalScore = cosine + familiarityBoost + explorationTerm;
 
     scored.push({ track: t, finalScore });
   }

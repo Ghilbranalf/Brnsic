@@ -82,8 +82,8 @@ export async function GET(request: Request) {
         detectedGenre = sameList[0].primaryGenreName;
       }
 
-      // Pick up to 6-8 tracks from the same artist
-      sameList.slice(0, 8).forEach((t: any) => {
+      // Pick up to 12 top tracks from the same artist
+      sameList.slice(0, 12).forEach((t: any) => {
         seenTitles.add(t.trackName.toLowerCase().trim());
         collectedTracks.push({
           id: `itunes-${t.trackId}`,

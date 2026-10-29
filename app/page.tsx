@@ -1167,7 +1167,7 @@ const getSmartShuffleCandidates = (
   existingQueue: any[],
   playedTitles: Set<string>,
   taste: TasteProfile,
-  catalogs: { related: any[]; topIndo: any[]; mostPlayed: any[]; defaultCat: any[] },
+  catalogs: { related: any[]; topIndo: any[]; mostPlayed: any[]; globalTrending: any[] },
   countNeeded: number,
   dislikedTitles: string[] = [],
   userVector?: FeatureVector
@@ -1176,12 +1176,15 @@ const getSmartShuffleCandidates = (
     existingQueue.map((s) => ((s.title || s.trackName || "") as string).toLowerCase().trim())
   );
 
-  const rawPool = [
-    ...catalogs.related,
-    ...catalogs.topIndo,
-    ...catalogs.mostPlayed,
-    ...catalogs.defaultCat
-  ];
+  // If we have related tracks for the current musical circle, prioritize them to stay in the groove!
+  const rawPool = catalogs.related.length >= 4
+    ? [...catalogs.related]
+    : [
+        ...catalogs.related,
+        ...catalogs.topIndo,
+        ...catalogs.mostPlayed,
+        ...catalogs.globalTrending
+      ];
 
   const activeVector =
     userVector ||
@@ -1253,6 +1256,8 @@ export default function BrnsicMusicPage() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
   const [newPlaylistName, setNewPlaylistName] = useState<string>("");
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<any | null>(null);
+  const [songActionMenu, setSongActionMenu] = useState<{ song: any; playlistId?: string } | null>(null);
+  const [topArtistShelfTracks, setTopArtistShelfTracks] = useState<any[]>([]);
 
   // 7. Charts & Navigation State
   const [indonesiaTop50, setIndonesiaTop50] = useState<TrendingSong[]>([]);
@@ -1359,6 +1364,22 @@ export default function BrnsicMusicPage() {
     return entries.length > 0 && entries[0][1] > 0 ? entries[0][0] : null;
   }, [userTaste?.artistWeights, userTaste?.totalPlays]);
 
+  // Real-time dynamic fetch of artist catalog & related music for user's favorite artist
+  useEffect(() => {
+    if (!topArtistName) {
+      setTopArtistShelfTracks([]);
+      return;
+    }
+    fetch(`/api/related?artist=${encodeURIComponent(topArtistName)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.related) && data.related.length > 0) {
+          setTopArtistShelfTracks(data.related);
+        }
+      })
+      .catch(() => {});
+  }, [topArtistName]);
+
   // Real-time AI Mood Sentiment & Listening Habit Analyzer (Detects melancholy, nostalgia, energy, chill)
   const currentMoodInsight: MoodInsight = useMemo(() => {
     return detectUserMood(userTasteVector, topArtistName, userTaste?.totalPlays || 0);
@@ -1432,17 +1453,36 @@ export default function BrnsicMusicPage() {
   const homeMlRanked = useMemo(() => {
     let rawPool: any[] = [];
     if (homeFilter === "most-played") {
-      rawPool = [...mostPlayedIndonesia, ...DEFAULT_CATALOG];
+      rawPool = [...mostPlayedIndonesia];
     } else if (homeFilter === "viral") {
-      rawPool = [...viralIndonesia, ...DEFAULT_CATALOG];
+      rawPool = [...viralIndonesia];
     } else {
-      rawPool = [
-        ...relatedQueue,
-        ...mostPlayedIndonesia,
-        ...indonesiaTop50,
-        ...viralIndonesia,
-        ...DEFAULT_CATALOG
-      ];
+      const targetArtist = (topArtistName || "").toLowerCase().trim();
+      if (targetArtist) {
+        // High-precision real-time artist shelf:
+        // Pool consists strictly of real-time tracks from the artist and related circle
+        const candidatePool = [...topArtistShelfTracks, ...relatedQueue];
+        const artistMatchingTracks = candidatePool.filter((s: any) => {
+          const a = ((s as any).artist || (s as any).artistName || "").toLowerCase();
+          return a.includes(targetArtist) || targetArtist.includes(a);
+        });
+        const circleTracks = candidatePool.filter((s: any) => {
+          const a = ((s as any).artist || (s as any).artistName || "").toLowerCase();
+          return !a.includes(targetArtist) && !targetArtist.includes(a);
+        });
+        rawPool = [...artistMatchingTracks, ...circleTracks];
+        // Only if rawPool is still empty while loading, fallback to real-time global trending, never static dummy catalogs
+        if (rawPool.length === 0) {
+          rawPool = [...globalTrending];
+        }
+      } else {
+        rawPool = [
+          ...relatedQueue,
+          ...mostPlayedIndonesia,
+          ...indonesiaTop50,
+          ...viralIndonesia
+        ];
+      }
     }
     const seenTitles = new Set<string>();
     const uniquePool: any[] = [];
@@ -1458,9 +1498,10 @@ export default function BrnsicMusicPage() {
       uniquePool,
       recentHistoryRef.current,
       dislikedSongIds,
-      24
+      24,
+      true // allowRecent = true: boosts user's favorite played songs right to the top!
     );
-  }, [homeFilter, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, relatedQueue, activeMoodInfo, dislikedSongIds]);
+  }, [homeFilter, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, globalTrending, relatedQueue, topArtistShelfTracks, activeMoodInfo, dislikedSongIds, topArtistName]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
@@ -1724,6 +1765,16 @@ export default function BrnsicMusicPage() {
           if (parsed && parsed.title) {
             setCurrentTrack(parsed);
             currentTrackRef.current = parsed;
+            if (parsed.artist) {
+              fetch(`/api/related?artist=${encodeURIComponent(parsed.artist)}&title=${encodeURIComponent(parsed.title)}`)
+                .then((r) => r.json())
+                .then((d) => {
+                  if (d.related && d.related.length > 0) {
+                    setRelatedQueue(d.related);
+                  }
+                })
+                .catch(() => {});
+            }
           }
         } catch (e) {}
       }
@@ -2638,7 +2689,7 @@ export default function BrnsicMusicPage() {
           related: relatedQueue,
           topIndo: indonesiaTop50,
           mostPlayed: mostPlayedIndonesia,
-          defaultCat: DEFAULT_CATALOG
+          globalTrending: globalTrending
         },
         Math.max(3, Math.ceil(shuffledUpcoming.length / 2)),
         dislikedSongIds,
@@ -3660,7 +3711,7 @@ export default function BrnsicMusicPage() {
           related: relatedQueue,
           topIndo: indonesiaTop50,
           mostPlayed: mostPlayedIndonesia,
-          defaultCat: DEFAULT_CATALOG
+          globalTrending: globalTrending
         },
         Math.max(3, Math.ceil(shuffledOthers.length / 2)),
         dislikedSongIds
@@ -3729,9 +3780,9 @@ export default function BrnsicMusicPage() {
         } else {
           const candidatePool = [
             ...incomingRelated,
+            ...(globalTrending || []),
             ...(indonesiaTop50 || []),
-            ...(mostPlayedIndonesia || []),
-            ...DEFAULT_CATALOG
+            ...(mostPlayedIndonesia || [])
           ];
 
           const cleanSongTitle = (song.title || song.trackName || "").toLowerCase().trim();
@@ -3752,6 +3803,52 @@ export default function BrnsicMusicPage() {
         } catch (e) {}
       }
     } catch (e) {}
+  };
+
+  // Feature: Add to Queue as Next Song (Putar Berikutnya)
+  const addToNextQueue = (rawTrack: any) => {
+    const song = normalizeSong(rawTrack);
+    const currentQ = activeQueueRef.current && activeQueueRef.current.length > 0 ? [...activeQueueRef.current] : [...activeQueue];
+    const currentIdx = activeQueueIndexRef.current;
+    const nextQ = [
+      ...currentQ.slice(0, currentIdx + 1),
+      song,
+      ...currentQ.slice(currentIdx + 1)
+    ];
+    activeQueueRef.current = nextQ;
+    setActiveQueue(nextQ);
+    try {
+      localStorage.setItem("brnsic_cached_queue", JSON.stringify(nextQ.slice(0, 40)));
+    } catch (e) {}
+    showToast(`"${song.title}" akan diputar berikutnya`);
+  };
+
+  // Feature: Add to Queue at End (Tambahkan ke Antrean)
+  const addToQueueEnd = (rawTrack: any) => {
+    const song = normalizeSong(rawTrack);
+    const currentQ = activeQueueRef.current && activeQueueRef.current.length > 0 ? [...activeQueueRef.current] : [...activeQueue];
+    const nextQ = [...currentQ, song];
+    activeQueueRef.current = nextQ;
+    setActiveQueue(nextQ);
+    try {
+      localStorage.setItem("brnsic_cached_queue", JSON.stringify(nextQ.slice(0, 40)));
+    } catch (e) {}
+    showToast(`"${song.title}" ditambahkan ke antrean`);
+  };
+
+  // Feature: Shuffle Play Entire Playlist (Acak Lagu di Playlist)
+  const handleShufflePlayPlaylist = (songs: any[]) => {
+    if (!songs || songs.length === 0) return;
+    const normalized = songs.map((s) => normalizeSong(s));
+    const shuffled = balancedShuffle(normalized, playedSongTitlesRef.current);
+    originalQueueRef.current = [...normalized];
+    activeQueueRef.current = shuffled;
+    activeQueueIndexRef.current = 0;
+    setActiveQueue(shuffled);
+    setActiveQueueIndex(0);
+    setShuffleMode("standard");
+    playAnySong(shuffled[0], true);
+    showToast(`Mengacak ${songs.length} lagu di playlist`);
   };
 
   // Open Album View & Fetch Tracklist
@@ -3814,7 +3911,7 @@ export default function BrnsicMusicPage() {
           related: relatedQueue,
           topIndo: indonesiaTop50,
           mostPlayed: mostPlayedIndonesia,
-          defaultCat: DEFAULT_CATALOG
+          globalTrending: globalTrending
         },
         Math.max(2, Math.ceil(shuffled.length / 2)),
         dislikedSongIds
@@ -3894,7 +3991,7 @@ export default function BrnsicMusicPage() {
                 related: relatedQueue,
                 topIndo: indonesiaTop50,
                 mostPlayed: mostPlayedIndonesia,
-                defaultCat: DEFAULT_CATALOG
+                globalTrending: globalTrending
               },
               4,
               dislikedSongIds
@@ -3942,13 +4039,15 @@ export default function BrnsicMusicPage() {
     };
 
     // A. Pick next unplayed from related recommendations & candidate pool via Deep Learning UCB1
-    const candidatePool = [
-      ...(relatedQueue || []),
-      ...(indonesiaTop50 || []),
-      ...(mostPlayedIndonesia || []),
-      ...(viralIndonesia || []),
-      ...DEFAULT_CATALOG
-    ];
+    const candidatePool = (relatedQueue && relatedQueue.length >= 4)
+      ? [...relatedQueue]
+      : [
+          ...(relatedQueue || []),
+          ...(globalTrending || []),
+          ...(indonesiaTop50 || []),
+          ...(mostPlayedIndonesia || []),
+          ...(viralIndonesia || [])
+        ];
 
     const currentTitle = (currentTrack.title || "").toLowerCase().trim();
     const rankedCandidates = rankTracksByDeepLearning(
@@ -3976,13 +4075,14 @@ export default function BrnsicMusicPage() {
 
     // B. If all tracks played, reset session history and pick a track different from current
     playedSongTitlesRef.current = new Set([currentTitle]);
-    const fallbackList = (indonesiaTop50.length > 0 ? indonesiaTop50 : DEFAULT_CATALOG).filter(
+    const fallbackPool = relatedQueue.length > 0 ? relatedQueue : (indonesiaTop50.length > 0 ? indonesiaTop50 : globalTrending);
+    const fallbackList = (fallbackPool.length > 0 ? fallbackPool : [currentTrack]).filter(
       (t) => !dislikedSongIds.includes(t.id) && !dislikedSongIds.includes((t.title || "").toLowerCase().trim())
     );
     const unvisited = fallbackList.filter((t) => !recentHistoryRef.current.includes((t.title || "").toLowerCase().trim()));
     const validChoices = unvisited.length > 0 ? unvisited : fallbackList;
     const fallbackNext =
-      validChoices[Math.floor(Math.random() * validChoices.length)] || DEFAULT_CATALOG[0];
+      validChoices[Math.floor(Math.random() * validChoices.length)] || currentTrack;
 
     markPlayed(fallbackNext);
     const fallbackQ = [...currentQ, fallbackNext];
@@ -4915,13 +5015,29 @@ export default function BrnsicMusicPage() {
               <div className="px-6 py-4 flex flex-wrap items-center gap-4">
                 <button
                   onClick={() => playAlbumFull(albumData.album, albumData.tracks, false)}
-                  className="px-6 py-3.5 rounded-full bg-[#1ed760] text-black font-extrabold text-sm flex items-center gap-2.5 hover:scale-105 transition shadow-xl"
+                  className="px-6 py-3.5 rounded-full bg-[#1ed760] text-black font-extrabold text-sm flex items-center gap-2.5 hover:scale-105 active:scale-95 transition shadow-xl cursor-pointer"
                   title="Putar Album Ini"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8 5v14l11-7z" />
                   </svg>
                   <span>Putar Album Ini</span>
+                </button>
+
+                {/* Acak Album Button */}
+                <button
+                  onClick={() => handleShufflePlayPlaylist(albumData.tracks)}
+                  className="px-5 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-[#1ed760] hover:text-white font-extrabold text-sm flex items-center gap-2 border border-white/15 hover:scale-105 active:scale-95 transition shadow-xl cursor-pointer"
+                  title="Acak Lagu di Album Ini (Shuffle Play)"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="16 3 21 3 21 8"></polyline>
+                    <line x1="4" y1="20" x2="21" y2="3"></line>
+                    <polyline points="21 16 21 21 16 21"></polyline>
+                    <line x1="15" y1="15" x2="21" y2="21"></line>
+                    <line x1="4" y1="4" x2="9" y2="9"></line>
+                  </svg>
+                  <span>Acak Album</span>
                 </button>
 
                 <button
@@ -4995,16 +5111,30 @@ export default function BrnsicMusicPage() {
 
                       <div className="hidden sm:block text-xs truncate text-[#b3b3b3]">{track.artist}</div>
 
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSongToAddToPlaylist(track);
+                            addToQueueEnd(track);
                           }}
-                          className="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition"
-                          title="Tambah ke Playlist"
+                          className="hidden sm:inline-flex text-[11px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-medium transition cursor-pointer"
+                          title="Tambahkan ke antrean"
                         >
-                          + Playlist
+                          + Antrean
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSongActionMenu({ song: track });
+                          }}
+                          className="p-1.5 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
+                          title="Opsi lagu"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="5" cy="12" r="2" />
+                            <circle cx="12" cy="12" r="2" />
+                            <circle cx="19" cy="12" r="2" />
+                          </svg>
                         </button>
                       </div>
 
@@ -5043,7 +5173,7 @@ export default function BrnsicMusicPage() {
               </div>
 
               {/* Action Bar */}
-              <div className="px-6 py-4 flex items-center gap-3 flex-wrap">
+              <div className="px-6 py-4 flex items-center gap-3.5 flex-wrap">
                 <button
                   onClick={() => {
                     if (activeCustomPlaylist.songs.length > 0) {
@@ -5051,11 +5181,27 @@ export default function BrnsicMusicPage() {
                     }
                   }}
                   disabled={activeCustomPlaylist.songs.length === 0}
-                  className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center hover:scale-105 transition shadow-xl disabled:opacity-40 cursor-pointer"
-                  title="Putar Semua"
+                  className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-xl disabled:opacity-40 cursor-pointer"
+                  title="Putar Berurutan"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8 5v14l11-7z" />
+                  </svg>
+                </button>
+
+                {/* Button Acak Lagu di Playlist (Shuffle Play) */}
+                <button
+                  onClick={() => handleShufflePlayPlaylist(activeCustomPlaylist.songs)}
+                  disabled={activeCustomPlaylist.songs.length === 0}
+                  className="w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 text-[#1ed760] hover:text-white flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-xl border border-white/15 disabled:opacity-40 cursor-pointer"
+                  title="Acak Lagu di Playlist (Shuffle Play)"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="16 3 21 3 21 8"></polyline>
+                    <line x1="4" y1="20" x2="21" y2="3"></line>
+                    <polyline points="21 16 21 21 16 21"></polyline>
+                    <line x1="15" y1="15" x2="21" y2="21"></line>
+                    <line x1="4" y1="4" x2="9" y2="9"></line>
                   </svg>
                 </button>
 
@@ -5147,16 +5293,23 @@ export default function BrnsicMusicPage() {
 
                         <div className="hidden sm:block text-xs truncate text-[#b3b3b3]">{track.album}</div>
 
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleRemoveSongFromPlaylist(activeCustomPlaylist.id, track.id);
+                              setSongActionMenu({
+                                song: track,
+                                playlistId: activeCustomPlaylist.id
+                              });
                             }}
-                            className="text-xs text-red-400 hover:text-red-300 p-1"
-                            title="Hapus dari playlist"
+                            className="p-1.5 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
+                            title="Opsi lagu"
                           >
-                            &times;
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="5" cy="12" r="2" />
+                              <circle cx="12" cy="12" r="2" />
+                              <circle cx="19" cy="12" r="2" />
+                            </svg>
                           </button>
                         </div>
 
@@ -5195,32 +5348,60 @@ export default function BrnsicMusicPage() {
               </div>
 
               {/* Action Bar */}
-              <div className="px-6 py-4 flex items-center gap-4">
+              <div className="px-6 py-4 flex items-center gap-3.5 flex-wrap">
                 {(() => {
                   const allLikedPool = [
-                    ...DEFAULT_CATALOG,
+                    currentTrack,
+                    ...activeQueue,
+                    ...relatedQueue,
+                    ...topArtistShelfTracks,
                     ...mostPlayedIndonesia,
                     ...indonesiaTop50,
                     ...viralIndonesia,
                     ...globalTrending
                   ];
-                  const likedList = allLikedPool.filter((s) => likedSongIds.includes(s.id));
+                  const seen = new Set<string>();
+                  const likedList = allLikedPool.filter((s) => {
+                    const songId = s.id || s.trackId;
+                    if (songId && likedSongIds.includes(songId) && !seen.has(songId)) {
+                      seen.add(songId);
+                      return true;
+                    }
+                    return false;
+                  });
                   return (
-                    <button
-                      onClick={() => {
-                        if (likedList.length > 0) {
-                          handlePlayFromList(likedList[0], likedList, 0);
-                        } else if (DEFAULT_CATALOG.length > 0) {
-                          handlePlayFromList(DEFAULT_CATALOG[0], DEFAULT_CATALOG, 0);
-                        }
-                      }}
-                      className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-xl"
-                      title="Putar Lagu yang Disukai"
-                    >
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          if (likedList.length > 0) {
+                            handlePlayFromList(likedList[0], likedList, 0);
+                          }
+                        }}
+                        disabled={likedList.length === 0}
+                        className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-xl cursor-pointer disabled:opacity-40"
+                        title="Putar Lagu yang Disukai"
+                      >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </button>
+
+                      {/* Button Acak Lagu yang Disukai */}
+                      <button
+                        onClick={() => handleShufflePlayPlaylist(likedList)}
+                        disabled={likedList.length === 0}
+                        className="w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 text-[#1ed760] hover:text-white flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-xl border border-white/15 disabled:opacity-40 cursor-pointer"
+                        title="Acak Lagu yang Disukai (Shuffle Play)"
+                      >
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="16 3 21 3 21 8"></polyline>
+                          <line x1="4" y1="20" x2="21" y2="3"></line>
+                          <polyline points="21 16 21 21 16 21"></polyline>
+                          <line x1="15" y1="15" x2="21" y2="21"></line>
+                          <line x1="4" y1="4" x2="9" y2="9"></line>
+                        </svg>
+                      </button>
+                    </>
                   );
                 })()}
 
@@ -5239,7 +5420,10 @@ export default function BrnsicMusicPage() {
               <div className="px-6 pb-28 flex flex-col gap-1">
                 {(() => {
                   const allLikedPool = [
-                    ...DEFAULT_CATALOG,
+                    currentTrack,
+                    ...activeQueue,
+                    ...relatedQueue,
+                    ...topArtistShelfTracks,
                     ...mostPlayedIndonesia,
                     ...indonesiaTop50,
                     ...viralIndonesia,
@@ -5247,8 +5431,9 @@ export default function BrnsicMusicPage() {
                   ];
                   const seen = new Set<string>();
                   const likedList = allLikedPool.filter((s) => {
-                    if (likedSongIds.includes(s.id) && !seen.has(s.id)) {
-                      seen.add(s.id);
+                    const songId = s.id || s.trackId;
+                    if (songId && likedSongIds.includes(songId) && !seen.has(songId)) {
+                      seen.add(songId);
                       return true;
                     }
                     return false;
@@ -5300,19 +5485,36 @@ export default function BrnsicMusicPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSongActionMenu({ song: t });
+                            }}
+                            className="p-1.5 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
+                            title="Opsi lagu"
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="5" cy="12" r="2" />
+                              <circle cx="12" cy="12" r="2" />
+                              <circle cx="19" cy="12" r="2" />
+                            </svg>
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleLike(t.id);
                             }}
-                            className="p-1.5 text-[#1ed760] hover:scale-110 transition"
+                            className="p-1.5 text-[#1ed760] hover:scale-110 transition cursor-pointer"
                             title="Hapus dari Lagu Disukai"
                           >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                             </svg>
                           </button>
+                          <span className="text-xs text-[#b3b3b3] ml-1 hidden sm:inline">
+                            {formatTime(t.duration)}
+                          </span>
                         </div>
                       </div>
                     );
@@ -5700,7 +5902,7 @@ export default function BrnsicMusicPage() {
               </div>
 
               {/* Action Bar */}
-              <div className="px-6 py-4 flex items-center gap-6">
+              <div className="px-6 py-4 flex items-center gap-3.5 flex-wrap">
                 <button
                   onClick={() => {
                     const list =
@@ -5713,16 +5915,42 @@ export default function BrnsicMusicPage() {
                         : globalTrending;
                     if (list.length > 0) handlePlayFromList(list[0], list, 0);
                   }}
-                  className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center hover:scale-105 transition shadow-xl"
+                  className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-xl cursor-pointer"
                   title="Putar Semua"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </button>
+
+                {/* Button Acak Lagu di Playlist Chart */}
+                <button
+                  onClick={() => {
+                    const list =
+                      currentView === "top50-indo"
+                        ? indonesiaTop50
+                        : currentView === "most-played-indo"
+                        ? mostPlayedIndonesia
+                        : currentView === "viral-indo"
+                        ? viralIndonesia
+                        : globalTrending;
+                    if (list.length > 0) handleShufflePlayPlaylist(list);
+                  }}
+                  className="w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 text-[#1ed760] hover:text-white flex items-center justify-center hover:scale-105 active:scale-95 transition shadow-xl border border-white/15 cursor-pointer"
+                  title="Acak Lagu (Shuffle Play)"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="16 3 21 3 21 8"></polyline>
+                    <line x1="4" y1="20" x2="21" y2="3"></line>
+                    <polyline points="21 16 21 21 16 21"></polyline>
+                    <line x1="15" y1="15" x2="21" y2="21"></line>
+                    <line x1="4" y1="4" x2="9" y2="9"></line>
+                  </svg>
+                </button>
+
                 <button
                   onClick={() => setCurrentView("home")}
-                  className="text-xs font-bold text-[#b3b3b3] hover:text-white flex items-center gap-1.5 transition"
+                  className="text-xs font-bold text-[#b3b3b3] hover:text-white flex items-center gap-1.5 transition ml-auto cursor-pointer"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <polyline points="15 18 9 12 15 6"></polyline>
@@ -5801,15 +6029,30 @@ export default function BrnsicMusicPage() {
                           {track.album}
                         </div>
 
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSongToAddToPlaylist(track);
+                              addToQueueEnd(track);
                             }}
-                            className="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium transition"
+                            className="hidden sm:inline-flex text-[11px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-medium transition cursor-pointer"
+                            title="Tambahkan ke antrean"
                           >
-                            + Playlist
+                            + Antrean
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSongActionMenu({ song: track });
+                            }}
+                            className="p-1.5 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
+                            title="Opsi lagu"
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="5" cy="12" r="2" />
+                              <circle cx="12" cy="12" r="2" />
+                              <circle cx="19" cy="12" r="2" />
+                            </svg>
                           </button>
                         </div>
 
@@ -6135,7 +6378,23 @@ export default function BrnsicMusicPage() {
                         </button>
                       </div>
                       <div className="font-bold text-sm text-white truncate">{t.title}</div>
-                      <div className="text-xs text-[#b3b3b3] truncate mt-1">{t.artist}</div>
+                      <div className="text-xs text-[#b3b3b3] truncate mt-1 flex items-center justify-between">
+                        <span className="truncate">{t.artist}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSongActionMenu({ song: t });
+                          }}
+                          className="p-1 text-white/40 hover:text-white transition flex-shrink-0"
+                          title="Opsi lagu"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="5" cy="12" r="2" />
+                            <circle cx="12" cy="12" r="2" />
+                            <circle cx="19" cy="12" r="2" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -6164,34 +6423,60 @@ export default function BrnsicMusicPage() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-                  {(indonesiaTop50.length > 0 ? indonesiaTop50.slice(0, 6) : DEFAULT_CATALOG).map((t: any, i) => (
-                    <div
-                      key={t.id || i}
-                      onClick={() => handlePlayFromList(t, indonesiaTop50, i)}
-                      className="bg-[#181818] hover:bg-[#282828] p-3 rounded-xl cursor-pointer transition group min-w-0 flex flex-col"
-                    >
-                      <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
-                        <img
-                          src={t.cover}
-                          alt={t.title}
-                          loading="lazy"
-                          decoding="async"
-                          onError={handleImgError}
-                          className="w-full h-full object-cover"
-                        />
-                        <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
-                          #{i + 1}
-                        </span>
-                        <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black hidden sm:group-hover:flex items-center justify-center transition shadow-lg hover:scale-105">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </button>
+                  {indonesiaTop50.length > 0 ? (
+                    indonesiaTop50.slice(0, 6).map((t: any, i) => (
+                      <div
+                        key={t.id || i}
+                        onClick={() => handlePlayFromList(t, indonesiaTop50, i)}
+                        className="bg-[#181818] hover:bg-[#282828] p-3 rounded-xl cursor-pointer transition group min-w-0 flex flex-col"
+                      >
+                        <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
+                          <img
+                            src={t.cover}
+                            alt={t.title}
+                            loading="lazy"
+                            decoding="async"
+                            onError={handleImgError}
+                            className="w-full h-full object-cover"
+                          />
+                          <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
+                            #{i + 1}
+                          </span>
+                          <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black hidden sm:group-hover:flex items-center justify-center transition shadow-lg hover:scale-105">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="font-bold text-sm text-white truncate w-full">{t.title}</div>
+                        <div className="text-xs text-[#b3b3b3] truncate w-full mt-1 flex items-center justify-between">
+                          <span className="truncate">{t.artist}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSongActionMenu({ song: t });
+                            }}
+                            className="p-1 text-white/40 hover:text-white transition flex-shrink-0"
+                            title="Opsi lagu"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="5" cy="12" r="2" />
+                              <circle cx="12" cy="12" r="2" />
+                              <circle cx="19" cy="12" r="2" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                      <div className="font-bold text-sm text-white truncate w-full">{t.title}</div>
-                      <div className="text-xs text-[#b3b3b3] truncate w-full mt-1">{t.artist}</div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    [...Array(6)].map((_, i) => (
+                      <div key={i} className="bg-[#181818] p-3 rounded-xl animate-pulse flex flex-col gap-2">
+                        <div className="w-full aspect-square rounded-lg bg-white/10"></div>
+                        <div className="h-4 bg-white/10 rounded w-3/4"></div>
+                        <div className="h-3 bg-white/5 rounded w-1/2"></div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </section>
 
@@ -6206,7 +6491,7 @@ export default function BrnsicMusicPage() {
                       Lagu Paling Sering Diputar di Indonesia
                     </h2>
                     <p className="text-xs text-[#b3b3b3] mt-1">
-                      Bernadya, Hindia, Sal Priadi, Juicy Luicy, Mahalini, Tulus, Sheila On 7
+                      Data tangga lagu real-time streaming pecinta musik Indonesia hari ini
                     </p>
                   </div>
                   <span
@@ -6218,11 +6503,11 @@ export default function BrnsicMusicPage() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-                  {(mostPlayedIndonesia.length > 0 ? mostPlayedIndonesia.slice(0, 6) : DEFAULT_CATALOG).map(
+                  {(mostPlayedIndonesia.length > 0 ? mostPlayedIndonesia : indonesiaTop50).slice(0, 6).map(
                     (t: any, i) => (
                       <div
                         key={t.id || i}
-                        onClick={() => handlePlayFromList(t, mostPlayedIndonesia, i)}
+                        onClick={() => handlePlayFromList(t, mostPlayedIndonesia.length > 0 ? mostPlayedIndonesia : indonesiaTop50, i)}
                         className="bg-[#181818] hover:bg-[#282828] p-3 rounded-xl cursor-pointer transition group min-w-0 flex flex-col"
                       >
                         <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
@@ -6241,7 +6526,23 @@ export default function BrnsicMusicPage() {
                           </button>
                         </div>
                         <div className="font-bold text-sm text-white truncate w-full">{t.title}</div>
-                        <div className="text-xs text-[#b3b3b3] truncate w-full mt-1">{t.artist}</div>
+                        <div className="text-xs text-[#b3b3b3] truncate w-full mt-1 flex items-center justify-between">
+                          <span className="truncate">{t.artist}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSongActionMenu({ song: t });
+                            }}
+                            className="p-1 text-white/40 hover:text-white transition flex-shrink-0"
+                            title="Opsi lagu"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="5" cy="12" r="2" />
+                              <circle cx="12" cy="12" r="2" />
+                              <circle cx="19" cy="12" r="2" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     )
                   )}
@@ -6269,34 +6570,60 @@ export default function BrnsicMusicPage() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-                  {(globalTrending.length > 0 ? globalTrending.slice(0, 6) : DEFAULT_CATALOG).map((t: any, i) => (
-                    <div
-                      key={t.id || i}
-                      onClick={() => handlePlayFromList(t, globalTrending, i)}
-                      className="bg-[#181818] hover:bg-[#282828] p-3 rounded-xl cursor-pointer transition group min-w-0 flex flex-col"
-                    >
-                      <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
-                        <img
-                          src={t.cover}
-                          alt={t.title}
-                          loading="lazy"
-                          decoding="async"
-                          onError={handleImgError}
-                          className="w-full h-full object-cover"
-                        />
-                        <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
-                          #{i + 1}
-                        </span>
-                        <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black hidden sm:group-hover:flex items-center justify-center transition shadow-lg hover:scale-105">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </button>
+                  {globalTrending.length > 0 ? (
+                    globalTrending.slice(0, 6).map((t: any, i) => (
+                      <div
+                        key={t.id || i}
+                        onClick={() => handlePlayFromList(t, globalTrending, i)}
+                        className="bg-[#181818] hover:bg-[#282828] p-3 rounded-xl cursor-pointer transition group min-w-0 flex flex-col"
+                      >
+                        <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
+                          <img
+                            src={t.cover}
+                            alt={t.title}
+                            loading="lazy"
+                            decoding="async"
+                            onError={handleImgError}
+                            className="w-full h-full object-cover"
+                          />
+                          <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
+                            #{i + 1}
+                          </span>
+                          <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black hidden sm:group-hover:flex items-center justify-center transition shadow-lg hover:scale-105">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="font-bold text-sm text-white truncate w-full">{t.title}</div>
+                        <div className="text-xs text-[#b3b3b3] truncate w-full mt-1 flex items-center justify-between">
+                          <span className="truncate">{t.artist}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSongActionMenu({ song: t });
+                            }}
+                            className="p-1 text-white/40 hover:text-white transition flex-shrink-0"
+                            title="Opsi lagu"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="5" cy="12" r="2" />
+                              <circle cx="12" cy="12" r="2" />
+                              <circle cx="19" cy="12" r="2" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                      <div className="font-bold text-sm text-white truncate w-full">{t.title}</div>
-                      <div className="text-xs text-[#b3b3b3] truncate w-full mt-1">{t.artist}</div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    [...Array(6)].map((_, i) => (
+                      <div key={i} className="bg-[#181818] p-3 rounded-xl animate-pulse flex flex-col gap-2">
+                        <div className="w-full aspect-square rounded-lg bg-white/10"></div>
+                        <div className="h-4 bg-white/10 rounded w-3/4"></div>
+                        <div className="h-3 bg-white/5 rounded w-1/2"></div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </section>
             </div>
@@ -6409,6 +6736,48 @@ export default function BrnsicMusicPage() {
                                   {searchResults[0].artistName}
                                 </span>
                               </div>
+
+                              {/* Quick Queue Controls */}
+                              <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    addToNextQueue({
+                                      id: searchResults[0].trackId,
+                                      title: searchResults[0].trackName,
+                                      artist: searchResults[0].artistName,
+                                      album: searchResults[0].album || "Single",
+                                      cover: searchResults[0].artworkUrl100,
+                                      duration: searchResults[0].duration
+                                    });
+                                  }}
+                                  className="text-[11px] px-2.5 py-1 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-bold transition flex items-center gap-1 cursor-pointer"
+                                  title="Putar lagu ini berikutnya"
+                                >
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                                    <line x1="19" y1="5" x2="19" y2="19"></line>
+                                  </svg>
+                                  <span>Putar Berikutnya</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    addToQueueEnd({
+                                      id: searchResults[0].trackId,
+                                      title: searchResults[0].trackName,
+                                      artist: searchResults[0].artistName,
+                                      album: searchResults[0].album || "Single",
+                                      cover: searchResults[0].artworkUrl100,
+                                      duration: searchResults[0].duration
+                                    });
+                                  }}
+                                  className="text-[11px] px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/80 font-semibold transition cursor-pointer"
+                                  title="Tambahkan ke antrean"
+                                >
+                                  + Antrean
+                                </button>
+                              </div>
                             </div>
 
                             {/* Floating Play Button */}
@@ -6452,11 +6821,11 @@ export default function BrnsicMusicPage() {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setSongToAddToPlaylist({
+                                      addToQueueEnd({
                                         id: song.trackId,
                                         title: song.trackName,
                                         artist: song.artistName,
@@ -6465,9 +6834,33 @@ export default function BrnsicMusicPage() {
                                         duration: song.duration
                                       });
                                     }}
-                                    className="text-[11px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium"
+                                    className="hidden sm:inline-flex text-[11px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-medium transition cursor-pointer"
+                                    title="Tambahkan ke antrean"
                                   >
-                                    + Playlist
+                                    + Antrean
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSongActionMenu({
+                                        song: {
+                                          id: song.trackId,
+                                          title: song.trackName,
+                                          artist: song.artistName,
+                                          album: song.album || "Single",
+                                          cover: song.artworkUrl100,
+                                          duration: song.duration
+                                        }
+                                      });
+                                    }}
+                                    className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
+                                    title="Opsi lagu lainnya"
+                                  >
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                      <circle cx="5" cy="12" r="2" />
+                                      <circle cx="12" cy="12" r="2" />
+                                      <circle cx="19" cy="12" r="2" />
+                                    </svg>
                                   </button>
                                 </div>
                                 <span className="text-xs text-[#b3b3b3] text-right">
@@ -6508,11 +6901,11 @@ export default function BrnsicMusicPage() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSongToAddToPlaylist({
+                                    addToQueueEnd({
                                       id: song.trackId,
                                       title: song.trackName,
                                       artist: song.artistName,
@@ -6521,9 +6914,33 @@ export default function BrnsicMusicPage() {
                                       duration: song.duration
                                     });
                                   }}
-                                  className="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-medium"
+                                  className="hidden sm:inline-flex text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-medium transition cursor-pointer"
+                                  title="Tambahkan ke antrean"
                                 >
-                                  + Playlist
+                                  + Antrean
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSongActionMenu({
+                                      song: {
+                                        id: song.trackId,
+                                        title: song.trackName,
+                                        artist: song.artistName,
+                                        album: song.album || "Single",
+                                        cover: song.artworkUrl100,
+                                        duration: song.duration
+                                      }
+                                    });
+                                  }}
+                                  className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
+                                  title="Opsi lagu lainnya"
+                                >
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                    <circle cx="5" cy="12" r="2" />
+                                    <circle cx="12" cy="12" r="2" />
+                                    <circle cx="19" cy="12" r="2" />
+                                  </svg>
                                 </button>
                               </div>
                               <span className="text-xs text-[#b3b3b3] text-right">
@@ -6808,7 +7225,7 @@ export default function BrnsicMusicPage() {
                     </p>
                     <button
                       onClick={() => {
-                        const pool = [...mostPlayedIndonesia, ...DEFAULT_CATALOG];
+                        const pool = relatedQueue.length > 0 ? relatedQueue : (globalTrending.length > 0 ? globalTrending : (indonesiaTop50.length > 0 ? indonesiaTop50 : mostPlayedIndonesia));
                         setActiveQueue((prev) => [...prev, ...pool.slice(0, 8)]);
                       }}
                       className="px-4 py-2 rounded-full bg-[#1ed760] text-black font-black text-xs hover:scale-105 transition"
@@ -7359,6 +7776,18 @@ export default function BrnsicMusicPage() {
             </svg>
           </button>
 
+          <button
+            onClick={() => setSongActionMenu({ song: currentTrack })}
+            className="p-1 text-[#b3b3b3] hover:text-white transition cursor-pointer"
+            title="Opsi Lagu Saat Ini"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="19" cy="12" r="2" />
+            </svg>
+          </button>
+
           <div className="flex items-center gap-2 w-28">
             <button onClick={toggleMute} className="text-[#b3b3b3] hover:text-white">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -7701,7 +8130,7 @@ export default function BrnsicMusicPage() {
                       <p className="text-[11px] mb-3">Lagu berikutnya akan otomatis menyesuaikan seleramu ({userTaste.persona})</p>
                       <button
                         onClick={() => {
-                          const pool = [...mostPlayedIndonesia, ...DEFAULT_CATALOG];
+                          const pool = relatedQueue.length > 0 ? relatedQueue : (globalTrending.length > 0 ? globalTrending : (indonesiaTop50.length > 0 ? indonesiaTop50 : mostPlayedIndonesia));
                           setActiveQueue((prev) => [...prev, ...pool.slice(0, 6)]);
                         }}
                         className="px-3 py-1.5 rounded-full bg-[#1ed760] text-black font-black text-xs"
@@ -8031,8 +8460,21 @@ export default function BrnsicMusicPage() {
 
                   <div className="flex items-center gap-3">
                     <button
+                      onClick={() => setSongActionMenu({ song: currentTrack })}
+                      className="p-1 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold text-white/70 cursor-pointer"
+                      title="Opsi Lagu & Antrean"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="5" cy="12" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="19" cy="12" r="2" />
+                      </svg>
+                      <span>Opsi</span>
+                    </button>
+
+                    <button
                       onClick={() => setSongToAddToPlaylist(currentTrack)}
-                      className="p-1 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold text-white/70"
+                      className="p-1 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold text-white/70 cursor-pointer"
                       title="Tambah ke Playlist"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -8390,6 +8832,188 @@ export default function BrnsicMusicPage() {
               >
                 Simpan Playlist
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          7.5. MODAL: OPSI & KELOLA ANTREAN LAGU (SPOTIFY-GRADE ACTION SHEET)
+          ==================================================================== */}
+      {songActionMenu && (
+        <div
+          onClick={() => setSongActionMenu(null)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full sm:max-w-md bg-[#181818] border border-white/10 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-2xl animate-slideUp sm:animate-fadeIn"
+          >
+            {/* Header: Track Info */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-3.5 min-w-0 flex-1 pr-2">
+                <img
+                  src={songActionMenu.song.cover || songActionMenu.song.artworkUrl100 || FALLBACK_COVER}
+                  alt="cover"
+                  onError={handleImgError}
+                  className="w-13 h-13 rounded-xl object-cover flex-shrink-0 shadow-md"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-white truncate">{songActionMenu.song.title}</div>
+                  <div className="text-xs text-[#b3b3b3] truncate mt-0.5">{songActionMenu.song.artist}</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSongActionMenu(null)}
+                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white text-lg font-bold transition cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Menu List */}
+            <div className="flex flex-col gap-1 pt-1">
+              {/* Option 1: Putar Berikutnya */}
+              <button
+                onClick={() => {
+                  addToNextQueue(songActionMenu.song);
+                  setSongActionMenu(null);
+                }}
+                className="w-full px-4 py-3 rounded-xl hover:bg-white/10 flex items-center gap-3.5 text-left transition group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-full bg-white/5 group-hover:bg-[#1ed760] group-hover:text-black text-white flex items-center justify-center transition flex-shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                    <line x1="19" y1="5" x2="19" y2="19"></line>
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-white group-hover:text-[#1ed760] transition">
+                    Putar Berikutnya
+                  </div>
+                  <div className="text-[11px] text-[#b3b3b3]">
+                    Akan diputar tepat setelah lagu yang sedang berjalan saat ini
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 2: Tambahkan ke Antrean */}
+              <button
+                onClick={() => {
+                  addToQueueEnd(songActionMenu.song);
+                  setSongActionMenu(null);
+                }}
+                className="w-full px-4 py-3 rounded-xl hover:bg-white/10 flex items-center gap-3.5 text-left transition group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-full bg-white/5 group-hover:bg-[#1ed760] group-hover:text-black text-white flex items-center justify-center transition flex-shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-white group-hover:text-[#1ed760] transition">
+                    Tambahkan ke Antrean
+                  </div>
+                  <div className="text-[11px] text-[#b3b3b3]">
+                    Masukkan ke daftar antrean paling akhir
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 3: Tambahkan ke Playlist */}
+              <button
+                onClick={() => {
+                  const targetSong = songActionMenu.song;
+                  setSongActionMenu(null);
+                  setSongToAddToPlaylist(targetSong);
+                }}
+                className="w-full px-4 py-3 rounded-xl hover:bg-white/10 flex items-center gap-3.5 text-left transition group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-full bg-white/5 group-hover:bg-white/20 text-white flex items-center justify-center transition flex-shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-white">Tambahkan ke Playlist</div>
+                  <div className="text-[11px] text-[#b3b3b3]">Simpan ke koleksi playlist pribadimu</div>
+                </div>
+              </button>
+
+              {/* Option 4: Suka / Batal Suka */}
+              <button
+                onClick={() => {
+                  toggleLike(songActionMenu.song.id);
+                  setSongActionMenu(null);
+                }}
+                className="w-full px-4 py-3 rounded-xl hover:bg-white/10 flex items-center gap-3.5 text-left transition group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-full bg-white/5 group-hover:bg-white/20 text-[#1ed760] flex items-center justify-center transition flex-shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill={likedSongIds.includes(songActionMenu.song.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                    <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-white">
+                    {likedSongIds.includes(songActionMenu.song.id) ? "Hapus dari Lagu Disukai" : "Sukai Lagu Ini"}
+                  </div>
+                  <div className="text-[11px] text-[#b3b3b3]">
+                    {likedSongIds.includes(songActionMenu.song.id) ? "Dihapus dari koleksi favorit" : "Simpan ke daftar lagu favoritmu"}
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 5: Buka Album (if album info available) */}
+              {songActionMenu.song.album && songActionMenu.song.album !== "Single" && (
+                <button
+                  onClick={() => {
+                    const s = songActionMenu.song;
+                    setSongActionMenu(null);
+                    openAlbumView(s.album, s.artist, s.collectionId);
+                  }}
+                  className="w-full px-4 py-3 rounded-xl hover:bg-white/10 flex items-center gap-3.5 text-left transition group cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-full bg-white/5 group-hover:bg-white/20 text-white flex items-center justify-center transition flex-shrink-0">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-bold text-white">Buka Album Lengkap</div>
+                    <div className="text-[11px] text-[#b3b3b3] truncate">{songActionMenu.song.album}</div>
+                  </div>
+                </button>
+              )}
+
+              {/* Option 6: Hapus dari Playlist (if inside custom playlist) */}
+              {songActionMenu.playlistId && (
+                <button
+                  onClick={() => {
+                    handleRemoveSongFromPlaylist(songActionMenu.playlistId!, songActionMenu.song.id);
+                    setSongActionMenu(null);
+                  }}
+                  className="w-full px-4 py-3 rounded-xl hover:bg-red-500/10 flex items-center gap-3.5 text-left transition group cursor-pointer text-red-400"
+                >
+                  <div className="w-9 h-9 rounded-full bg-red-500/10 group-hover:bg-red-500/20 text-red-400 flex items-center justify-center transition flex-shrink-0">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-bold text-red-400">Hapus dari Playlist Ini</div>
+                    <div className="text-[11px] text-red-400/70">Keluarkan lagu dari playlist</div>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         </div>
