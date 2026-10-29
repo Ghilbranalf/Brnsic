@@ -4221,7 +4221,9 @@ export default function BrnsicMusicPage() {
   const playSearchedSong = (song: any, index: number) => {
     hasUserStartedPlaybackRef.current = true;
     setHasUserStartedPlayback(true);
-    handlePlayFromList(song, searchResults, index);
+    // Build an intelligent radio queue of related songs by this artist & recommendations,
+    // instead of playing only other songs matching the raw search query keyword!
+    handlePlaySingleSongWithRadio(song);
   };
 
   const togglePlay = () => {
@@ -9160,8 +9162,8 @@ export default function BrnsicMusicPage() {
           12. TOAST: NOTIFIKASI INTERAKTIF SHUFFLE & TASTE MODE
           ==================================================================== */}
       {shuffleToast && (
-        <div className="fixed bottom-24 md:bottom-24 left-1/2 -translate-x-1/2 z-[90] pointer-events-none animate-fadeIn">
-          <div className="liquid-glass border border-white/20 px-4 py-2 rounded-full shadow-[0_10px_35px_rgba(0,0,0,0.85)] backdrop-blur-xl flex items-center gap-2.5 text-xs font-bold text-white max-w-sm text-center">
+        <div className="fixed top-5 sm:top-6 left-1/2 -translate-x-1/2 z-[999] pointer-events-none animate-fadeIn max-w-[90vw]">
+          <div className="bg-[#121212]/95 border border-white/20 px-4 py-2.5 rounded-full shadow-[0_10px_35px_rgba(0,0,0,0.85)] backdrop-blur-xl flex items-center gap-2.5 text-xs font-bold text-white max-w-sm text-center">
             <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse flex-shrink-0"></span>
             <span className="truncate">{shuffleToast}</span>
           </div>

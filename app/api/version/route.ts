@@ -15,12 +15,12 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "3.9.7",
-    versionCode: 15,
-    minVersionCode: 15,
+    version: "3.9.8",
+    versionCode: 16,
+    minVersionCode: 16,
     releaseDate: "2026-10-29",
-    title: "Pembaruan Brnsic v3.9.7",
-    notes: "Kartu Dynamic Island dibuat rounded full (54dp), tetap muncul saat dijeda (hanya hilang saat close APK), modal update dibersihkan, dan algoritma lirik cerdas dengan scoring & auto-offset.",
+    title: "Pembaruan Brnsic v3.9.8",
+    notes: "Toast notifikasi dipindah ke atas layar, pemutaran hasil cari otomatis radio lagu/artis terkait, dan pembaruan dialog update.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: true,
