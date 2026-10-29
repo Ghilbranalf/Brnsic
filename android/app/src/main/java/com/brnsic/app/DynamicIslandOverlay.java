@@ -26,6 +26,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import java.lang.reflect.Method;
 
 public class DynamicIslandOverlay {
 
@@ -155,8 +156,8 @@ public class DynamicIslandOverlay {
         String position = prefs.getString("overlay_position", "center");
         int offsetYExtra = prefs.getInt("overlay_offset_y", 0);
 
-        // Safe top position at 12dp: clears OS swipe-down dead zone so the very top of pill is 100% touch-responsive
-        int safeTopY = dpToPx(12) + offsetYExtra;
+        // Safe top position at 14dp: clears OS swipe-down dead zone so the very top of pill is 100% touch-responsive
+        int safeTopY = dpToPx(14) + offsetYExtra;
 
         if ("left".equals(position)) {
             layoutParams.gravity = Gravity.TOP | Gravity.START;
@@ -226,9 +227,32 @@ public class DynamicIslandOverlay {
         }
     }
 
+    public static void collapseStatusBarPanels(Context context) {
+        if (context == null) return;
+        try {
+            Object sbservice = context.getSystemService("statusbar");
+            if (sbservice != null) {
+                Class<?> statusbarManager = Class.forName("android.app.StatusBarManager");
+                Method collapse = statusbarManager.getMethod("collapsePanels");
+                collapse.setAccessible(true);
+                collapse.invoke(sbservice);
+                return;
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            Intent closeIntent = new Intent("android.intent.action.CLOSE_SYSTEM_DIALOGS");
+            context.sendBroadcast(closeIntent);
+        } catch (Exception ignored) {}
+    }
+
     public void setExpanded(boolean expanded) {
         if (this.isExpanded == expanded) return;
         this.isExpanded = expanded;
+
+        if (expanded) {
+            collapseStatusBarPanels(context);
+        }
 
         if (collapsedPill != null) {
             collapsedPill.setVisibility(expanded ? View.GONE : View.VISIBLE);
@@ -392,6 +416,7 @@ public class DynamicIslandOverlay {
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
+                        collapseStatusBarPanels(context);
                         downX = event.getRawX();
                         downY = event.getRawY();
                         downTime = System.currentTimeMillis();
