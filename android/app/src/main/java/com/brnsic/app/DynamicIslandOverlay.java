@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
@@ -18,6 +19,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -426,13 +428,20 @@ public class DynamicIslandOverlay {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        // Ultra-curved pebble/squircle Dynamic Island radius (Apple signature 44dp curve)
-        bg.setCornerRadius(dpToPx(44));
+        // Ultra-curved rounded-full Dynamic Island card radius
+        final int cardRadius = dpToPx(54);
+        bg.setCornerRadius(cardRadius);
         bg.setStroke(dpToPx(1), Color.parseColor("#33FFFFFF"));
         card.setBackground(bg);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             card.setElevation(dpToPx(20));
+            card.setOutlineProvider(new ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, Outline outline) {
+                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cardRadius);
+                }
+            });
             card.setClipToOutline(true);
         }
 

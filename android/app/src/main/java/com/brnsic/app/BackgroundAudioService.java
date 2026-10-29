@@ -139,10 +139,12 @@ public class BackgroundAudioService extends Service implements
 
     private void refreshOverlayState() {
         if (dynamicIslandOverlay == null) return;
-        if (isPlaybackActive && !isAppInForeground && DynamicIslandOverlay.canDrawOverlay(this)) {
+        boolean hasTrack = currentTitle != null && !currentTitle.trim().isEmpty();
+        // Keep Dynamic Island visible on background even when paused ("hanya hilang ketika close apk")
+        if (hasTrack && !isAppInForeground && DynamicIslandOverlay.canDrawOverlay(this)) {
             dynamicIslandOverlay.show();
             dynamicIslandOverlay.update(currentCoverBitmap, currentTitle, currentArtist, isPlaybackActive, currentPositionMs, currentDurationMs);
-        } else {
+        } else if (!hasTrack) {
             dynamicIslandOverlay.hide();
         }
     }

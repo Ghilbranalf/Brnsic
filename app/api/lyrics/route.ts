@@ -312,7 +312,7 @@ export async function GET(request: NextRequest) {
 
   // 1. Check curated exact-matched lyrics first (Instant 0ms, zero lag, perfect studio sync!)
   for (const [key, lyricsList] of Object.entries(CURATED_LYRICS)) {
-    if (lowerPrimary.includes(key) || key.includes(lowerPrimary) || cleanTitle.toLowerCase().includes(key)) {
+    if (lowerPrimary === key || cleanTitle.toLowerCase() === key || (lowerPrimary.startsWith(key) && lowerPrimary.length - key.length <= 3)) {
       return NextResponse.json({ lyrics: lyricsList, synced: true });
     }
   }
@@ -322,11 +322,85 @@ export async function GET(request: NextRequest) {
       "User-Agent": "BrnsicMusicApp/2.0 (https://brnsic.vercel.app)"
     };
 
-    // Helper: Parse LRC timed strings into { time, text }
-    const parseLrc = (lrcString: string): { time: number; text: string }[] => {
+    // Helper: Precision Scorer to avoid "Lagu A tapi liriknya B"
+    const scoreCandidate = (candidate: any): { total: number; artistScore: number } => {
+      const cTitle = (candidate.trackName || "").toLowerCase().trim();
+      const cArtist = (candidate.artistName || "").toLowerCase().trim();
+      const tTitle = lowerPrimary;
+      const tArtist = artist.toLowerCase();
+
+      // Title Similarity (0 to 45 points)
+      let titleScore = 0;
+      if (cTitle === tTitle) {
+        titleScore = 45;
+      } else if (cTitle.includes(tTitle) || tTitle.includes(cTitle)) {
+        titleScore = 35;
+      } else {
+        const tWords = tTitle.split(/\s+/).filter((w: string) => w.length > 2);
+        const cWords = cTitle.split(/\s+/).filter((w: string) => w.length > 2);
+        if (tWords.length > 0) {
+          const common = tWords.filter((w: string) => cWords.includes(w));
+          titleScore = Math.round((common.length / tWords.length) * 35);
+        }
+      }
+
+      // Artist Similarity (0 to 45 points)
+      let artistScore = 0;
+      if (tArtist) {
+        if (cArtist === tArtist) {
+          artistScore = 45;
+        } else if (cArtist.includes(tArtist) || tArtist.includes(cArtist)) {
+          artistScore = 40;
+        } else {
+          const aWords = tArtist.split(/\s+/).filter((w: string) => w.length > 2);
+          const caWords = cArtist.split(/\s+/).filter((w: string) => w.length > 2);
+          if (aWords.length > 0) {
+            const common = aWords.filter((w: string) => caWords.includes(w));
+            if (common.length > 0) {
+              artistScore = Math.round((common.length / aWords.length) * 35);
+            } else {
+              artistScore = -40; // Reject completely unrelated artists
+            }
+          } else {
+            artistScore = -40;
+          }
+        }
+      } else {
+        artistScore = 20;
+      }
+
+      // Duration Similarity (0 to 20 points)
+      let durationScore = 0;
+      if (duration > 10 && candidate.duration > 10) {
+        const diff = Math.abs(candidate.duration - duration);
+        if (diff <= 3) durationScore = 20;
+        else if (diff <= 8) durationScore = 15;
+        else if (diff <= 15) durationScore = 10;
+        else if (diff <= 30) durationScore = 5;
+        else durationScore = -15;
+      } else {
+        durationScore = 10;
+      }
+
+      const syncBonus = candidate.syncedLyrics ? 15 : 0;
+      return { total: titleScore + artistScore + durationScore + syncBonus, artistScore };
+    };
+
+    // Helper: Parse LRC timed strings with intelligent video-intro offset calibration
+    const parseLrc = (lrcString: string, candidateDuration?: number): { time: number; text: string }[] => {
       const lines = lrcString.split("\n");
       const parsed: { time: number; text: string }[] = [];
       const timeReg = /\[(\d{2}):(\d{2})(?:\.(\d{1,3}))?\]/;
+
+      // If YouTube audio stream has a video intro (e.g. 2-15s longer than studio audio track),
+      // auto-calibrate lyrics forward so the timestamps match vocal entrance perfectly!
+      let timeOffset = 0;
+      if (candidateDuration && duration > candidateDuration) {
+        const delta = duration - candidateDuration;
+        if (delta >= 2 && delta <= 15) {
+          timeOffset = delta;
+        }
+      }
 
       lines.forEach((l: string) => {
         const m = timeReg.exec(l);
@@ -337,7 +411,7 @@ export async function GET(request: NextRequest) {
           const ms = parseInt(msRaw.padEnd(3, "0"), 10);
           const text = l.replace(timeReg, "").trim();
           if (text) {
-            parsed.push({ time: min * 60 + sec + ms / 1000, text });
+            parsed.push({ time: parseFloat((min * 60 + sec + ms / 1000 + timeOffset).toFixed(2)), text });
           }
         }
       });
@@ -346,10 +420,10 @@ export async function GET(request: NextRequest) {
 
     let data: any = null;
 
-    // Pass 1: Exact artist + track_name
+    // Pass 1: Exact artist + track_name + duration
     try {
       const res1 = await fetch(
-        `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(primaryTitle)}`,
+        `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(primaryTitle)}&duration=${Math.round(duration)}`,
         { headers: fetchHeaders, next: { revalidate: 86400 } }
       );
       if (res1.ok) {
@@ -357,41 +431,43 @@ export async function GET(request: NextRequest) {
       }
     } catch (e) {}
 
-    // Pass 2: Search with artist + primaryTitle
+    // Pass 2: Exact artist + track_name without duration constraint
     if (!data || !data.syncedLyrics) {
       try {
         const res2 = await fetch(
-          `https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${primaryTitle}`)}`,
+          `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(primaryTitle)}`,
           { headers: fetchHeaders, next: { revalidate: 86400 } }
         );
         if (res2.ok) {
-          const results = await res2.json();
-          if (Array.isArray(results) && results.length > 0) {
-            data = results.find((r: any) => r.syncedLyrics) || data || results[0];
-          }
+          data = await res2.json();
         }
       } catch (e) {}
     }
 
-    // Pass 3: Search by primaryTitle alone (vital for covers, remixes, and YouTube channel artists!)
+    // Pass 3: Search with artist + primaryTitle with Precision Candidate Scoring
     if (!data || !data.syncedLyrics) {
       try {
         const res3 = await fetch(
-          `https://lrclib.net/api/search?q=${encodeURIComponent(primaryTitle)}`,
+          `https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${primaryTitle}`)}`,
           { headers: fetchHeaders, next: { revalidate: 86400 } }
         );
         if (res3.ok) {
           const results = await res3.json();
           if (Array.isArray(results) && results.length > 0) {
-            const foundSynced = results.find((r: any) => r.syncedLyrics);
-            if (foundSynced) data = foundSynced;
-            else if (!data) data = results[0];
+            const scored = results
+              .map((r: any) => ({ item: r, ...scoreCandidate(r) }))
+              .filter((s: any) => s.artistScore >= 0 && s.total >= 55)
+              .sort((a: any, b: any) => b.total - a.total);
+
+            if (scored.length > 0) {
+              data = scored[0].item;
+            }
           }
         }
       } catch (e) {}
     }
 
-    // Pass 4: Search track_name parameter alone on LRCLIB
+    // Pass 4: Fallback search track_name only with strict artist verification
     if (!data || !data.syncedLyrics) {
       try {
         const res4 = await fetch(
@@ -401,17 +477,22 @@ export async function GET(request: NextRequest) {
         if (res4.ok) {
           const results = await res4.json();
           if (Array.isArray(results) && results.length > 0) {
-            const foundSynced = results.find((r: any) => r.syncedLyrics);
-            if (foundSynced) data = foundSynced;
-            else if (!data) data = results[0];
+            const scored = results
+              .map((r: any) => ({ item: r, ...scoreCandidate(r) }))
+              .filter((s: any) => s.artistScore >= 15 && s.total >= 60)
+              .sort((a: any, b: any) => b.total - a.total);
+
+            if (scored.length > 0) {
+              data = scored[0].item;
+            }
           }
         }
       } catch (e) {}
     }
 
-    // Process Synced Lyrics
+    // Process Synced Lyrics with Auto-Calibrated Timing
     if (data && data.syncedLyrics) {
-      const parsed = parseLrc(data.syncedLyrics);
+      const parsed = parseLrc(data.syncedLyrics, data.duration);
       if (parsed.length > 0) {
         return NextResponse.json({ lyrics: parsed, synced: true });
       }

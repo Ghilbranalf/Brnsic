@@ -9075,13 +9075,10 @@ export default function BrnsicMusicPage() {
 
             <div>
               <h2 className="text-xl font-extrabold text-white">{updateInfo.title || "Pembaruan Aplikasi Diperlukan"}</h2>
-              <p className="text-xs text-[#b3b3b3] mt-2 leading-relaxed max-w-[280px] mx-auto">
-                {updateInfo.notes || "Pembaruan pemutar musik resmi dan peningkatan performa."}
-              </p>
-              <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-[#888] font-semibold">
+              <div className="mt-2.5 flex items-center justify-center gap-2 text-[11px] text-[#888] font-semibold">
                 <span>Android</span>
                 <span>•</span>
-                <span>{updateInfo.apkSize || "8.7 MB"}</span>
+                <span>{updateInfo.apkSize || "9.1 MB"}</span>
                 <span>•</span>
                 <span>Wajib Diperbarui</span>
               </div>
@@ -9126,21 +9123,6 @@ export default function BrnsicMusicPage() {
                     </svg>
                     <span>Perbarui Aplikasi Sekarang</span>
                   </button>
-                  <div className="flex flex-col gap-1 text-center mt-2">
-                    <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
-                      Setelah mengunduh, <span className="text-white font-bold">buka bilah notifikasi HP</span> (atau folder <em>Download</em> di File Manager) lalu ketuk file <strong>Brnsic.apk</strong> untuk memasang/mengupdate.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (checkAppVersionRef.current) checkAppVersionRef.current();
-                        showToast("Memeriksa status versi APK...");
-                      }}
-                      className="mt-1 text-[11px] text-[#1ed760] hover:underline font-bold py-1.5 active:scale-95 transition cursor-pointer"
-                    >
-                      Sudah memasang APK baru? Ketuk di sini untuk segarkan
-                    </button>
-                  </div>
                 </>
               ) : (
                 <button
