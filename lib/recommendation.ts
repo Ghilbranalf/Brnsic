@@ -24,7 +24,13 @@ export const GENRE_PROFILES: Record<string, FeatureVector> = {
   "Rock Nostalgia": [0.2, 0.85, 0.6, 0.5, 0.3, 0.2, 1.0, 0.1, 0.1, 0.2, 0.95, 0.4],
   "Hits Global": [0.3, 0.8, 0.7, 0.8, 0.2, 0.2, 0.2, 0.0, 0.7, 1.0, 0.2, 0.9],
   "Akustik Santai": [0.95, 0.3, 0.5, 0.4, 0.5, 0.8, 0.1, 0.0, 0.3, 0.2, 0.3, 0.5],
-  "Viral TikTok": [0.3, 0.85, 0.75, 0.9, 0.7, 0.4, 0.3, 0.7, 0.5, 0.6, 0.2, 1.0]
+  "Viral TikTok": [0.3, 0.85, 0.75, 0.9, 0.7, 0.4, 0.3, 0.7, 0.5, 0.6, 0.2, 1.0],
+  "Alternative": [0.35, 0.85, 0.65, 0.75, 0.1, 0.95, 0.75, 0.0, 0.3, 0.95, 0.5, 0.85],
+  "Indie Pop": [0.35, 0.8, 0.75, 0.75, 0.1, 0.95, 0.65, 0.0, 0.4, 0.95, 0.4, 0.85],
+  "Rock": [0.2, 0.9, 0.6, 0.6, 0.2, 0.4, 0.95, 0.0, 0.2, 0.85, 0.8, 0.75],
+  "R&B/Soul": [0.35, 0.7, 0.6, 0.8, 0.2, 0.3, 0.2, 0.0, 0.95, 0.95, 0.3, 0.85],
+  "Electronic": [0.1, 0.95, 0.85, 0.95, 0.1, 0.2, 0.3, 0.0, 0.6, 0.95, 0.3, 0.9],
+  "Hip-Hop/Rap": [0.15, 0.9, 0.65, 0.85, 0.1, 0.2, 0.3, 0.0, 0.95, 0.95, 0.3, 0.95]
 };
 
 export const ARTIST_EMBEDDINGS: Record<string, FeatureVector> = {
@@ -119,14 +125,63 @@ export function computeCosineSimilarity(a: FeatureVector, b: FeatureVector): num
   return dotProduct / denominator;
 }
 
-export function getArtistFeatureVector(artistName: string): FeatureVector {
-  const norm = (artistName || "").toLowerCase().trim();
+export function extractTrackFeatureVector(track: any): FeatureVector {
+  if (!track) return [...DEFAULT_VECTOR];
+  const artist = (typeof track === "string" ? track : track.artist || track.artistName || "").toLowerCase().trim();
+  const genre = (track.genre || track.primaryGenreName || "").toLowerCase().trim();
+  const title = (track.title || track.trackName || "").toLowerCase().trim();
+
+  // 1. Direct Artist match from embedded latent space
   for (const [key, vec] of Object.entries(ARTIST_EMBEDDINGS)) {
-    if (norm.includes(key) || key.includes(norm)) {
-      return vec;
+    if (artist.includes(key) || key.includes(artist)) {
+      return [...vec];
     }
   }
-  return DEFAULT_VECTOR;
+
+  // 2. Synthesize base vector from metadata genre
+  let base: FeatureVector = [...DEFAULT_VECTOR];
+  if (genre.includes("indie") || genre.includes("alternative")) {
+    base = [...GENRE_PROFILES["Alternative"]];
+  } else if (genre.includes("rock") || genre.includes("metal")) {
+    base = [...GENRE_PROFILES["Rock"]];
+  } else if (genre.includes("r&b") || genre.includes("soul")) {
+    base = [...GENRE_PROFILES["R&B/Soul"]];
+  } else if (genre.includes("electronic") || genre.includes("dance") || genre.includes("edm")) {
+    base = [...GENRE_PROFILES["Electronic"]];
+  } else if (genre.includes("hip-hop") || genre.includes("rap")) {
+    base = [...GENRE_PROFILES["Hip-Hop/Rap"]];
+  } else if (genre.includes("dangdut") || genre.includes("koplo")) {
+    base = [...GENRE_PROFILES["Dangdut Koplo"]];
+  } else if (genre.includes("acoustic") || genre.includes("folk") || genre.includes("singer")) {
+    base = [...GENRE_PROFILES["Akustik Santai"]];
+  } else if (genre.includes("pop")) {
+    base = [...GENRE_PROFILES["Hits Global"]];
+  }
+
+  // 3. Modulate emotional valence & acousticness based on title semantics
+  const melancholyKeywords = ["sedih", "galau", "cry", "tears", "lonely", "broken", "sendu", "hancur", "luka", "air mata", "pergi", "hilang", "kenangan", "hurt", "die", "dead", "sad"];
+  const energeticKeywords = ["happy", "senang", "ceria", "pesta", "party", "dance", "upbeat", "semangat", "rollercoaster", "fun", "celebrate", "light", "fire", "jump"];
+  const acousticKeywords = ["acoustic", "akustik", "unplugged", "piano", "guitar", "gitar", "senja", "kopi", "hujan", "malam", "sleep", "bobo", "calm"];
+
+  if (melancholyKeywords.some((w) => title.includes(w))) {
+    base[2] = Math.max(0.05, base[2] - 0.35); // Lower valence (sendu)
+    base[0] = Math.min(0.95, base[0] + 0.2); // Higher acoustic reflection
+  }
+  if (energeticKeywords.some((w) => title.includes(w))) {
+    base[2] = Math.min(0.95, base[2] + 0.3); // High valence
+    base[1] = Math.min(0.95, base[1] + 0.25); // High energy
+    base[3] = Math.min(0.95, base[3] + 0.2); // High danceability
+  }
+  if (acousticKeywords.some((w) => title.includes(w))) {
+    base[0] = Math.min(0.95, base[0] + 0.35);
+    base[1] = Math.max(0.1, base[1] - 0.2);
+  }
+
+  return base;
+}
+
+export function getArtistFeatureVector(artistName: string): FeatureVector {
+  return extractTrackFeatureVector({ artist: artistName });
 }
 
 export function buildUserTasteVector(
@@ -169,7 +224,7 @@ export function trainUserVectorOnInteraction(
   track: any,
   action: "play" | "like" | "dislike" | "skip" | "complete"
 ): FeatureVector {
-  const trackVector = getArtistFeatureVector(track.artist || track.artistName || "");
+  const trackVector = extractTrackFeatureVector(track);
   const updated: FeatureVector = [...userVector];
 
   // Learning rate based on action weight
@@ -223,7 +278,7 @@ export function rankTracksByDeepLearning(
     const isRecent = cooldownSet.has(cleanTitle);
     if (!allowRecent && isRecent) continue;
 
-    const trackVector = getArtistFeatureVector(t.artist || t.artistName || "");
+    const trackVector = extractTrackFeatureVector(t);
     const cosine = computeCosineSimilarity(userVector, trackVector);
 
     // If the song was played by the user recently, boost its relevance on personalized shelves!
@@ -262,19 +317,58 @@ export function detectUserMood(
   const dangdut = userVector[7];
   const globalPop = userVector[9];
 
-  // 1. Nostalgia & Band Legend: e.g. Sheila On 7, Dewa 19, Peterpan
-  if (rockNostalgia > 0.55 || (topArtist && /sheila|dewa|peterpan|padi|noah|naif|ungu|slank/i.test(topArtist))) {
-    const artistLabel = topArtist || "Sheila On 7";
+  // 1. Personalized Artist AI Intelligence (When user has established listening preference)
+  if (totalPlays > 0 && topArtist) {
+    if (indie > 0.5 || globalPop > 0.6) {
+      return {
+        moodKey: "neutral",
+        badgeText: `AI Taste Intelligence • Indie Pop & Alternative • Favorit: ${topArtist}`,
+        shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
+        shelfDescription: `Disesuaikan dengan kecenderungan musik ${topArtist} dan musisi satu frekuensi yang kamu nikmati.`,
+        targetVector: userVector
+      };
+    }
+
+    if (rockNostalgia > 0.5 || /sheila|dewa|peterpan|padi|noah|naif|ungu|slank/i.test(topArtist)) {
+      return {
+        moodKey: "nostalgia",
+        badgeText: `AI Taste Intelligence • Nostalgia Legend • Favorit: ${topArtist}`,
+        shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
+        shelfDescription: `Racikan terbaik dari ${topArtist} dan era lagu nostalgia favoritmu.`,
+        targetVector: userVector
+      };
+    }
+
+    if (popIndo > 0.65 && valence < 0.4) {
+      return {
+        moodKey: "melancholy",
+        badgeText: `AI Taste Intelligence • Reflektif & Sendu • Favorit: ${topArtist}`,
+        shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
+        shelfDescription: `Disesuaikan dengan nuansa reflektif dan musik ${topArtist} yang kamu nikmati.`,
+        targetVector: userVector
+      };
+    }
+
+    if (acoustic > 0.65) {
+      return {
+        moodKey: "chill",
+        badgeText: `AI Taste Intelligence • Akustik & Santai • Favorit: ${topArtist}`,
+        shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
+        shelfDescription: `Petikan akustik hangat dan harmoni santai selaras dengan ${topArtist}.`,
+        targetVector: userVector
+      };
+    }
+
     return {
-      moodKey: "nostalgia",
-      badgeText: `AI Intelligence • Favoritmu: ${artistLabel}`,
-      shelfTitle: `Karena Kamu Sering Memutar ${artistLabel}`,
-      shelfDescription: `Dipelajari oleh algoritma: Racikan terbaik dari ${artistLabel} dan era lagu nostalgia favoritmu.`,
-      targetVector: [0.35, 0.8, 0.65, 0.6, 0.6, 0.3, 0.95, 0.0, 0.2, 0.2, 0.95, 0.7]
+      moodKey: "neutral",
+      badgeText: `AI Taste Intelligence • Favorit: ${topArtist}`,
+      shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
+      shelfDescription: `Disesuaikan dengan kecenderungan musik ${topArtist} yang kamu nikmati.`,
+      targetVector: userVector
     };
   }
 
-  // 2. Energetic / Upbeat: high energy + dangdut or global pop
+  // 2. Cold-Start / New User Mood Discovery (No dominant artist yet)
   if (energy > 0.65 || dangdut > 0.5) {
     return {
       moodKey: "energetic",
@@ -285,7 +379,6 @@ export function detectUserMood(
     };
   }
 
-  // 3. Chill & Akustik Senja: high acousticness
   if (acoustic > 0.7) {
     return {
       moodKey: "chill",
@@ -296,8 +389,7 @@ export function detectUserMood(
     };
   }
 
-  // 4. Sad / Melancholy Mood: only if user has genuinely played low valence tracks repeatedly
-  if (totalPlays >= 5 && valence < 0.3) {
+  if (valence < 0.3) {
     return {
       moodKey: "melancholy",
       badgeText: "Deteksi Mood AI • Reflektif & Sendu",
@@ -307,16 +399,11 @@ export function detectUserMood(
     };
   }
 
-  // Default: Uplifting & Balanced Personalized AI Taste Shelf
-  const hasRealPlays = totalPlays > 0 && topArtist;
-  const artistText = hasRealPlays ? ` • Favorit: ${topArtist}` : "";
   return {
     moodKey: "neutral",
-    badgeText: `AI Taste Intelligence${artistText}`,
-    shelfTitle: hasRealPlays ? `Spesial Untukmu & Fans ${topArtist}` : "Rekomendasi Spesial Untukmu",
-    shelfDescription: hasRealPlays
-      ? `Disesuaikan dengan kecenderungan musik ${topArtist} yang kamu nikmati.`
-      : "Mulai dengarkan lagu favoritmu agar AI Brnsic dapat mempelajari seleramu.",
+    badgeText: "AI Taste Intelligence",
+    shelfTitle: "Rekomendasi Spesial Untukmu",
+    shelfDescription: "Mulai dengarkan lagu favoritmu agar AI Brnsic dapat mempelajari seleramu.",
     targetVector: userVector
   };
 }
