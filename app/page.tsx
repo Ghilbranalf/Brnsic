@@ -1258,6 +1258,7 @@ export default function BrnsicMusicPage() {
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<any | null>(null);
   const [songActionMenu, setSongActionMenu] = useState<{ song: any; playlistId?: string } | null>(null);
   const [topArtistShelfTracks, setTopArtistShelfTracks] = useState<any[]>([]);
+  const [searchCorrectedQuery, setSearchCorrectedQuery] = useState<string | null>(null);
 
   // 7. Charts & Navigation State
   const [indonesiaTop50, setIndonesiaTop50] = useState<TrendingSong[]>([]);
@@ -4152,6 +4153,24 @@ export default function BrnsicMusicPage() {
 
     const clientPool = [
       ...POPULAR_SEARCH_CATALOG,
+      ...topArtistShelfTracks.map((s) => ({
+        title: s.title,
+        artist: s.artist,
+        album: s.album,
+        cover: s.cover,
+        duration: s.duration,
+        youtubeId: s.youtubeId,
+        tags: [s.title.toLowerCase(), s.artist.toLowerCase()]
+      })),
+      ...globalTrending.map((s) => ({
+        title: s.title,
+        artist: s.artist,
+        album: s.album,
+        cover: s.cover,
+        duration: s.duration,
+        youtubeId: s.youtubeId,
+        tags: [s.title.toLowerCase(), s.artist.toLowerCase()]
+      })),
       ...indonesiaTop50.map((s) => ({
         title: s.title,
         artist: s.artist,
@@ -4200,22 +4219,21 @@ export default function BrnsicMusicPage() {
       source: "instant-popular"
     }));
 
-    // Title-First Relevance Scorer: ALWAYS ranks Song Title matches before Artist matches
+    // Balanced Relevance Scorer: respects artist match, title match, and prefixes
     const scoreTitleFirst = (item: any, qStr: string, tokens: string[]) => {
       const t = (item.trackName || item.title || "").toLowerCase().trim();
       const a = (item.artistName || item.artist || "").toLowerCase().trim();
 
-      if (t === qStr) return 2000;
-      if (t.startsWith(qStr)) return 1500;
+      if (a === qStr) return 3000;
+      if (t === qStr) return 2500;
+      if (a.startsWith(qStr)) return 2000;
+      if (t.startsWith(qStr)) return 1800;
+      if (a.includes(qStr)) return 1200;
       if (t.includes(qStr)) return 1000;
 
       const matchedTokensInTitle = tokens.filter((w) => t.includes(w));
-      if (matchedTokensInTitle.length > 0) return 500 + matchedTokensInTitle.length * 100;
-
-      if (a === qStr) return 250;
-      if (a.includes(qStr)) return 150;
-
-      return 20;
+      const matchedTokensInArtist = tokens.filter((w) => a.includes(w));
+      return matchedTokensInArtist.length * 400 + matchedTokensInTitle.length * 300;
     };
 
     // Deduplicate instant matches
@@ -4234,7 +4252,7 @@ export default function BrnsicMusicPage() {
     setSearchResults(uniqueInstant);
     setIsSearching(true);
 
-    // 2. Debounce background network search for expanded discovery
+    // 2. Debounce background network search for expanded discovery & fuzzy correction
     searchDebounceRef.current = setTimeout(() => {
       performSearch(trimmed, uniqueInstant);
     }, 280);
@@ -4244,6 +4262,7 @@ export default function BrnsicMusicPage() {
     const q = query.trim();
     if (!q) {
       setSearchResults([]);
+      setSearchCorrectedQuery(null);
       setIsSearching(false);
       return;
     }
@@ -4253,40 +4272,25 @@ export default function BrnsicMusicPage() {
       if (latestSearchQueryRef.current !== q) return; // Stale keystroke response! Discard!
       const data = await res.json();
       if (latestSearchQueryRef.current === q) {
-        const fetchedResults = data.results || [];
-        // Merge: keep top instant matches at the front, append new fetched items
-        const seen = new Set<string>();
-        const merged: any[] = [];
-        for (const item of [...existingInstant, ...fetchedResults]) {
-          const key = `${(item.artistName || "").toLowerCase()} ${(item.trackName || "").toLowerCase()}`.replace(/[^a-z0-9]/g, "");
-          if (!seen.has(key)) {
-            seen.add(key);
-            merged.push(item);
-          }
+        if (data.correctedQuery) {
+          setSearchCorrectedQuery(data.correctedQuery);
+        } else {
+          setSearchCorrectedQuery(null);
         }
 
-        const qClean = q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-        const qWords = qClean.split(" ").filter(Boolean);
-
-        const scoreTitle = (item: any) => {
-          const t = (item.trackName || item.title || "").toLowerCase().trim();
-          const a = (item.artistName || item.artist || "").toLowerCase().trim();
-          if (t === qClean) return 2000;
-          if (t.startsWith(qClean)) return 1500;
-          if (t.includes(qClean)) return 1000;
-          const matched = qWords.filter((w) => t.includes(w));
-          if (matched.length > 0) return 500 + matched.length * 100;
-          if (a === qClean) return 250;
-          if (a.includes(qClean)) return 150;
-          return 20;
-        };
-
-        merged.sort((x, y) => scoreTitle(y) - scoreTitle(x));
-
-        setSearchResults(merged.length > 0 ? merged : existingInstant);
+        const fetchedResults = data.results || [];
+        if (fetchedResults.length > 0) {
+          setSearchResults(fetchedResults);
+        } else if (existingInstant.length > 0) {
+          setSearchResults(existingInstant);
+        } else {
+          setSearchResults([]);
+        }
       }
     } catch (err) {
-      console.error("Search fetch failed", err);
+      if (latestSearchQueryRef.current === q) {
+        setSearchResults(existingInstant);
+      }
     } finally {
       if (latestSearchQueryRef.current === q) {
         setIsSearching(false);
@@ -6687,9 +6691,18 @@ export default function BrnsicMusicPage() {
               {searchQuery ? (
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h1 className="text-xl font-black text-white">
-                      {isSearching && searchResults.length === 0 ? "Mencari di seluruh dunia..." : `Hasil untuk "${searchQuery}"`}
-                    </h1>
+                    <div>
+                      <h1 className="text-xl font-black text-white">
+                        {isSearching && searchResults.length === 0 ? "Mencari di seluruh dunia..." : `Hasil untuk "${searchQuery}"`}
+                      </h1>
+                      {searchCorrectedQuery && (
+                        <p className="text-xs text-[#1ed760] font-semibold mt-1 flex items-center gap-1.5">
+                          <span>Menampilkan hasil teratas untuk</span>
+                          <span className="font-bold underline italic capitalize">&quot;{searchCorrectedQuery}&quot;</span>
+                          <span className="text-white/40 text-[10px]">(koreksi otomatis ejaan)</span>
+                        </p>
+                      )}
+                    </div>
                     {isSearching && (
                       <div className="flex items-center gap-2 text-xs text-[#1ed760] font-semibold">
                         <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-ping"></span>
