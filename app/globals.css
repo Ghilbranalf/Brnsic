@@ -64,29 +64,29 @@ button, a, input {
   touch-action: manipulation;
 }
 
-/* High-Performance Surfaces (Optimized 60-120fps GPU Rendering, No Mobile Stutter) */
+/* High-Performance Surfaces (Pure Pitch-Black AMOLED, Optimized 60-120fps GPU Rendering) */
 .liquid-glass {
-  background: rgba(18, 18, 18, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
 }
 
 .liquid-glass-card {
-  background: #181818;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  background: #080808;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
 .liquid-glass-pill {
-  background: rgba(28, 28, 28, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 /* Borderless variant for mobile screens */
 .liquid-glass-borderless {
-  background: rgba(18, 18, 18, 0.92);
+  background: rgba(0, 0, 0, 0.92);
   border: none !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
 }
 
 @media (min-width: 768px) {
@@ -101,19 +101,19 @@ button, a, input {
   .liquid-glass {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: rgba(18, 18, 18, 0.96) !important;
+    background: rgba(0, 0, 0, 0.95) !important;
   }
 
   .liquid-glass-borderless {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: rgba(22, 22, 22, 0.98) !important;
+    background: rgba(0, 0, 0, 0.96) !important;
   }
 
   .liquid-glass-pill {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: #1f1f1f !important;
+    background: #000000 !important;
   }
 
   /* Global Mobile GPU Clamp: Zero blur penalty on mobile */

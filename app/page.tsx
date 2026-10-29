@@ -4719,7 +4719,7 @@ export default function BrnsicMusicPage() {
       <div className="flex-1 grid grid-cols-1 md:grid-cols-[240px_1fr] lg:grid-cols-[280px_1fr_340px] gap-2 overflow-hidden relative z-10 px-0 md:px-0">
         
         {/* --- LEFT SIDEBAR (IPAD & DESKTOP) --- */}
-        <aside className="hidden md:flex bg-[#121212] rounded-lg p-3 flex-col overflow-hidden">
+        <aside className="hidden md:flex bg-black border border-white/10 rounded-lg p-3 flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-3 px-1">
             <span className="text-[#b3b3b3] hover:text-white font-bold text-sm transition flex items-center gap-2.5">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
@@ -4809,10 +4809,10 @@ export default function BrnsicMusicPage() {
         </aside>
 
         {/* --- CENTER MAIN CONTENT --- */}
-        <main className="bg-black md:bg-[#121212] md:rounded-lg overflow-y-auto custom-scrollbar flex flex-col relative pb-32 md:pb-6 overflow-x-hidden">
+        <main className="bg-black md:bg-black md:rounded-lg overflow-y-auto custom-scrollbar flex flex-col relative pb-32 md:pb-6 overflow-x-hidden">
           
           {/* MOBILE HEADER (BRNSIC MOBILE BRANDING) */}
-          <div className="md:hidden flex flex-col gap-3 p-4 sticky top-0 z-30 bg-black/95 backdrop-blur-xl border-b border-white/5">
+          <div className="md:hidden flex flex-col gap-3 p-4 sticky top-0 z-30 bg-black border-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <img src="/app-icon.png" alt="Brnsic" className="w-8 h-8 rounded-lg object-contain shadow" />
@@ -4864,7 +4864,7 @@ export default function BrnsicMusicPage() {
               </div>
             </div>
 
-            {/* Mobile Filter & Mood Chips: HANYA DI BERANDA (HOME) */}
+            {/* Mobile Filter Chips: HANYA DI BERANDA (HOME) */}
             {currentView === "home" && (
               <div
                 className="flex items-center gap-2 w-full max-w-full overflow-x-auto no-scrollbar py-1 touch-pan-x flex-nowrap overscroll-x-contain select-none"
@@ -4872,117 +4872,26 @@ export default function BrnsicMusicPage() {
               >
                 <button
                   onClick={() => {
-                    setHomeFilter("all");
-                    setSelectedMood("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    homeFilter === "all" && selectedMood === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Semua
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("energetic");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "energetic" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Semangat
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("cheerful");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "cheerful" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Bergairah
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("chill");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "chill" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Santai
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("nostalgia");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "nostalgia" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Nostalgia
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("focus");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "focus" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Fokus
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("melancholy");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "melancholy" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Sendu
-                </button>
-                <button
-                  onClick={() => {
-                    setHomeFilter("most-played");
+                    setHomeFilter((prev) => (prev === "most-played" ? "all" : "most-played"));
                     setSelectedMood("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
                     homeFilter === "most-played"
                       ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                      : "bg-black border border-white/20 text-white/90 hover:text-white hover:border-white/40"
                   }`}
                 >
                   Sering Diputar
                 </button>
                 <button
                   onClick={() => {
-                    setHomeFilter("viral");
+                    setHomeFilter((prev) => (prev === "viral" ? "all" : "viral"));
                     setSelectedMood("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
                     homeFilter === "viral"
                       ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                      : "bg-black border border-white/20 text-white/90 hover:text-white hover:border-white/40"
                   }`}
                 >
                   Viral
@@ -4994,7 +4903,7 @@ export default function BrnsicMusicPage() {
           {/* VIEW: DEDICATED ALBUM VIEW (ROUNDED ROWS FIX) */}
           {currentView === "album" && albumData && (
             <div>
-              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#2d2d2d] to-black md:to-[#121212] flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px]">
+              <div className="p-6 sm:p-8 bg-gradient-to-b from-black via-black to-black md:to-black flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px]">
                 <img
                   src={albumData.album?.cover}
                   alt="album cover"
@@ -5155,7 +5064,7 @@ export default function BrnsicMusicPage() {
           {/* VIEW: USER CUSTOM PLAYLIST (ROUNDED ROWS FIX) */}
           {currentView === "custom-playlist" && activeCustomPlaylist && (
             <div>
-              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#148a08] to-black md:to-[#121212] flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px]">
+              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#148a08] to-black md:to-black flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px]">
                 <div className="w-44 h-44 sm:w-52 sm:h-52 rounded-2xl shadow-2xl bg-gradient-to-br from-[#1ed760] to-[#004724] flex items-center justify-center text-white flex-shrink-0">
                   {activeCustomPlaylist.cover ? (
                     <img src={activeCustomPlaylist.cover} alt="cover" className="w-full h-full object-cover rounded-2xl" />
@@ -5331,7 +5240,7 @@ export default function BrnsicMusicPage() {
           {/* VIEW: LIKED SONGS (LAGU YANG DISUKAI) */}
           {currentView === "liked" && (
             <div>
-              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#1ed760]/30 to-black md:to-[#121212] flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px] relative overflow-hidden">
+              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#1ed760]/30 to-black md:to-black flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-[#1ed760]/10 rounded-full blur-3xl pointer-events-none"></div>
                 <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl shadow-2xl bg-gradient-to-br from-[#1ed760] via-[#0f8b3c] to-[#053617] flex items-center justify-center text-black flex-shrink-0 relative z-10 shadow-[0_15px_40px_rgba(30,215,96,0.3)]">
                   <svg width="68" height="68" viewBox="0 0 24 24" fill="currentColor">
@@ -5531,7 +5440,7 @@ export default function BrnsicMusicPage() {
           {/* VIEW: DISLIKED / HIDDEN SONGS (LAGU YANG DISEMBUNYIKAN) */}
           {currentView === "disliked" && (
             <div>
-              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#e91429]/25 via-[#251014]/40 to-black md:to-[#121212] flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px] relative overflow-hidden">
+              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#e91429]/25 via-[#251014]/40 to-black md:to-black flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-[#e91429]/10 rounded-full blur-3xl pointer-events-none"></div>
                 <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl shadow-2xl bg-gradient-to-br from-[#e91429] via-[#8a121d] to-[#3a060b] flex items-center justify-center text-white flex-shrink-0 relative z-10 shadow-[0_15px_40px_rgba(233,20,41,0.3)]">
                   <svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -5632,7 +5541,7 @@ export default function BrnsicMusicPage() {
           {/* VIEW: MY PLAYLIST (KOLEKSI PLAYLIST PRIBADI) */}
           {currentView === "playlists" && (
             <div>
-              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#1ed760]/20 to-black md:to-[#121212] flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6 min-h-[220px] relative overflow-hidden">
+              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#1ed760]/20 to-black md:to-black flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6 min-h-[220px] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-[#1ed760]/10 rounded-full blur-3xl pointer-events-none"></div>
                 <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 relative z-10 w-full sm:w-auto text-center sm:text-left">
                   <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl shadow-2xl bg-gradient-to-br from-[#1ed760] via-[#0f8b3c] to-[#053617] flex items-center justify-center text-black flex-shrink-0 shadow-[0_15px_35px_rgba(30,215,96,0.3)]">
@@ -5839,12 +5748,12 @@ export default function BrnsicMusicPage() {
               <div
                 className={`p-6 sm:p-8 bg-gradient-to-b ${
                   currentView === "top50-indo"
-                    ? "from-[#bc5900] to-black md:to-[#121212]"
+                    ? "from-[#bc5900] to-black md:to-black"
                     : currentView === "most-played-indo"
-                    ? "from-[#006450] to-black md:to-[#121212]"
+                    ? "from-[#006450] to-black md:to-black"
                     : currentView === "viral-indo"
-                    ? "from-[#e8115b] to-black md:to-[#121212]"
-                    : "from-[#1e3264] to-black md:to-[#121212]"
+                    ? "from-[#e8115b] to-black md:to-black"
+                    : "from-[#1e3264] to-black md:to-black"
                 } flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px]`}
               >
                 <div
@@ -6075,123 +5984,32 @@ export default function BrnsicMusicPage() {
           {currentView === "home" && (
             <div className="p-4 sm:p-6 flex flex-col gap-8">
               
-              {/* DESKTOP FILTER & MOOD CHIPS: HANYA DI BERANDA */}
+              {/* DESKTOP FILTER CHIPS: HANYA DI BERANDA */}
               <div
                 className="hidden md:flex items-center gap-2 w-full max-w-full overflow-x-auto no-scrollbar py-1 touch-pan-x flex-nowrap select-none"
               >
                 <button
                   onClick={() => {
-                    setHomeFilter("all");
-                    setSelectedMood("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    homeFilter === "all" && selectedMood === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Semua
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("energetic");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "energetic" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Semangat
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("cheerful");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "cheerful" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Bergairah
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("chill");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "chill" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Santai
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("nostalgia");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "nostalgia" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Nostalgia
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("focus");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "focus" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Fokus
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedMood("melancholy");
-                    setHomeFilter("all");
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
-                    selectedMood === "melancholy" && homeFilter === "all"
-                      ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
-                  }`}
-                >
-                  Sendu
-                </button>
-                <button
-                  onClick={() => {
-                    setHomeFilter("most-played");
+                    setHomeFilter((prev) => (prev === "most-played" ? "all" : "most-played"));
                     setSelectedMood("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
                     homeFilter === "most-played"
                       ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                      : "bg-black border border-white/20 text-white/90 hover:text-white hover:border-white/40"
                   }`}
                 >
                   Sering Diputar
                 </button>
                 <button
                   onClick={() => {
-                    setHomeFilter("viral");
+                    setHomeFilter((prev) => (prev === "viral" ? "all" : "viral"));
                     setSelectedMood("all");
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition cursor-pointer ${
                     homeFilter === "viral"
                       ? "bg-white text-black shadow-md"
-                      : "bg-[#242424] text-white/90 hover:text-white hover:bg-[#2e2e2e]"
+                      : "bg-black border border-white/20 text-white/90 hover:text-white hover:border-white/40"
                   }`}
                 >
                   Viral
@@ -7381,7 +7199,7 @@ export default function BrnsicMusicPage() {
           {/* VIEW: NOW PLAYING FOCUS */}
           {currentView === "now-playing" && (
             <div className="p-6">
-              <div className="bg-gradient-to-b from-[#4a1219] to-black md:to-[#121212] p-6 rounded-2xl flex items-center gap-4 mb-6">
+              <div className="bg-gradient-to-b from-[#4a1219] to-black md:to-black p-6 rounded-2xl flex items-center gap-4 mb-6">
                 <button
                   onClick={togglePlay}
                   className="w-14 h-14 rounded-full bg-[#1ed760] text-black flex items-center justify-center shadow-lg hover:scale-105 transition"
@@ -7408,7 +7226,7 @@ export default function BrnsicMusicPage() {
 
         {/* --- RIGHT SIDEBAR: DESKTOP ONLY BRNSIC NOW PLAYING PANEL --- */}
         <aside
-          className="hidden lg:flex bg-[#121212] rounded-lg p-4 flex-col overflow-y-auto custom-scrollbar"
+          className="hidden lg:flex bg-black border border-white/10 rounded-lg p-4 flex-col overflow-y-auto custom-scrollbar"
           ref={lyricsScrollContainerRef}
         >
           <div className="flex items-center justify-between mb-3 flex-shrink-0">
@@ -7840,7 +7658,7 @@ export default function BrnsicMusicPage() {
         {!isMobilePlayerOpen && hasUserStartedPlayback && (
           <div
             onClick={() => setIsMobilePlayerOpen(true)}
-            className="pointer-events-auto mx-3 mb-2.5 max-w-lg w-[calc(100%-24px)] self-center liquid-glass-borderless rounded-2xl p-2.5 flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition border-0"
+            className="pointer-events-auto mx-3 mb-2.5 max-w-lg w-[calc(100%-24px)] self-center bg-black/95 rounded-2xl p-2.5 flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition border border-white/10"
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <img
@@ -7929,7 +7747,7 @@ export default function BrnsicMusicPage() {
         {/* Floating Liquid Glass Tab Bar (Mobile & iPad - Image 1) */}
         {!isMobilePlayerOpen && (
           <div className="flex justify-center px-4 w-full">
-            <nav className="pointer-events-auto liquid-glass rounded-full px-3 py-1.5 flex items-center justify-between gap-4 sm:gap-6 shadow-[0_15px_35px_rgba(0,0,0,0.75)] border border-white/15 backdrop-blur-2xl bg-black/80 max-w-[280px] sm:max-w-xs w-full">
+            <nav className="pointer-events-auto bg-black/95 rounded-full px-3 py-1.5 flex items-center justify-between gap-4 sm:gap-6 shadow-[0_15px_35px_rgba(0,0,0,0.85)] border border-white/15 max-w-[280px] sm:max-w-xs w-full">
               {/* Tab 1: Home */}
               <button
                 onClick={() => {
@@ -8609,7 +8427,7 @@ export default function BrnsicMusicPage() {
           </div>
 
           {/* Master 3-Tab Floating Pill */}
-          <footer className="fixed bottom-4 left-4 right-4 max-w-sm mx-auto h-12 liquid-glass-borderless rounded-full p-1.5 flex items-center justify-between z-30 shadow-2xl border-0">
+          <footer className="fixed bottom-4 left-4 right-4 max-w-sm mx-auto h-12 bg-black/95 border border-white/10 rounded-full p-1.5 flex items-center justify-between z-30 shadow-2xl">
             <button
               onClick={() => setMobileTab("queue")}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-bold transition ${
@@ -9103,7 +8921,7 @@ export default function BrnsicMusicPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-[#121212] rounded-3xl p-6 border border-white/10 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col gap-5"
+            className="w-full max-w-md bg-black rounded-3xl p-6 border border-white/10 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col gap-5"
           >
             <button
               onClick={() => setIsProfileModalOpen(false)}
@@ -9409,7 +9227,7 @@ export default function BrnsicMusicPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl bg-[#121212]/95 backdrop-blur-2xl rounded-3xl p-5 sm:p-7 border border-white/10 shadow-2xl relative max-h-[92vh] flex flex-col"
+            className="w-full max-w-2xl bg-black/95 backdrop-blur-2xl rounded-3xl p-5 sm:p-7 border border-white/10 shadow-2xl relative max-h-[92vh] flex flex-col"
           >
             <button
               onClick={() => setIsOnboardingModalOpen(false)}
@@ -9789,7 +9607,7 @@ export default function BrnsicMusicPage() {
           ==================================================================== */}
       {shuffleToast && (
         <div className="fixed top-5 sm:top-6 left-1/2 -translate-x-1/2 z-[999] pointer-events-none animate-fadeIn max-w-[90vw]">
-          <div className="bg-[#121212]/95 border border-white/20 px-4 py-2.5 rounded-full shadow-[0_10px_35px_rgba(0,0,0,0.85)] backdrop-blur-xl flex items-center gap-2.5 text-xs font-bold text-white max-w-sm text-center">
+          <div className="bg-black/95 border border-white/20 px-4 py-2.5 rounded-full shadow-[0_10px_35px_rgba(0,0,0,0.85)] backdrop-blur-xl flex items-center gap-2.5 text-xs font-bold text-white max-w-sm text-center">
             <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse flex-shrink-0"></span>
             <span className="truncate">{shuffleToast}</span>
           </div>
