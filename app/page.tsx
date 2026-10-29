@@ -1667,18 +1667,44 @@ export default function BrnsicMusicPage() {
               setIsUpdateModalOpen(true);
             } else {
               // The APK is up to date!
-              localStorage.setItem("brnsic_app_version", data.version);
               setIsUpdateModalOpen(false);
+              localStorage.setItem("brnsic_app_version", data.version);
+
+              // Live Web OTA Hot-Reload: jika ada buildId baru di server, refresh cache tanpa install ulang APK!
+              const currentBuildId = localStorage.getItem("brnsic_build_id");
+              if (data.buildId && currentBuildId && currentBuildId !== data.buildId) {
+                localStorage.setItem("brnsic_build_id", data.buildId);
+                if ("caches" in window) {
+                  try {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map((k) => caches.delete(k)));
+                  } catch (e) {}
+                }
+                window.location.reload();
+                return;
+              }
+              if (data.buildId) {
+                localStorage.setItem("brnsic_build_id", data.buildId);
+              }
             }
             return;
           }
 
           // 2. Web version guard (Browser / PWA)
-          const storedVer = localStorage.getItem("brnsic_app_version");
-          if (!storedVer) {
-            localStorage.setItem("brnsic_app_version", data.version);
-          } else if (storedVer !== data.version) {
-            setIsUpdateModalOpen(true);
+          const currentBuildId = localStorage.getItem("brnsic_build_id");
+          if (data.buildId && currentBuildId && currentBuildId !== data.buildId) {
+            localStorage.setItem("brnsic_build_id", data.buildId);
+            if ("caches" in window) {
+              try {
+                const keys = await caches.keys();
+                await Promise.all(keys.map((k) => caches.delete(k)));
+              } catch (e) {}
+            }
+            window.location.reload();
+            return;
+          }
+          if (data.buildId) {
+            localStorage.setItem("brnsic_build_id", data.buildId);
           }
         }
       } catch (e) {}

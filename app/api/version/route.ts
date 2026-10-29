@@ -19,11 +19,11 @@ export async function GET() {
     versionCode: 18,
     minVersionCode: 18,
     releaseDate: "2026-10-29",
-    title: "Pembaruan Brnsic v4.0.0",
-    notes: "Fitur Putar Berikutnya & Tambah ke Antrean, tombol Acak Lagu di Playlist, data rekomendasi 100% real-time artis & genre, serta eliminasi total data dummy.",
+    title: "Brnsic v4.0.0",
+    notes: "Mode OLED Pitch-Black murni, filter pil Sering Diputar & Viral, antrean cerdas, dan sinkronisasi real-time.",
     apkUrl: "/Brnsic.apk",
     apkSize,
-    forceUpdate: true,
-    buildTime: Date.now()
+    forceUpdate: false,
+    buildId: "20261029-amoled-v2"
   });
 }
