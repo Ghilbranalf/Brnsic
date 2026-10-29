@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 
 // Curated network of Indonesian & Global artists for high-relevance musical relationships
 const ARTIST_RELATIONS: Record<string, string[]> = {
+  bleachers: ["The 1975", "Lorde", "Lana Del Rey", "Fun.", "COIN", "Wallows", "St. Vincent"],
+  "the 1975": ["Bleachers", "Coldplay", "The Neighbourhood", "Arctic Monkeys", "LANY", "The Japanese House"],
+  lorde: ["Bleachers", "Billie Eilish", "Lana Del Rey", "Phoebe Bridgers", "Clairo"],
+  "lana del rey": ["Lorde", "Billie Eilish", "Taylor Swift", "Bleachers", "The Neighbourhood"],
+  "arctic monkeys": ["The Strokes", "The 1975", "The Neighbourhood", "Cage The Elephant", "Oasis"],
   hindia: [".Feast", "Lomba Sihir", "Nadin Amizah", "Bernadya", "Sal Priadi", "Kunto Aji", "Baskara Putra"],
   ".feast": ["Hindia", "Lomba Sihir", "Barasuara", "Kelompok Penerbang Roket", "Seringai"],
   "lomba sihir": ["Hindia", ".Feast", "Nadin Amizah", "Idgitaf"],
@@ -17,7 +22,9 @@ const ARTIST_RELATIONS: Record<string, string[]> = {
   "lady gaga": ["Bruno Mars", "Ariana Grande", "Katy Perry", "Madonna", "Beyonce"],
   "taylor swift": ["Sabrina Carpenter", "Olivia Rodrigo", "Gracie Abrams", "Billie Eilish", "Lana Del Rey"],
   coldplay: ["The 1975", "Imagine Dragons", "OneRepublic", "Maroon 5", "Keane"],
-  "the 1975": ["Coldplay", "The Neighbourhood", "Arctic Monkeys", "LANY", "Bleachers"]
+  "billie eilish": ["Finneas", "Olivia Rodrigo", "Lorde", "Lana Del Rey", "Girl in Red"],
+  "olivia rodrigo": ["Sabrina Carpenter", "Taylor Swift", "Billie Eilish", "Conan Gray", "Gracie Abrams"],
+  "sabrina carpenter": ["Olivia Rodrigo", "Taylor Swift", "Chappell Roan", "Dua Lipa", "Ariana Grande"]
 };
 
 export async function GET(request: Request) {
@@ -40,16 +47,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Fetch other top tracks by the same artist
+    // 1. Fetch other top tracks by the exact same artist worldwide
     const sameArtistUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(
       artist
-    )}&country=id&entity=song&limit=10`;
-    
-    // 2. Fetch top track from related artists if found
-    const targetQuery = relatedArtists.length > 0 ? relatedArtists[0] : artist;
+    )}&entity=song&limit=25`;
+
+    // 2. Query target: either related artist or artist + genre
+    const targetQuery = relatedArtists.length > 0 ? relatedArtists[0] : `${artist} popular`;
     const relatedArtistUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(
       targetQuery
-    )}&country=id&entity=song&limit=8`;
+    )}&entity=song&limit=20`;
 
     const [sameRes, relatedRes] = await Promise.allSettled([
       fetch(sameArtistUrl, { next: { revalidate: 3600 } }),
@@ -57,15 +64,26 @@ export async function GET(request: Request) {
     ]);
 
     const collectedTracks: any[] = [];
-    const seenTitles = new Set<string>([title.toLowerCase()]);
+    const seenTitles = new Set<string>([title.toLowerCase().trim()]);
+    let detectedGenre = "";
 
     if (sameRes.status === "fulfilled" && sameRes.value.ok) {
       const data = await sameRes.value.json();
-      const sameList = (data.results || []).filter(
-        (t: any) => !seenTitles.has(t.trackName.toLowerCase().trim())
-      );
-      // Pick up to 2 songs from same artist
-      sameList.slice(0, 2).forEach((t: any) => {
+      // Filter strictly to tracks where the artist actually matches
+      const sameList = (data.results || []).filter((t: any) => {
+        const aName = (t.artistName || "").toLowerCase();
+        return (
+          (aName.includes(artistLower) || artistLower.includes(aName)) &&
+          !seenTitles.has(t.trackName.toLowerCase().trim())
+        );
+      });
+
+      if (sameList.length > 0 && sameList[0].primaryGenreName) {
+        detectedGenre = sameList[0].primaryGenreName;
+      }
+
+      // Pick up to 6-8 tracks from the same artist
+      sameList.slice(0, 8).forEach((t: any) => {
         seenTitles.add(t.trackName.toLowerCase().trim());
         collectedTracks.push({
           id: `itunes-${t.trackId}`,
@@ -75,6 +93,7 @@ export async function GET(request: Request) {
           duration: Math.round((t.trackTimeMillis || 210000) / 1000),
           cover: (t.artworkUrl100 || "").replace("100x100bb", "600x600bb"),
           collectionId: t.collectionId,
+          genre: t.primaryGenreName,
           reason: `Lagu lain dari ${artist}`
         });
       });
@@ -84,7 +103,7 @@ export async function GET(request: Request) {
       const data = await relatedRes.value.json();
       (data.results || []).forEach((t: any) => {
         const tLower = t.trackName.toLowerCase().trim();
-        if (!seenTitles.has(tLower)) {
+        if (!seenTitles.has(tLower) && collectedTracks.length < 24) {
           seenTitles.add(tLower);
           collectedTracks.push({
             id: `itunes-${t.trackId}`,
@@ -94,18 +113,48 @@ export async function GET(request: Request) {
             duration: Math.round((t.trackTimeMillis || 210000) / 1000),
             cover: (t.artworkUrl100 || "").replace("100x100bb", "600x600bb"),
             collectionId: t.collectionId,
+            genre: t.primaryGenreName,
             reason: `Terkait genre/lingkaran ${artist}`
           });
         }
       });
     }
 
-    // Shuffle collected recommendations so the same track is never locked at index 0
-    const randomized = [...collectedTracks].sort(() => Math.random() - 0.5);
+    // 3. Fallback: If still under 8 tracks, search by the detected primary genre
+    if (collectedTracks.length < 8 && detectedGenre) {
+      try {
+        const genreRes = await fetch(
+          `https://itunes.apple.com/search?term=${encodeURIComponent(detectedGenre)}&entity=song&limit=15`,
+          { next: { revalidate: 3600 } }
+        );
+        if (genreRes.ok) {
+          const gData = await genreRes.json();
+          (gData.results || []).forEach((t: any) => {
+            const tLower = t.trackName.toLowerCase().trim();
+            if (!seenTitles.has(tLower) && collectedTracks.length < 20) {
+              seenTitles.add(tLower);
+              collectedTracks.push({
+                id: `itunes-${t.trackId}`,
+                title: t.trackName,
+                artist: t.artistName,
+                album: t.collectionName || "Single",
+                duration: Math.round((t.trackTimeMillis || 210000) / 1000),
+                cover: (t.artworkUrl100 || "").replace("100x100bb", "600x600bb"),
+                collectionId: t.collectionId,
+                genre: t.primaryGenreName,
+                reason: `Genre serupa: ${detectedGenre}`
+              });
+            }
+          });
+        }
+      } catch (e) {}
+    }
 
+    // Keep songs from same artist first, followed by genre-matched recommendations
     return NextResponse.json({
-      related: randomized,
-      artistNetwork: relatedArtists
+      related: collectedTracks,
+      artistNetwork: relatedArtists,
+      detectedGenre
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message, related: [] }, { status: 500 });

@@ -1219,31 +1219,9 @@ export default function BrnsicMusicPage() {
   const [showSplash, setShowSplash] = useState<boolean>(true);
 
   // 2. Playback State - Restores from cache or starts fresh
-  const [currentTrack, setCurrentTrack] = useState<Track>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("brnsic_cached_track");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && parsed.title) return parsed;
-        }
-      } catch (e) {}
-    }
-    return DEFAULT_CATALOG[0];
-  });
+  const [currentTrack, setCurrentTrack] = useState<Track>(DEFAULT_CATALOG[0]);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cachedTime = localStorage.getItem("brnsic_cached_time");
-        if (cachedTime) {
-          const t = parseFloat(cachedTime);
-          if (!isNaN(t) && t > 0) return t;
-        }
-      } catch (e) {}
-    }
-    return 0;
-  });
+  const [currentTime, setCurrentTime] = useState<number>(0);
   const currentTimeRef = useRef<number>(0);
   const [volume, setVolume] = useState<number>(0.8);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -1254,59 +1232,17 @@ export default function BrnsicMusicPage() {
   const [isAlbumLoopMode, setIsAlbumLoopMode] = useState<boolean>(false);
 
   // 4. Dedicated Queue Engine (Solves endless repeating loop!)
-  const [activeQueue, setActiveQueue] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cachedQ = localStorage.getItem("brnsic_cached_queue");
-        if (cachedQ) {
-          const parsed = JSON.parse(cachedQ);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch (e) {}
-    }
-    return DEFAULT_CATALOG;
-  });
+  const [activeQueue, setActiveQueue] = useState<any[]>(DEFAULT_CATALOG);
   const [activeQueueIndex, setActiveQueueIndex] = useState<number>(0);
   const [relatedQueue, setRelatedQueue] = useState<any[]>([]);
   const [activeAlbumTracks, setActiveAlbumTracks] = useState<any[]>([]);
   const [albumData, setAlbumData] = useState<any | null>(null);
 
   // 5. Liked & Disliked Songs (Independent state stored in localStorage)
-  const [likedSongIds, setLikedSongIds] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("brnsic_liked_songs");
-        if (stored) return JSON.parse(stored);
-      } catch (e) {}
-    }
-    return [];
-  });
-  const [dislikedSongIds, setDislikedSongIds] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("brnsic_disliked_songs");
-        if (stored) return JSON.parse(stored);
-      } catch (e) {}
-    }
-    return [];
-  });
-  const [dislikedTracks, setDislikedTracks] = useState<Track[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("brnsic_disliked_tracks_list");
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [];
-  });
-  const [hasUserStartedPlayback, setHasUserStartedPlayback] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        return localStorage.getItem("brnsic_has_user_played") === "true";
-      } catch (e) {}
-    }
-    return false;
-  });
+  const [likedSongIds, setLikedSongIds] = useState<string[]>([]);
+  const [dislikedSongIds, setDislikedSongIds] = useState<string[]>([]);
+  const [dislikedTracks, setDislikedTracks] = useState<Track[]>([]);
+  const [hasUserStartedPlayback, setHasUserStartedPlayback] = useState<boolean>(false);
   const [onboardingSearch, setOnboardingSearch] = useState<string>("");
   const recentHistoryRef = useRef<string[]>([]);
 
@@ -1374,24 +1310,8 @@ export default function BrnsicMusicPage() {
   const [installStatus, setInstallStatus] = useState<string>("Menyiapkan pengunduhan...");
   const [isInstallReady, setIsInstallReady] = useState<boolean>(false);
   const [showPermissionBanner, setShowPermissionBanner] = useState<boolean>(false);
-  const [isDynamicIslandEnabled, setIsDynamicIslandEnabled] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const val = localStorage.getItem("brnsic_island_enabled");
-        if (val !== null) return val === "true";
-      } catch (e) {}
-    }
-    return true;
-  });
-  const [islandPosition, setIslandPosition] = useState<"center" | "left" | "right">(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const val = localStorage.getItem("brnsic_island_pos");
-        if (val === "left" || val === "right") return val;
-      } catch (e) {}
-    }
-    return "center";
-  });
+  const [isDynamicIslandEnabled, setIsDynamicIslandEnabled] = useState<boolean>(true);
+  const [islandPosition, setIslandPosition] = useState<"center" | "left" | "right">("center");
 
   // 12. Update Popup State
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
@@ -1415,15 +1335,7 @@ export default function BrnsicMusicPage() {
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
 
   // 15. User Authentication & Cloud Preference Sync (Google-Only Auth with Supabase)
-  const [currentUser, setCurrentUser] = useState<SafeUser | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("brnsic_user_profile");
-        if (cached) return JSON.parse(cached);
-      } catch (e) {}
-    }
-    return null;
-  });
+  const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [googleEmail, setGoogleEmail] = useState<string>("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -1525,11 +1437,11 @@ export default function BrnsicMusicPage() {
       rawPool = [...viralIndonesia, ...DEFAULT_CATALOG];
     } else {
       rawPool = [
-        ...DEFAULT_CATALOG,
+        ...relatedQueue,
         ...mostPlayedIndonesia,
         ...indonesiaTop50,
         ...viralIndonesia,
-        ...relatedQueue
+        ...DEFAULT_CATALOG
       ];
     }
     const seenTitles = new Set<string>();
@@ -1562,6 +1474,7 @@ export default function BrnsicMusicPage() {
   const toggleLikeRef = useRef<(id: string) => void>(() => {});
   const checkAppVersionRef = useRef<() => void>(() => {});
   const hasTriggeredEndRef = useRef<boolean>(false);
+  const hasSessionPlaybackStartedRef = useRef<boolean>(false);
 
   // Back Navigation & Modal State Refs for Android hardware Back & browser popstate
   const isAuthModalOpenRef = useRef<boolean>(false);
@@ -1804,6 +1717,51 @@ export default function BrnsicMusicPage() {
   // 3. Load Saved Liked Songs, Playlists & Taste Profile (LocalStorage + Cloud Supabase Session)
   useEffect(() => {
     try {
+      const cachedTrack = localStorage.getItem("brnsic_cached_track");
+      if (cachedTrack) {
+        try {
+          const parsed = JSON.parse(cachedTrack);
+          if (parsed && parsed.title) {
+            setCurrentTrack(parsed);
+            currentTrackRef.current = parsed;
+          }
+        } catch (e) {}
+      }
+      const cachedTime = localStorage.getItem("brnsic_cached_time");
+      if (cachedTime) {
+        const t = parseFloat(cachedTime);
+        if (!isNaN(t) && t > 0) {
+          setCurrentTime(t);
+          currentTimeRef.current = t;
+        }
+      }
+      const cachedQ = localStorage.getItem("brnsic_cached_queue");
+      if (cachedQ) {
+        try {
+          const parsed = JSON.parse(cachedQ);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setActiveQueue(parsed);
+            activeQueueRef.current = parsed;
+          }
+        } catch (e) {}
+      }
+      const hasPlayed = localStorage.getItem("brnsic_has_user_played") === "true";
+      setHasUserStartedPlayback(hasPlayed);
+      hasUserStartedPlaybackRef.current = hasPlayed;
+
+      const islandEnabled = localStorage.getItem("brnsic_island_enabled");
+      if (islandEnabled !== null) setIsDynamicIslandEnabled(islandEnabled === "true");
+
+      const islandPos = localStorage.getItem("brnsic_island_pos");
+      if (islandPos === "left" || islandPos === "right") setIslandPosition(islandPos);
+
+      const cachedUser = localStorage.getItem("brnsic_user_profile");
+      if (cachedUser) {
+        try {
+          setCurrentUser(JSON.parse(cachedUser));
+        } catch (e) {}
+      }
+
       const storedLikes = localStorage.getItem("brnsic_liked_songs");
       if (storedLikes) {
         setLikedSongIds(JSON.parse(storedLikes));
@@ -3551,8 +3509,15 @@ export default function BrnsicMusicPage() {
     const directVid = getVerifiedVideoId(song.title, song.artist) || song.youtubeId;
     const startAudio = (vid: string) => {
       if (currentRequestId !== playRequestIdRef.current) return;
+      hasSessionPlaybackStartedRef.current = true;
       isUserExplicitlyPausedRef.current = false;
-      setCurrentTrack((prev) => ({ ...prev, youtubeId: vid }));
+      const updatedTrack: Track = { ...optimisticTrack, ...song, youtubeId: vid };
+      setCurrentTrack(updatedTrack);
+      currentTrackRef.current = updatedTrack;
+      try {
+        localStorage.setItem("brnsic_cached_track", JSON.stringify(updatedTrack));
+        localStorage.setItem("brnsic_has_user_played", "true");
+      } catch (e) {}
       setIsPlaying(true);
       isPlayingRef.current = true;
       startWebAudioKeepalive();
@@ -3755,25 +3720,36 @@ export default function BrnsicMusicPage() {
         });
         setRelatedQueue(incomingRelated);
 
-        const candidatePool = [
-          ...incomingRelated,
-          ...(indonesiaTop50 || []),
-          ...(mostPlayedIndonesia || []),
-          ...DEFAULT_CATALOG
-        ];
+        // Spotify-grade Artist & Genre Radio Queue:
+        // If we have strong matching tracks from this artist and related circle (5+ tracks),
+        // keep the queue strictly aligned with this musical style without diluting it with unrelated catalogs!
+        let radioQueue: any[] = [];
+        if (incomingRelated.length >= 5) {
+          radioQueue = [song, ...incomingRelated];
+        } else {
+          const candidatePool = [
+            ...incomingRelated,
+            ...(indonesiaTop50 || []),
+            ...(mostPlayedIndonesia || []),
+            ...DEFAULT_CATALOG
+          ];
 
-        const cleanSongTitle = (song.title || song.trackName || "").toLowerCase().trim();
-        const rankedDiscovery = rankTracksByDeepLearning(
-          userTasteVector,
-          candidatePool,
-          [cleanSongTitle, ...recentHistoryRef.current],
-          dislikedSongIds,
-          30
-        );
+          const cleanSongTitle = (song.title || song.trackName || "").toLowerCase().trim();
+          const rankedDiscovery = rankTracksByDeepLearning(
+            userTasteVector,
+            candidatePool,
+            [cleanSongTitle, ...recentHistoryRef.current],
+            dislikedSongIds,
+            30
+          );
+          radioQueue = [song, ...rankedDiscovery];
+        }
 
-        const radioQueue = [song, ...rankedDiscovery];
         activeQueueRef.current = radioQueue;
         setActiveQueue(radioQueue);
+        try {
+          localStorage.setItem("brnsic_cached_queue", JSON.stringify(radioQueue.slice(0, 40)));
+        } catch (e) {}
       }
     } catch (e) {}
   };
@@ -4229,6 +4205,16 @@ export default function BrnsicMusicPage() {
   const togglePlay = () => {
     hasUserStartedPlaybackRef.current = true;
     setHasUserStartedPlayback(true);
+
+    // Cold-Start Playback Guard:
+    // If opening the app fresh and user presses Play on the cached song,
+    // trigger playAnySong so background audio service, Dynamic Island, and stream start for this exact song!
+    if (!hasSessionPlaybackStartedRef.current && currentTrack) {
+      hasSessionPlaybackStartedRef.current = true;
+      playAnySong(currentTrackRef.current || currentTrack, true);
+      return;
+    }
+
     if (!ytPlayerRef.current) {
       setIsPlaying(!isPlaying);
       isPlayingRef.current = !isPlaying;
