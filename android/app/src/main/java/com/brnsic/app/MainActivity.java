@@ -1,7 +1,11 @@
 package com.brnsic.app;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
@@ -9,7 +13,9 @@ import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.Toast;
 import com.getcapacitor.BridgeActivity;
+import java.io.File;
 
 public class MainActivity extends BridgeActivity {
     private PowerManager.WakeLock wakeLock;
@@ -205,12 +211,26 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "3.9.9";
+            try {
+                PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+                return pInfo.versionName != null ? pInfo.versionName : "4.0.0";
+            } catch (Exception e) {
+                return "4.0.0";
+            }
         }
 
         @JavascriptInterface
         public int getAppVersionCode() {
-            return 17;
+            try {
+                PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    return (int) pInfo.getLongVersionCode();
+                } else {
+                    return pInfo.versionCode;
+                }
+            } catch (Exception e) {
+                return 18;
+            }
         }
 
         @JavascriptInterface
@@ -329,6 +349,59 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private long downloadUpdateId = -1;
+    private BroadcastReceiver onDownloadCompleteReceiver = null;
+
+    private void registerDownloadReceiver() {
+        if (onDownloadCompleteReceiver != null) return;
+        onDownloadCompleteReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                long id = intent.getLongExtra(android.app.DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                if (id != -1 && id == downloadUpdateId) {
+                    android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                    if (dm != null) {
+                        Uri apkUri = dm.getUriForDownloadedFile(id);
+                        if (apkUri != null) {
+                            promptInstallApk(apkUri);
+                        }
+                    }
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(onDownloadCompleteReceiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(onDownloadCompleteReceiver, filter);
+        }
+    }
+
+    private void promptInstallApk(Uri apkUri) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (!getPackageManager().canRequestPackageInstalls()) {
+                    Intent settingsIntent = new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:" + getPackageName()));
+                    settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(settingsIntent);
+                    Toast.makeText(this, "Izinkan instalasi dari sumber ini untuk melanjutkan pembaruan", Toast.LENGTH_LONG).show();
+                    return;
+                }
+            }
+            Intent installIntent = new Intent(Intent.ACTION_VIEW);
+            installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(installIntent);
+        } catch (Exception e) {
+            try {
+                Intent intent = new Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            } catch (Exception ignored) {}
+        }
+    }
+
     public void startApkDownload(String urlString) {
         try {
             String fullUrl = urlString;
@@ -338,30 +411,32 @@ public class MainActivity extends BridgeActivity {
                 fullUrl = "https://brnsic.vercel.app" + (urlString.startsWith("/") ? urlString : "/" + urlString);
             }
 
-            // 1. Android System DownloadManager
-            try {
-                android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(android.net.Uri.parse(fullUrl));
-                request.setTitle("Pembaruan Brnsic APK");
-                request.setDescription("Mengunduh Brnsic.apk versi terbaru...");
-                request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                request.setMimeType("application/vnd.android.package-archive");
-                request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "Brnsic.apk");
+            // Register receiver so installer is launched automatically upon completion
+            registerDownloadReceiver();
 
-                android.app.DownloadManager downloadManager = (android.app.DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-                if (downloadManager != null) {
-                    downloadManager.enqueue(request);
-                    android.widget.Toast.makeText(this, "Mengunduh pembaruan Brnsic.apk... Cek notifikasi Anda", android.widget.Toast.LENGTH_LONG).show();
+            // Clean up old Brnsic.apk in public downloads to prevent duplicates
+            try {
+                File downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+                File oldApk = new File(downloadsDir, "Brnsic.apk");
+                if (oldApk.exists()) {
+                    oldApk.delete();
                 }
             } catch (Exception ignored) {}
 
-            // 2. Open directly in external browser as instant fallback
-            try {
-                Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(fullUrl));
-                browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(browserIntent);
-            } catch (Exception ignored) {}
+            android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(android.net.Uri.parse(fullUrl));
+            request.setTitle("Pembaruan Brnsic APK");
+            request.setDescription("Mengunduh Brnsic.apk versi terbaru...");
+            request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setMimeType("application/vnd.android.package-archive");
+            request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "Brnsic.apk");
 
+            android.app.DownloadManager downloadManager = (android.app.DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+            if (downloadManager != null) {
+                downloadUpdateId = downloadManager.enqueue(request);
+                Toast.makeText(this, "Mengunduh Brnsic.apk... Paket penginstal akan terbuka otomatis saat selesai.", Toast.LENGTH_LONG).show();
+            }
         } catch (Exception e) {
+            // Fallback: Open browser only if DownloadManager failed
             try {
                 Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://brnsic.vercel.app/Brnsic.apk"));
                 browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -586,6 +661,12 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (onDownloadCompleteReceiver != null) {
+            try {
+                unregisterReceiver(onDownloadCompleteReceiver);
+            } catch (Exception ignored) {}
+            onDownloadCompleteReceiver = null;
+        }
         try {
             Intent intent = new Intent(this, BackgroundAudioService.class);
             intent.setAction(BackgroundAudioService.ACTION_STOP);

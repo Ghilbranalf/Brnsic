@@ -9715,8 +9715,8 @@ export default function BrnsicMusicPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const apkUrl = "https://brnsic.vercel.app/Brnsic.apk";
-                      showToast("Membuka pengunduhan Brnsic.apk...");
+                      const apkUrl = `https://brnsic.vercel.app/Brnsic.apk?t=${Date.now()}`;
+                      showToast("Mengunduh Brnsic.apk... Buka notifikasi untuk memasang setelah selesai");
 
                       // 1. Try native downloadAndInstallUpdate (v3.4+)
                       if (typeof window !== "undefined" && (window as any).BrnsicNative?.downloadAndInstallUpdate) {
@@ -9748,6 +9748,9 @@ export default function BrnsicMusicPage() {
                     </svg>
                     <span>Perbarui Aplikasi Sekarang</span>
                   </button>
+                  <p className="text-[11px] text-[#b3b3b3] mt-1.5 leading-relaxed">
+                    Setelah unduhan selesai, penginstal paket akan terbuka otomatis. Jika belum terbuka, tarik notifikasi atas HP atau buka folder <span className="text-white font-bold">Download</span> lalu ketuk <span className="text-white font-bold">Brnsic.apk</span> untuk memasang pembaruan.
+                  </p>
                 </>
               ) : (
                 <button
