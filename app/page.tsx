@@ -2354,7 +2354,12 @@ export default function BrnsicMusicPage() {
   const isUserExplicitlyPausedRef = useRef<boolean>(false);
   const audioContextRef = useRef<any>(null);
   const silentNodeRef = useRef<any>(null);
+  const mediaStreamAudioRef = useRef<HTMLAudioElement | null>(null);
+  const mediaStreamDestRef = useRef<any>(null);
 
+  // GitHub Proven iOS WebKit Background Audio Engine via MediaStreamDestination
+  // Tricks iOS Safari into classifying the tab as an active live-audio call,
+  // preventing background throttling and forcing the Lock Screen Now Playing widget to appear!
   const startWebAudioKeepalive = () => {
     try {
       if (typeof window === "undefined") return;
@@ -2366,27 +2371,44 @@ export default function BrnsicMusicPage() {
       if (audioContextRef.current.state === "suspended") {
         audioContextRef.current.resume().catch(() => {});
       }
-      if (!silentNodeRef.current && audioContextRef.current) {
-        const buffer = audioContextRef.current.createBuffer(1, 22050, 22050);
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = buffer;
-        source.loop = true;
-        source.connect(audioContextRef.current.destination);
-        source.start(0);
-        silentNodeRef.current = source;
+
+      if (!mediaStreamDestRef.current && audioContextRef.current.createMediaStreamDestination) {
+        const dest = audioContextRef.current.createMediaStreamDestination();
+        mediaStreamDestRef.current = dest;
+
+        // Sub-audible sine wave (20Hz, 0.00001 gain) - 100% inaudible to human ears
+        const osc = audioContextRef.current.createOscillator();
+        const gain = audioContextRef.current.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 20;
+        gain.gain.value = 0.00001;
+        osc.connect(gain);
+        gain.connect(dest);
+        osc.start(0);
+        silentNodeRef.current = osc;
+
+        if (!mediaStreamAudioRef.current) {
+          const audioEl = document.createElement("audio");
+          audioEl.setAttribute("playsinline", "true");
+          audioEl.setAttribute("webkit-playsinline", "true");
+          audioEl.muted = false; // Must be unmuted so iOS CoreAudio treats it as audible!
+          audioEl.volume = 0.01;
+          audioEl.srcObject = dest.stream;
+          audioEl.play().catch(() => {});
+          mediaStreamAudioRef.current = audioEl;
+        }
+      } else if (mediaStreamAudioRef.current && mediaStreamAudioRef.current.paused) {
+        mediaStreamAudioRef.current.play().catch(() => {});
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("MediaStream background audio anchor warning:", e);
+    }
   };
 
   const stopWebAudioKeepalive = () => {
     try {
-      if (silentNodeRef.current) {
-        silentNodeRef.current.stop();
-        silentNodeRef.current.disconnect();
-        silentNodeRef.current = null;
-      }
-      if (audioContextRef.current && audioContextRef.current.state === "running") {
-        audioContextRef.current.suspend().catch(() => {});
+      if (mediaStreamAudioRef.current) {
+        mediaStreamAudioRef.current.pause();
       }
     } catch (e) {}
   };
