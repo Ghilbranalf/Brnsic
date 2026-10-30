@@ -1530,31 +1530,87 @@ export default function BrnsicMusicPage() {
   const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState<boolean>(false);
   const hasLoggedCompletionRef = useRef<boolean>(false);
 
+  // Sync Onboarding Artists from LocalStorage and CurrentUser on startup
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("brnsic_selected_artists");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSelectedOnboardingArtists(parsed);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    if (currentUser?.selectedArtists && currentUser.selectedArtists.length > 0) {
+      setSelectedOnboardingArtists(currentUser.selectedArtists);
+    }
+  }, [currentUser]);
+
   // 17. Real PWA Install Step State
   const [installStep, setInstallStep] = useState<"downloading" | "ready" | "installed" | "ios_guide">("downloading");
 
-  // User Top Artist learned from Supabase Taste Profile & Listening History
-  const topArtistName = useMemo(() => {
-    if (!userTaste || !userTaste.totalPlays || userTaste.totalPlays <= 0) return null;
-    const entries = Object.entries(userTaste?.artistWeights || {}).sort((a, b) => b[1] - a[1]);
-    return entries.length > 0 && entries[0][1] > 0 ? entries[0][0] : null;
-  }, [userTaste?.artistWeights, userTaste?.totalPlays]);
+  // User Preferred Artists from Onboarding Choices or Listening Profile
+  const userPreferredArtists = useMemo(() => {
+    const list: string[] = [];
+    if (currentUser?.selectedArtists) list.push(...currentUser.selectedArtists);
+    if (selectedOnboardingArtists) list.push(...selectedOnboardingArtists);
+    if (userTaste?.likedArtists) list.push(...userTaste.likedArtists);
+    return Array.from(new Set(list.map((s) => s.trim()).filter(Boolean)));
+  }, [currentUser?.selectedArtists, selectedOnboardingArtists, userTaste?.likedArtists]);
 
-  // Real-time dynamic fetch of artist catalog & related music for user's favorite artist
+  // User Top Artist: Priority from listening weights OR from onboarding selections
+  const topArtistName = useMemo(() => {
+    // 1. If user has listening history with artist weights
+    if (userTaste?.artistWeights) {
+      const entries = Object.entries(userTaste.artistWeights).sort((a, b) => b[1] - a[1]);
+      if (entries.length > 0 && entries[0][1] > 0) {
+        return entries[0][0];
+      }
+    }
+    // 2. From onboarding selections (Bernadya, Justin Bieber, Sal Priadi, etc.)
+    if (userPreferredArtists.length > 0) {
+      return userPreferredArtists[0];
+    }
+    return null;
+  }, [userTaste?.artistWeights, userPreferredArtists]);
+
+  // Real-time dynamic fetch of artist catalog & related albums for user's chosen artists
   useEffect(() => {
-    if (!topArtistName) {
+    if (userPreferredArtists.length === 0) {
       setTopArtistShelfTracks([]);
       return;
     }
-    fetch(`/api/related?artist=${encodeURIComponent(topArtistName)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && Array.isArray(data.related) && data.related.length > 0) {
-          setTopArtistShelfTracks(data.related);
+
+    const artistsToQuery = userPreferredArtists.slice(0, 3);
+    Promise.allSettled(
+      artistsToQuery.map((a) =>
+        fetch(`/api/related?artist=${encodeURIComponent(a)}`)
+          .then((res) => res.json())
+          .then((data) => (data && Array.isArray(data.related) ? data.related : []))
+          .catch(() => [])
+      )
+    ).then((results) => {
+      const combined: any[] = [];
+      const seen = new Set<string>();
+      for (const res of results) {
+        if (res.status === "fulfilled" && Array.isArray(res.value)) {
+          for (const track of res.value) {
+            const key = `${track.title} ${track.artist}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+            if (!seen.has(key)) {
+              seen.add(key);
+              combined.push(track);
+            }
+          }
         }
-      })
-      .catch(() => {});
-  }, [topArtistName]);
+      }
+      if (combined.length > 0) {
+        setTopArtistShelfTracks(combined);
+      }
+    });
+  }, [userPreferredArtists]);
 
   // Real-time AI Mood Sentiment & Listening Habit Analyzer (Detects melancholy, nostalgia, energy, chill)
   const currentMoodInsight: MoodInsight = useMemo(() => {
@@ -1633,29 +1689,44 @@ export default function BrnsicMusicPage() {
     } else if (homeFilter === "viral") {
       rawPool = [...viralIndonesia];
     } else {
-      const targetArtist = (topArtistName || "").toLowerCase().trim();
-      if (targetArtist) {
-        // High-precision real-time artist shelf:
-        // Pool consists strictly of real-time tracks from the artist and related circle
-        const candidatePool = [...topArtistShelfTracks, ...relatedQueue];
+      // User Preferred Artists from Onboarding Choices or Listening Profile
+      if (userPreferredArtists.length > 0) {
+        const lowerPrefs = userPreferredArtists.map((a) => a.toLowerCase().trim());
+
+        // Instant verified hits matching user's selected artists (0ms response)
+        const instantHits = POPULAR_SEARCH_CATALOG.filter((item) => {
+          const a = item.artist.toLowerCase();
+          return lowerPrefs.some((pref) => a.includes(pref) || pref.includes(a));
+        }).map((item, idx) => ({
+          id: `pref-instant-${item.youtubeId || idx}`,
+          title: item.title,
+          artist: item.artist,
+          album: item.album || "Single",
+          cover: item.cover,
+          duration: item.duration,
+          youtubeId: item.youtubeId
+        }));
+
+        const candidatePool = [...topArtistShelfTracks, ...instantHits, ...relatedQueue];
         const artistMatchingTracks = candidatePool.filter((s: any) => {
           const a = ((s as any).artist || (s as any).artistName || "").toLowerCase();
-          return a.includes(targetArtist) || targetArtist.includes(a);
+          return lowerPrefs.some((pref) => a.includes(pref) || pref.includes(a));
         });
         const circleTracks = candidatePool.filter((s: any) => {
           const a = ((s as any).artist || (s as any).artistName || "").toLowerCase();
-          return !a.includes(targetArtist) && !targetArtist.includes(a);
+          return !lowerPrefs.some((pref) => a.includes(pref) || pref.includes(a));
         });
+
         rawPool = [...artistMatchingTracks, ...circleTracks];
-        // Only if rawPool is still empty while loading, fallback to real-time global trending, never static dummy catalogs
+        // If still loading, fallback to Spotify Top 50 Indonesia & Global, NEVER old database test plays
         if (rawPool.length === 0) {
-          rawPool = [...globalTrending];
+          rawPool = [...indonesiaTop50, ...globalTrending];
         }
       } else {
         rawPool = [
           ...relatedQueue,
-          ...mostPlayedIndonesia,
           ...indonesiaTop50,
+          ...globalTrending,
           ...viralIndonesia
         ];
       }
@@ -1677,7 +1748,7 @@ export default function BrnsicMusicPage() {
       24,
       true // allowRecent = true: boosts user's favorite played songs right to the top!
     );
-  }, [homeFilter, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, globalTrending, relatedQueue, topArtistShelfTracks, activeMoodInfo, dislikedSongIds, topArtistName]);
+  }, [homeFilter, userPreferredArtists, topArtistShelfTracks, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, globalTrending, relatedQueue, activeMoodInfo, dislikedSongIds]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
@@ -3413,8 +3484,10 @@ export default function BrnsicMusicPage() {
 
       localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(updatedTaste));
       localStorage.setItem("brnsic_onboarding_done", "true");
+      localStorage.setItem("brnsic_selected_artists", JSON.stringify(selectedOnboardingArtists));
 
       if (currentUser) {
+        setCurrentUser((prev) => (prev ? { ...prev, selectedArtists: selectedOnboardingArtists } : null));
         await fetch("/api/user/onboarding", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -6836,7 +6909,7 @@ export default function BrnsicMusicPage() {
 
               {/* NATIVE APK BACKGROUND PERMISSION BANNER */}
               {showPermissionBanner && (
-                <div className="bg-[#181818] border border-[#1ed760]/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+                <div className="liquid-glass-card border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 flex items-center justify-center text-[#1ed760] flex-shrink-0 mt-0.5">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -6971,7 +7044,7 @@ export default function BrnsicMusicPage() {
                   <div
                     key={i}
                     onClick={item.action}
-                    className="h-16 bg-[#1f1f1f] hover:bg-[#282828] rounded-xl p-2 flex items-center gap-3 cursor-pointer transition group shadow-md min-w-0 border border-white/5 hover:border-white/10 active:scale-[0.99]"
+                    className="h-16 liquid-glass-card hover:bg-white/10 rounded-2xl p-2 flex items-center gap-3 cursor-pointer transition group shadow-md min-w-0 border border-white/10 active:scale-[0.99]"
                   >
                     {item.icon}
                     <div className="min-w-0 flex-1 pr-1">
@@ -7074,7 +7147,7 @@ export default function BrnsicMusicPage() {
                       <div
                         key={t.id || i}
                         onClick={() => handlePlayFromList(t, indonesiaTop50, i)}
-                        className="bg-[#181818] hover:bg-[#282828] p-3 rounded-xl cursor-pointer transition group min-w-0 flex flex-col"
+                        className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10 border border-white/10 min-w-0"
                       >
                         <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
                           <img
@@ -7154,7 +7227,7 @@ export default function BrnsicMusicPage() {
                       <div
                         key={t.id || i}
                         onClick={() => handlePlayFromList(t, mostPlayedIndonesia.length > 0 ? mostPlayedIndonesia : indonesiaTop50, i)}
-                        className="bg-[#181818] hover:bg-[#282828] p-3 rounded-xl cursor-pointer transition group min-w-0 flex flex-col"
+                        className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10 border border-white/10 min-w-0"
                       >
                         <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
                           <img
@@ -7221,7 +7294,7 @@ export default function BrnsicMusicPage() {
                       <div
                         key={t.id || i}
                         onClick={() => handlePlayFromList(t, globalTrending, i)}
-                        className="bg-[#181818] hover:bg-[#282828] p-3 rounded-xl cursor-pointer transition group min-w-0 flex flex-col"
+                        className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10 border border-white/10 min-w-0"
                       >
                         <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
                           <img

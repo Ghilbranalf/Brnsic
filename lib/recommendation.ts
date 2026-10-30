@@ -317,24 +317,24 @@ export function detectUserMood(
   const dangdut = userVector[7];
   const globalPop = userVector[9];
 
-  // 1. Personalized Artist AI Intelligence (When user has established listening preference)
-  if (totalPlays > 0 && topArtist) {
+  // 1. Personalized Artist AI Intelligence (When user has established listening preference or chosen onboarding artists)
+  if (topArtist) {
     if (indie > 0.5 || globalPop > 0.6) {
       return {
         moodKey: "neutral",
         badgeText: `AI Taste Intelligence • Indie Pop & Alternative • Favorit: ${topArtist}`,
         shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
-        shelfDescription: `Disesuaikan dengan kecenderungan musik ${topArtist} dan musisi satu frekuensi yang kamu nikmati.`,
+        shelfDescription: `Disesuaikan dengan pilihan artismu: ${topArtist} dan musisi satu frekuensi yang kamu sukai.`,
         targetVector: userVector
       };
     }
 
-    if (rockNostalgia > 0.5 || /sheila|dewa|peterpan|padi|noah|naif|ungu|slank/i.test(topArtist)) {
+    if (rockNostalgia > 0.5 || /sheila|dewa|peterpan|padi|noah|naif|ungu|slank|my chemical|mcr|coldplay/i.test(topArtist)) {
       return {
         moodKey: "nostalgia",
-        badgeText: `AI Taste Intelligence • Nostalgia Legend • Favorit: ${topArtist}`,
+        badgeText: `AI Taste Intelligence • Favorit: ${topArtist}`,
         shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
-        shelfDescription: `Racikan terbaik dari ${topArtist} dan era lagu nostalgia favoritmu.`,
+        shelfDescription: `Racikan lagu terbaik dari ${topArtist} dan album favoritmu.`,
         targetVector: userVector
       };
     }
@@ -344,7 +344,7 @@ export function detectUserMood(
         moodKey: "melancholy",
         badgeText: `AI Taste Intelligence • Reflektif & Sendu • Favorit: ${topArtist}`,
         shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
-        shelfDescription: `Disesuaikan dengan nuansa reflektif dan musik ${topArtist} yang kamu nikmati.`,
+        shelfDescription: `Disesuaikan dengan nuansa reflektif dan musik ${topArtist} yang kamu sukai.`,
         targetVector: userVector
       };
     }
@@ -363,7 +363,7 @@ export function detectUserMood(
       moodKey: "neutral",
       badgeText: `AI Taste Intelligence • Favorit: ${topArtist}`,
       shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
-      shelfDescription: `Disesuaikan dengan kecenderungan musik ${topArtist} yang kamu nikmati.`,
+      shelfDescription: `Disesuaikan dengan artis & album favorit pilihanmu: ${topArtist}.`,
       targetVector: userVector
     };
   }
