@@ -24,6 +24,6 @@ export async function GET() {
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: false,
-    buildId: "20261030-welcome-gate-v1"
+    buildId: "20261030-welcome-gate-v2"
   });
 }

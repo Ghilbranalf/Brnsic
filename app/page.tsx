@@ -4782,13 +4782,10 @@ export default function BrnsicMusicPage() {
       ) : !currentUser ? (
         <div className="fixed inset-0 z-[110] bg-black text-white flex flex-col justify-between p-6 sm:p-12 overflow-y-auto no-scrollbar font-sans select-none animate-fadeIn">
           {/* Top Brand Bar */}
-          <div className="flex items-center justify-between w-full max-w-md mx-auto">
+          <div className="flex items-center w-full max-w-md mx-auto">
             <div className="flex items-center gap-2.5">
               <img src="/app-icon.png" alt="Brnsic" className="w-8 h-8 rounded-lg object-contain shadow" />
               <span className="font-black text-lg text-white">Brnsic</span>
-            </div>
-            <div className="text-[11px] font-bold text-[#1ed760] bg-[#1ed760]/10 border border-[#1ed760]/20 px-3 py-1 rounded-full">
-              Pure Audio
             </div>
           </div>
 
@@ -5051,15 +5048,14 @@ export default function BrnsicMusicPage() {
           {!isInsideNativeApk && (
             <button
               onClick={handleInstallClick}
-              className="flex items-center gap-1.5 bg-[#1ed760] hover:bg-[#1fdf64] text-black font-bold text-xs px-3.5 py-2 rounded-full transition shadow-[0_0_15px_rgba(30,215,96,0.3)] hover:scale-105 active:scale-95 cursor-pointer"
+              className="w-9 h-9 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black transition flex items-center justify-center shadow-[0_0_15px_rgba(30,215,96,0.3)] hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0"
               title="Download APK Resmi Brnsic (Android)"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
-              <span>Download APK</span>
             </button>
           )}
           <button
@@ -5237,14 +5233,14 @@ export default function BrnsicMusicPage() {
                 {!isInsideNativeApk && (
                   <button
                     onClick={handleInstallClick}
-                    className="text-[11px] font-black bg-[#1ed760] text-black px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(30,215,96,0.4)] hover:scale-105 active:scale-95 transition flex items-center gap-1 cursor-pointer"
+                    className="w-8 h-8 rounded-full bg-[#1ed760] text-black hover:bg-[#1fdf64] shadow-[0_0_15px_rgba(30,215,96,0.4)] hover:scale-105 active:scale-95 transition flex items-center justify-center cursor-pointer flex-shrink-0"
+                    title="Download APK Android"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                       <polyline points="7 10 12 15 17 10"></polyline>
                       <line x1="12" y1="15" x2="12" y2="3"></line>
                     </svg>
-                    <span>Download APK</span>
                   </button>
                 )}
                 {currentUser ? (
@@ -6586,9 +6582,11 @@ export default function BrnsicMusicPage() {
                     <h2 className="text-xl sm:text-2xl font-bold text-white mt-0.5">
                       {activeMoodInfo.title}
                     </h2>
-                    <p className="text-xs text-[#b3b3b3] mt-1">
-                      {activeMoodInfo.description}
-                    </p>
+                    {activeMoodInfo.description ? (
+                      <p className="text-xs text-[#b3b3b3] mt-1">
+                        {activeMoodInfo.description}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -9859,21 +9857,6 @@ export default function BrnsicMusicPage() {
                     </svg>
                     <span>Download APK</span>
                   </a>
-
-                  {currentUser && (
-                    <a
-                      href={`brnsic://auth?login_success=true&token=${encodeURIComponent(
-                        typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") || "" : ""
-                      )}&user=${encodeURIComponent(JSON.stringify(currentUser))}`}
-                      onClick={() => setIsInstallModalOpen(false)}
-                      className="w-full py-3 px-5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center gap-2 border border-white/15 transition cursor-pointer"
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1ed760" strokeWidth="2.5">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                      </svg>
-                      <span>Sudah Pasang APK? Masuk Otomatis</span>
-                    </a>
-                  )}
 
                   <button
                     onClick={() => setIsInstallModalOpen(false)}

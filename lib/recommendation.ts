@@ -403,7 +403,7 @@ export function detectUserMood(
     moodKey: "neutral",
     badgeText: "AI Taste Intelligence",
     shelfTitle: "Rekomendasi Spesial Untukmu",
-    shelfDescription: "Mulai dengarkan lagu favoritmu agar AI Brnsic dapat mempelajari seleramu.",
+    shelfDescription: "",
     targetVector: userVector
   };
 }
