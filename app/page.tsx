@@ -1491,18 +1491,7 @@ export default function BrnsicMusicPage() {
   const [newPlaylistName, setNewPlaylistName] = useState<string>("");
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<any | null>(null);
   const [songActionMenu, setSongActionMenu] = useState<{ song: any; playlistId?: string } | null>(null);
-  const [topArtistShelfTracks, setTopArtistShelfTracks] = useState<any[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("brnsic_cached_top_artist_tracks");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
+  const [topArtistShelfTracks, setTopArtistShelfTracks] = useState<any[]>([]);
   const [searchCorrectedQuery, setSearchCorrectedQuery] = useState<string | null>(null);
 
   // 7. Charts & Navigation State
@@ -1634,28 +1623,34 @@ export default function BrnsicMusicPage() {
 
   // User Preferred Artists from Onboarding Choices or Listening Profile
   const userPreferredArtists = useMemo(() => {
-    const list: string[] = [];
-    if (currentUser?.selectedArtists) list.push(...currentUser.selectedArtists);
-    if (selectedOnboardingArtists) list.push(...selectedOnboardingArtists);
-    if (userTaste?.likedArtists) list.push(...userTaste.likedArtists);
-    return Array.from(new Set(list.map((s) => s.trim()).filter(Boolean)));
-  }, [currentUser?.selectedArtists, selectedOnboardingArtists, userTaste?.likedArtists]);
-
-  // User Top Artist: Priority from listening weights OR from onboarding selections
-  const topArtistName = useMemo(() => {
-    // 1. If user has listening history with artist weights
-    if (userTaste?.artistWeights) {
-      const entries = Object.entries(userTaste.artistWeights).sort((a, b) => b[1] - a[1]);
-      if (entries.length > 0 && entries[0][1] > 0) {
-        return entries[0][0];
-      }
+    // 1. Explicit user selections take absolute priority over test history
+    if (currentUser?.selectedArtists && currentUser.selectedArtists.length > 0) {
+      return Array.from(new Set(currentUser.selectedArtists.map((s) => s.trim()).filter(Boolean)));
     }
-    // 2. From onboarding selections (Bernadya, Justin Bieber, Sal Priadi, etc.)
+    if (selectedOnboardingArtists && selectedOnboardingArtists.length > 0) {
+      return Array.from(new Set(selectedOnboardingArtists.map((s) => s.trim()).filter(Boolean)));
+    }
+    // 2. Fallback to listening weights if no onboarding choices exist
+    if (userTaste?.artistWeights) {
+      const sorted = Object.entries(userTaste.artistWeights)
+        .filter(([_, w]) => w > 0)
+        .sort((a, b) => b[1] - a[1])
+        .map(([a]) => a);
+      if (sorted.length > 0) return sorted.slice(0, 5);
+    }
+    if (userTaste?.likedArtists && userTaste.likedArtists.length > 0) {
+      return Array.from(new Set(userTaste.likedArtists.map((s) => s.trim()).filter(Boolean)));
+    }
+    return [];
+  }, [currentUser?.selectedArtists, selectedOnboardingArtists, userTaste?.artistWeights, userTaste?.likedArtists]);
+
+  // User Top Artist: Priority from explicit choices
+  const topArtistName = useMemo(() => {
     if (userPreferredArtists.length > 0) {
       return userPreferredArtists[0];
     }
     return null;
-  }, [userTaste?.artistWeights, userPreferredArtists]);
+  }, [userPreferredArtists]);
 
   // Sync AI Taste Vector whenever User Preferred Artists change
   useEffect(() => {
@@ -1672,7 +1667,10 @@ export default function BrnsicMusicPage() {
       return;
     }
 
-    const artistsToQuery = userPreferredArtists.slice(0, 3);
+    const queryList = topArtistName
+      ? [topArtistName, ...userPreferredArtists.filter((a) => a.toLowerCase().trim() !== topArtistName.toLowerCase().trim())]
+      : userPreferredArtists;
+    const artistsToQuery = queryList.slice(0, 3);
     Promise.allSettled(
       artistsToQuery.map(async (a) => {
         const results: any[] = [];
@@ -1726,12 +1724,9 @@ export default function BrnsicMusicPage() {
       }
       if (combined.length > 0) {
         setTopArtistShelfTracks(combined);
-        try {
-          localStorage.setItem("brnsic_cached_top_artist_tracks", JSON.stringify(combined));
-        } catch (e) {}
       }
     });
-  }, [userPreferredArtists]);
+  }, [userPreferredArtists, topArtistName]);
 
   // Real-time AI Mood Sentiment & Listening Habit Analyzer (Detects melancholy, nostalgia, energy, chill)
   const currentMoodInsight: MoodInsight = useMemo(() => {
@@ -1812,6 +1807,7 @@ export default function BrnsicMusicPage() {
     } else {
       // User Preferred Artists from Onboarding Choices or Listening Profile
       if (userPreferredArtists.length > 0) {
+        const primaryArtist = (topArtistName || userPreferredArtists[0] || "").toLowerCase().trim();
         const lowerPrefs = userPreferredArtists.map((a) => a.toLowerCase().trim());
 
         // Instant verified hits matching user's selected artists (0ms response)
@@ -1831,16 +1827,28 @@ export default function BrnsicMusicPage() {
         // ABSOLUTE ISOLATION: DO NOT include relatedQueue!
         // relatedQueue belongs to the player audio queue (which can be any unrelated song)!
         const candidatePool = [...topArtistShelfTracks, ...instantHits];
-        const artistMatchingTracks = candidatePool.filter((s: any) => {
+
+        // 1. Direct tracks strictly by the primary shelf artist (e.g. XXXTENTACION)
+        const primaryArtistTracks = candidatePool.filter((s: any) => {
           const a = ((s as any).artist || (s as any).artistName || "").toLowerCase();
-          return lowerPrefs.some((pref) => a.includes(pref) || pref.includes(a));
-        });
-        const circleTracks = candidatePool.filter((s: any) => {
-          const a = ((s as any).artist || (s as any).artistName || "").toLowerCase();
-          return !lowerPrefs.some((pref) => a.includes(pref) || pref.includes(a));
+          return primaryArtist && (a.includes(primaryArtist) || primaryArtist.includes(a));
         });
 
-        rawPool = [...artistMatchingTracks, ...circleTracks];
+        // 2. Direct tracks by other artists the user selected
+        const secondaryArtistTracks = candidatePool.filter((s: any) => {
+          const a = ((s as any).artist || (s as any).artistName || "").toLowerCase();
+          const isPrimary = primaryArtist && (a.includes(primaryArtist) || primaryArtist.includes(a));
+          return !isPrimary && lowerPrefs.some((pref) => a.includes(pref) || pref.includes(a));
+        });
+
+        // On a dedicated shelf ("Spesial Untukmu & Fans XXXTENTACION"):
+        // PRIMARY ARTIST TRACKS MUST COME FIRST!
+        if (primaryArtistTracks.length > 0) {
+          rawPool = [...primaryArtistTracks, ...secondaryArtistTracks];
+        } else {
+          rawPool = [...secondaryArtistTracks];
+        }
+
         // If still loading and completely empty, fallback cleanly
         if (rawPool.length === 0) {
           const isIndo = lowerPrefs.some((p) => /sal|bernadya|hindia|nadin|tulus|sheila|dewa|mahalini|tiara|denny/i.test(p));
@@ -1870,9 +1878,9 @@ export default function BrnsicMusicPage() {
       dislikedSongIds,
       24,
       true, // allowRecent = true: boosts user's favorite played songs right to the top!
-      userPreferredArtists // Strict priority for chosen artists
+      topArtistName ? [topArtistName] : userPreferredArtists // Strict priority for the featured shelf artist!
     );
-  }, [homeFilter, userPreferredArtists, topArtistShelfTracks, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, globalTrending, activeMoodInfo, dislikedSongIds]);
+  }, [homeFilter, userPreferredArtists, topArtistName, topArtistShelfTracks, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, globalTrending, activeMoodInfo, dislikedSongIds]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
@@ -2281,6 +2289,7 @@ export default function BrnsicMusicPage() {
           } else if (parsed) {
             setUserTaste(parsed);
           }
+          localStorage.removeItem("brnsic_cached_top_artist_tracks");
         } catch (e) {}
       } else {
         const fresh = generateInitialTaste();
@@ -3661,7 +3670,7 @@ export default function BrnsicMusicPage() {
                 } catch (e) {}
               }
               try {
-                localStorage.setItem("brnsic_cached_top_artist_tracks", JSON.stringify(formatted));
+                localStorage.removeItem("brnsic_cached_top_artist_tracks");
               } catch (e) {}
             }
           })
@@ -5726,10 +5735,10 @@ export default function BrnsicMusicPage() {
             <div className="relative">
               <button
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="w-9 h-9 rounded-full bg-white text-black hover:bg-neutral-200 border border-white/20 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
+                className="w-9 h-9 rounded-full bg-white text-black hover:bg-neutral-200 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0 overflow-hidden"
                 title={`Profil: ${currentUser.name}`}
               >
-                <span className="text-black font-black text-[16px] select-none leading-none">
+                <span className="text-black font-bold text-base select-none leading-none inline-flex items-center justify-center text-center -translate-y-[0.5px]">
                   {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
                 </span>
               </button>
@@ -5905,10 +5914,10 @@ export default function BrnsicMusicPage() {
                 {currentUser ? (
                   <button
                     onClick={() => setIsProfileModalOpen(true)}
-                    className="w-8 h-8 rounded-full bg-white text-black hover:bg-neutral-200 border border-white/20 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded-full bg-white text-black hover:bg-neutral-200 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0 overflow-hidden"
                     title={currentUser.name}
                   >
-                    <span className="text-black font-black text-[15px] select-none leading-none">
+                    <span className="text-black font-bold text-sm select-none leading-none inline-flex items-center justify-center text-center -translate-y-[0.5px]">
                       {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
                     </span>
                   </button>
