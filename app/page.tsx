@@ -685,6 +685,10 @@ const POPULAR_SEARCH_CATALOG = [
   }
 ];
 
+// Embedded Instant Base64 Fallback Icon (Loads in 0ms, 100% immune to network timeouts/corruptions on Android)
+const BRNSIC_APP_ICON_B64 =
+  "data:image/png;base64,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";
+
 // Custom Brnsic Loader Component with user-provided white minimalist logo
 const BrnsicLoader: React.FC<{ size?: "sm" | "md" | "lg"; text?: string; className?: string }> = ({
   size = "md",
@@ -703,6 +707,7 @@ const BrnsicLoader: React.FC<{ size?: "sm" | "md" | "lg"; text?: string; classNa
         <img
           src="/brnsic-loader-logo.png"
           alt="Brnsic Loader"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
           className={`${logoSize} object-contain relative z-10 animate-pulse drop-shadow-[0_0_12px_rgba(255,255,255,0.45)]`}
         />
       </div>
@@ -5166,6 +5171,7 @@ export default function BrnsicMusicPage() {
             <img
               src="/app-icon.png"
               alt="Brnsic"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
               className="w-20 h-20 rounded-2xl object-contain shadow-2xl relative z-10"
             />
             <div className="flex items-center gap-2 mt-2">
@@ -5181,7 +5187,12 @@ export default function BrnsicMusicPage() {
           {/* Top Brand Bar */}
           <div className="flex items-center w-full max-w-md mx-auto">
             <div className="flex items-center gap-2.5">
-              <img src="/app-icon.png" alt="Brnsic" className="w-8 h-8 rounded-lg object-contain shadow" />
+              <img
+                src="/app-icon.png"
+                alt="Brnsic"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
+                className="w-8 h-8 rounded-lg object-contain shadow"
+              />
               <span className="font-black text-lg text-white">Brnsic</span>
             </div>
           </div>
@@ -5361,6 +5372,7 @@ export default function BrnsicMusicPage() {
             <img
               src="/app-icon.png"
               alt="Brnsic Icon"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
               className="w-8 h-8 rounded-lg object-contain shadow-md"
             />
             <span className="font-black text-xl tracking-tight text-white select-none hidden sm:inline-block">
@@ -5618,7 +5630,12 @@ export default function BrnsicMusicPage() {
           <div className="md:hidden flex flex-col gap-3 p-4 sticky top-0 z-30 bg-black border-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <img src="/app-icon.png" alt="Brnsic" className="w-8 h-8 rounded-lg object-contain shadow" />
+                <img
+                  src="/app-icon.png"
+                  alt="Brnsic"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
+                  className="w-8 h-8 rounded-lg object-contain shadow"
+                />
                 <span className="font-black text-lg text-white">Brnsic</span>
               </div>
               <div className="flex items-center gap-2">
