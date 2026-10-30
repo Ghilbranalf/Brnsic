@@ -545,11 +545,19 @@ public class BackgroundAudioService extends Service implements
 
     @Override
     public void onCompletion(MediaPlayer mp) {
-        isPlaybackActive = false;
-        updatePlaybackState(false, currentPositionMs);
-        startForegroundNotification(currentTitle, currentArtist, false);
-        refreshOverlayState();
-        MainActivity.notifyTrackCompleted();
+        // MediaPlayer is only a silent keepalive dummy so Android doesn't kill the background audio process.
+        // The real audio is managed by YouTube inside the WebView.
+        // Therefore, when silence finishes, just loop it - NEVER trigger an unexpected track skip!
+        try {
+            if (mp != null) {
+                mp.seekTo(0);
+                mp.start();
+            } else {
+                playFallbackAudio();
+            }
+        } catch (Exception e) {
+            playFallbackAudio();
+        }
     }
 
     @Override

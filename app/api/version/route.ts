@@ -20,10 +20,10 @@ export async function GET() {
     minVersionCode: 18,
     releaseDate: "2026-10-29",
     title: "Brnsic v4.0.0",
-    notes: "Mode OLED Pitch-Black murni, filter pil Sering Diputar & Viral, antrean cerdas, dan sinkronisasi real-time.",
+    notes: "Proteksi pemutar audio cerdas: anti-skip loop otomatis, stabilitas stream latar belakang, dan mode OLED Pitch-Black murni.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: false,
-    buildId: "20261029-amoled-v2"
+    buildId: "20261030-anti-skip-shield"
   });
 }
