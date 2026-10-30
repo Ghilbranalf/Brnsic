@@ -5467,7 +5467,7 @@ export default function BrnsicMusicPage() {
                 className="w-9 h-9 rounded-full bg-white text-black hover:bg-neutral-200 border border-white/20 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
                 title={`Profil: ${currentUser.name}`}
               >
-                <span className="text-black font-black text-sm select-none leading-none">
+                <span className="text-black font-black text-[16px] select-none leading-none">
                   {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
                 </span>
               </button>
@@ -5641,7 +5641,7 @@ export default function BrnsicMusicPage() {
                     className="w-8 h-8 rounded-full bg-white text-black hover:bg-neutral-200 border border-white/20 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
                     title={currentUser.name}
                   >
-                    <span className="text-black font-black text-xs sm:text-sm select-none leading-none">
+                    <span className="text-black font-black text-[15px] select-none leading-none">
                       {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
                     </span>
                   </button>
