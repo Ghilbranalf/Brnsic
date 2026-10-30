@@ -601,6 +601,24 @@ const POPULAR_SEARCH_CATALOG = [
     duration: 251,
     youtubeId: "kPa7bsKwL-c",
     tags: ["die", "smile", "bruno", "mars", "lady", "gaga"]
+  },
+  {
+    title: "Helena",
+    artist: "My Chemical Romance",
+    album: "Three Cheers for Sweet Revenge",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/42/58/f7/4258f7bb-eb5b-62b8-573d-6200df0fe3e1/093624917731.jpg/600x600bb.jpg",
+    duration: 206,
+    youtubeId: "7SM5laxokpg",
+    tags: ["helena", "my", "chemical", "romance", "mcr", "three", "cheers"]
+  },
+  {
+    title: "Welcome to the Black Parade",
+    artist: "My Chemical Romance",
+    album: "The Black Parade",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/7e/ac/69/7eac6998-7fa4-f1ab-9601-e8b791c736fa/mzi.fbpszunc.jpg/600x600bb.jpg",
+    duration: 311,
+    youtubeId: "G-I9csAflBs",
+    tags: ["welcome", "black", "parade", "mcr", "my", "chemical", "romance"]
   }
 ];
 
@@ -1290,7 +1308,13 @@ export default function BrnsicMusicPage() {
         const cached = localStorage.getItem("brnsic_cached_track");
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (parsed && parsed.title) return parsed;
+          if (parsed && parsed.title) {
+            if (!parsed.youtubeId) {
+              const matched = getVerifiedVideoId(parsed.title, parsed.artist);
+              if (matched) parsed.youtubeId = matched;
+            }
+            return parsed;
+          }
         }
       } catch (e) {}
     }
@@ -1632,6 +1656,7 @@ export default function BrnsicMusicPage() {
   // References
   const ytPlayerRef = useRef<any>(null);
   const pendingVideoIdRef = useRef<string | null>(null);
+  const activeVideoIdRef = useRef<string | null>(null);
   const availableCandidatesRef = useRef<string[]>([]);
   const candidateIndexRef = useRef<number>(0);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -1879,9 +1904,27 @@ export default function BrnsicMusicPage() {
         try {
           const parsed = JSON.parse(cachedTrack);
           if (parsed && parsed.title) {
+            if (!parsed.youtubeId) {
+              const matched = getVerifiedVideoId(parsed.title, parsed.artist);
+              if (matched) parsed.youtubeId = matched;
+            }
             setCurrentTrack(parsed);
             currentTrackRef.current = parsed;
             if (parsed.artist) {
+              if (!parsed.youtubeId) {
+                fetch(`/api/youtube?artist=${encodeURIComponent(parsed.artist)}&title=${encodeURIComponent(parsed.title)}`)
+                  .then((r) => r.json())
+                  .then((d) => {
+                    if (d.videoId) {
+                      setCurrentTrack((prev) => ({ ...prev, youtubeId: d.videoId }));
+                      if (currentTrackRef.current) currentTrackRef.current.youtubeId = d.videoId;
+                      try {
+                        localStorage.setItem("brnsic_cached_track", JSON.stringify({ ...parsed, youtubeId: d.videoId }));
+                      } catch (e) {}
+                    }
+                  })
+                  .catch(() => {});
+              }
               fetch(`/api/related?artist=${encodeURIComponent(parsed.artist)}&title=${encodeURIComponent(parsed.title)}`)
                 .then((r) => r.json())
                 .then((d) => {
@@ -2372,13 +2415,20 @@ export default function BrnsicMusicPage() {
       setIsPlaying(playing);
       isPlayingRef.current = playing;
       if (playing) {
-        // Cold-start guard: If user resumes playback from the native notification
-        // and the session hasn't been active in WebView memory yet,
+        // Cold-start & Desync Guard: If player doesn't have the active video loaded for currentTrack,
         // trigger playAnySong so the EXACT song currently displayed on the notification is resolved and played!
-        if (!hasSessionPlaybackStartedRef.current && (currentTrackRef.current || currentTrack)) {
+        const currentTarget = currentTrackRef.current || currentTrack;
+        const expectedVid = currentTarget?.youtubeId || (currentTarget ? getVerifiedVideoId(currentTarget.title, currentTarget.artist) : null);
+        if (
+          !hasSessionPlaybackStartedRef.current ||
+          !activeVideoIdRef.current ||
+          (expectedVid && activeVideoIdRef.current !== expectedVid)
+        ) {
           hasSessionPlaybackStartedRef.current = true;
-          playAnySong(currentTrackRef.current || currentTrack, true);
-          return;
+          if (currentTarget) {
+            playAnySong(currentTarget, true);
+            return;
+          }
         }
         if (ytPlayerRef.current) {
           try {
@@ -2538,7 +2588,7 @@ export default function BrnsicMusicPage() {
             handleTrackEnded("keepalive-eof");
             return;
           }
-          if (typeof ytPlayerRef.current.playVideo === "function") {
+          if (activeVideoIdRef.current && typeof ytPlayerRef.current.playVideo === "function") {
             ytPlayerRef.current.playVideo();
           }
         } catch (e) {}
@@ -3508,9 +3558,16 @@ export default function BrnsicMusicPage() {
           return;
         }
 
+        const initialVid =
+          currentTrackRef.current?.youtubeId ||
+          currentTrack.youtubeId ||
+          getVerifiedVideoId(currentTrack.title, currentTrack.artist) ||
+          pendingVideoIdRef.current ||
+          "";
+
         ytPlayerRef.current = new window.YT.Player("master-yt-player", {
           host: "https://www.youtube.com",
-          videoId: currentTrackRef.current?.youtubeId || currentTrack.youtubeId || "kv2WIY8RLQQ",
+          videoId: initialVid,
           playerVars: {
             autoplay: 0, // Starts PAUSED! No sudden blast of sound!
             controls: 0,
@@ -3529,12 +3586,15 @@ export default function BrnsicMusicPage() {
                 event.target.unMute();
                 event.target.setVolume(volume * 100);
                 if (pendingVideoIdRef.current) {
+                  activeVideoIdRef.current = pendingVideoIdRef.current;
                   event.target.loadVideoById({
                     videoId: pendingVideoIdRef.current,
                     startSeconds: 0
                   });
                   event.target.playVideo();
                   pendingVideoIdRef.current = null;
+                } else if (initialVid) {
+                  activeVideoIdRef.current = initialVid;
                 }
               } catch (e) {}
             },
@@ -3665,7 +3725,9 @@ export default function BrnsicMusicPage() {
                 if (isNative && !isUserExplicitlyPausedRef.current && isPlayingRef.current) {
                   // Do NOT kill the native background service! Immediately resume playback!
                   try {
-                    ytPlayerRef.current?.playVideo?.();
+                    if (activeVideoIdRef.current) {
+                      ytPlayerRef.current?.playVideo?.();
+                    }
                   } catch (e) {}
                   return;
                 }
@@ -3836,6 +3898,19 @@ export default function BrnsicMusicPage() {
         isPlayingRef.current = true;
         setIsPlaying(true);
         startBackgroundKeepalive();
+        const currentTarget = currentTrackRef.current || currentTrack;
+        const expectedVid = currentTarget?.youtubeId || (currentTarget ? getVerifiedVideoId(currentTarget.title, currentTarget.artist) : null);
+        if (
+          !hasSessionPlaybackStartedRef.current ||
+          !activeVideoIdRef.current ||
+          (expectedVid && activeVideoIdRef.current !== expectedVid)
+        ) {
+          hasSessionPlaybackStartedRef.current = true;
+          if (currentTarget) {
+            playAnySong(currentTarget, true);
+            return;
+          }
+        }
         if (ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
           try {
             ytPlayerRef.current.unMute?.();
@@ -4025,6 +4100,7 @@ export default function BrnsicMusicPage() {
       }
 
       // 2. Web Player / UI & Audio Sync
+      activeVideoIdRef.current = vid;
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
         try {
           ytPlayerRef.current.loadVideoById({
@@ -4056,7 +4132,7 @@ export default function BrnsicMusicPage() {
         )}&q=${encodeURIComponent(`${song.artist} ${song.title}`)}&duration=${song.duration || 210}`
       )
         .then((r) => r.json())
-        .then((d) => {
+        .then(async (d) => {
           if (currentRequestId !== playRequestIdRef.current) return;
           if (d.candidates && Array.isArray(d.candidates) && d.candidates.length > 0) {
             availableCandidatesRef.current = d.candidates;
@@ -4065,31 +4141,75 @@ export default function BrnsicMusicPage() {
           if (d.videoId) {
             startAudio(d.videoId);
           } else {
+            // Direct client-side device lookup fallback (handles any edge server issues)
+            try {
+              const clientRes = await fetch("https://www.youtube.com/youtubei/v1/search", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-YouTube-Client-Name": "1",
+                  "X-YouTube-Client-Version": "2.20240401.00.00"
+                },
+                body: JSON.stringify({
+                  context: { client: { clientName: "WEB", clientVersion: "2.20240401.00.00", hl: "id", gl: "ID" } },
+                  query: `${song.artist} ${song.title} audio`
+                })
+              });
+              if (clientRes.ok) {
+                const clientData = await clientRes.json();
+                const str = JSON.stringify(clientData);
+                const match = /"videoId":"([a-zA-Z0-9_-]{11})"/.exec(str);
+                if (match && match[1]) {
+                  startAudio(match[1]);
+                  return;
+                }
+              }
+            } catch (ce) {}
+
             consecutiveErrorsRef.current += 1;
+            setIsLoadingSong(false);
             if (consecutiveErrorsRef.current >= 3) {
-              setIsLoadingSong(false);
               setIsPlaying(false);
               showToast("Koneksi bermasalah atau audio tidak tersedia");
               return;
             }
             showToast(`Audio resmi "${song.title}" sedang disiapkan`);
-            setTimeout(() => {
-              if (playNextSongRef.current) playNextSongRef.current(false);
-            }, 2500);
           }
         })
-        .catch(() => {
+        .catch(async () => {
+          // Direct client-side device lookup fallback
+          try {
+            const clientRes = await fetch("https://www.youtube.com/youtubei/v1/search", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-YouTube-Client-Name": "1",
+                "X-YouTube-Client-Version": "2.20240401.00.00"
+              },
+              body: JSON.stringify({
+                context: { client: { clientName: "WEB", clientVersion: "2.20240401.00.00", hl: "id", gl: "ID" } },
+                query: `${song.artist} ${song.title} audio`
+              })
+            });
+            if (clientRes.ok) {
+              const clientData = await clientRes.json();
+              const str = JSON.stringify(clientData);
+              const match = /"videoId":"([a-zA-Z0-9_-]{11})"/.exec(str);
+              if (match && match[1]) {
+                startAudio(match[1]);
+                return;
+              }
+            }
+          } catch (ce) {}
+
           consecutiveErrorsRef.current += 1;
+          setIsLoadingSong(false);
           if (consecutiveErrorsRef.current >= 3) {
-            setIsLoadingSong(false);
             setIsPlaying(false);
             showToast("Koneksi bermasalah atau audio tidak tersedia");
             return;
           }
           showToast(`Gagal memuat audio "${song.title}"`);
-          setTimeout(() => {
-            if (playNextSongRef.current) playNextSongRef.current(false);
-          }, 2500);
         });
     }
 
@@ -4740,13 +4860,21 @@ export default function BrnsicMusicPage() {
     hasUserStartedPlaybackRef.current = true;
     setHasUserStartedPlayback(true);
 
-    // Cold-Start Playback Guard:
-    // If opening the app fresh and user presses Play on the cached song,
+    // Cold-Start & Video Desync Guard:
+    // If opening the app fresh or player does not have the video for currentTrack loaded,
     // trigger playAnySong so background audio service, Dynamic Island, and stream start for this exact song!
-    if (!hasSessionPlaybackStartedRef.current && currentTrack) {
+    const currentTarget = currentTrackRef.current || currentTrack;
+    const expectedVid = currentTarget?.youtubeId || (currentTarget ? getVerifiedVideoId(currentTarget.title, currentTarget.artist) : null);
+    if (
+      !hasSessionPlaybackStartedRef.current ||
+      !activeVideoIdRef.current ||
+      (expectedVid && activeVideoIdRef.current !== expectedVid)
+    ) {
       hasSessionPlaybackStartedRef.current = true;
-      playAnySong(currentTrackRef.current || currentTrack, true);
-      return;
+      if (currentTarget) {
+        playAnySong(currentTarget, true);
+        return;
+      }
     }
 
     if (!ytPlayerRef.current) {
