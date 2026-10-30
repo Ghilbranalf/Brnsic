@@ -5713,7 +5713,7 @@ export default function BrnsicMusicPage() {
           {!isInsideNativeApk && (
             <button
               onClick={handleInstallClick}
-              className="w-9 h-9 rounded-full bg-white hover:bg-neutral-200 text-black transition flex items-center justify-center shadow hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0"
+              className="w-9 h-9 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black transition flex items-center justify-center shadow-[0_0_15px_rgba(30,215,96,0.3)] hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0"
               title="Download APK Resmi Brnsic (Android)"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -5901,7 +5901,7 @@ export default function BrnsicMusicPage() {
                 {!isInsideNativeApk && (
                   <button
                     onClick={handleInstallClick}
-                    className="w-8 h-8 rounded-full bg-white text-black hover:bg-neutral-200 shadow hover:scale-105 active:scale-95 transition flex items-center justify-center cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded-full bg-[#1ed760] text-black hover:bg-[#1fdf64] shadow-[0_0_15px_rgba(30,215,96,0.4)] hover:scale-105 active:scale-95 transition flex items-center justify-center cursor-pointer flex-shrink-0"
                     title="Download APK Android"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -7185,7 +7185,7 @@ export default function BrnsicMusicPage() {
                     title: "Lagu yang Disukai",
                     subtitle: `${likedSongIds.length} lagu`,
                     icon: (
-                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-black flex-shrink-0 shadow-md">
+                      <div className="w-12 h-12 bg-[#0c4a2a] rounded-lg flex items-center justify-center text-[#1ed760] flex-shrink-0 shadow-md">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                         </svg>
@@ -7197,7 +7197,7 @@ export default function BrnsicMusicPage() {
                     title: "Top 50 Indonesia",
                     subtitle: "Chart harian",
                     icon: (
-                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-black font-black text-xs flex-shrink-0 tracking-wider shadow-md">
+                      <div className="w-12 h-12 bg-[#3d2400] rounded-lg flex items-center justify-center text-[#d97706] font-black text-xs flex-shrink-0 tracking-wider shadow-md">
                         TOP
                       </div>
                     ),
@@ -7210,7 +7210,7 @@ export default function BrnsicMusicPage() {
                         ? mostPlayedIndonesia.slice(0, 2).map((s: any) => s.artist).join(", ")
                         : "Belum ada riwayat",
                     icon: (
-                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-black font-black text-xs flex-shrink-0 tracking-wider shadow-md">
+                      <div className="w-12 h-12 bg-[#0a3528] rounded-lg flex items-center justify-center text-[#1ed760] font-black text-xs flex-shrink-0 tracking-wider shadow-md">
                         HITS
                       </div>
                     ),
@@ -7220,7 +7220,7 @@ export default function BrnsicMusicPage() {
                     title: "Viral 50",
                     subtitle: "TikTok & Reels",
                     icon: (
-                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-black font-black text-xs flex-shrink-0 tracking-wider shadow-md">
+                      <div className="w-12 h-12 bg-[#3b0818] rounded-lg flex items-center justify-center text-[#f43f5e] font-black text-xs flex-shrink-0 tracking-wider shadow-md">
                         VIRAL
                       </div>
                     ),
@@ -9216,7 +9216,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className={`relative flex items-center justify-center transition-all duration-300 ${
                   currentView === "home"
-                    ? "w-11 h-11 rounded-full bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105 font-black"
+                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
                     : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
                 }`}
                 title="Home"
@@ -9234,7 +9234,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className={`relative flex items-center justify-center transition-all duration-300 ${
                   currentView === "liked"
-                    ? "w-11 h-11 rounded-full bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105 font-black"
+                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
                     : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
                 }`}
                 title="Lagu yang Disukai"
@@ -9252,7 +9252,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className={`relative flex items-center justify-center transition-all duration-300 ${
                   currentView === "search"
-                    ? "w-11 h-11 rounded-full bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105 font-black"
+                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
                     : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
                 }`}
                 title="Cari"
@@ -9271,7 +9271,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className={`relative flex items-center justify-center transition-all duration-300 ${
                   currentView === "playlists" || currentView === "custom-playlist"
-                    ? "w-11 h-11 rounded-full bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105 font-black"
+                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
                     : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
                 }`}
                 title="My Playlist"
