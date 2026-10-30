@@ -7185,7 +7185,7 @@ export default function BrnsicMusicPage() {
                     title: "Lagu yang Disukai",
                     subtitle: `${likedSongIds.length} lagu`,
                     icon: (
-                      <div className="w-12 h-12 bg-[#0c4a2a] rounded-lg flex items-center justify-center text-[#1ed760] flex-shrink-0 shadow-md">
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-black flex-shrink-0 shadow-md">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M12 21.35 l -1.45 -1.32 C 5.4 15.36 2 12.28 2 8.5 C 2 5.42 4.42 3 7.5 3 c 1.74 0 3.41 0.81 4.5 2.09 C 13.09 3.81 14.76 3 16.5 3 C 19.58 3 22 5.42 22 8.5 c 0 3.78 -3.4 6.86 -8.55 11.54 L 12 21.35 Z" />
                         </svg>
@@ -7197,7 +7197,7 @@ export default function BrnsicMusicPage() {
                     title: "Top 50 Indonesia",
                     subtitle: "Chart harian",
                     icon: (
-                      <div className="w-12 h-12 bg-[#3d2400] rounded-lg flex items-center justify-center text-[#d97706] font-black text-xs flex-shrink-0 tracking-wider shadow-md">
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-black font-black text-xs flex-shrink-0 tracking-wider shadow-md">
                         TOP
                       </div>
                     ),
@@ -7210,7 +7210,7 @@ export default function BrnsicMusicPage() {
                         ? mostPlayedIndonesia.slice(0, 2).map((s: any) => s.artist).join(", ")
                         : "Belum ada riwayat",
                     icon: (
-                      <div className="w-12 h-12 bg-[#0a3528] rounded-lg flex items-center justify-center text-[#1ed760] font-black text-xs flex-shrink-0 tracking-wider shadow-md">
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-black font-black text-xs flex-shrink-0 tracking-wider shadow-md">
                         HITS
                       </div>
                     ),
@@ -7220,7 +7220,7 @@ export default function BrnsicMusicPage() {
                     title: "Viral 50",
                     subtitle: "TikTok & Reels",
                     icon: (
-                      <div className="w-12 h-12 bg-[#3b0818] rounded-lg flex items-center justify-center text-[#f43f5e] font-black text-xs flex-shrink-0 tracking-wider shadow-md">
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-black font-black text-xs flex-shrink-0 tracking-wider shadow-md">
                         VIRAL
                       </div>
                     ),
