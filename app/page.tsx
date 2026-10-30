@@ -6476,15 +6476,19 @@ export default function BrnsicMusicPage() {
               {/* SMART RECOMMENDATION BANNER */}
               {relatedQueue.length > 0 && (
                 <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3 border border-white/10">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-3 min-w-0">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse"></span>
-                      <span className="text-xs font-black uppercase tracking-wider text-[#1ed760]">
+                      <span className="text-xs font-black uppercase tracking-wider text-[#1ed760] whitespace-nowrap">
                         Rekomendasi
                       </span>
                     </div>
-                    <span className="text-xs text-[#b3b3b3]">
-                      Berdasarkan: <strong className="text-white">{currentTrack.artist}</strong>
+                    <span
+                      className="text-xs text-[#b3b3b3] truncate min-w-0 max-w-[55%] sm:max-w-[70%] text-right select-none"
+                      title={`Berdasarkan: ${currentTrack.artist}`}
+                    >
+                      Berdasarkan:{" "}
+                      <strong className="text-white font-bold">{currentTrack.artist}</strong>
                     </span>
                   </div>
                   <div
