@@ -4997,7 +4997,7 @@ export default function BrnsicMusicPage() {
           right: 0,
           width: "240px",
           height: "180px",
-          opacity: 0.001,
+          opacity: 1,
           zIndex: -50,
           pointerEvents: "none",
           overflow: "hidden"
