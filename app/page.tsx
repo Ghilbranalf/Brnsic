@@ -89,7 +89,9 @@ const FALLBACK_COVER =
 
 const handleImgError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   const target = e.currentTarget;
-  if (target.src !== FALLBACK_COVER) {
+  if (target.classList.contains("rounded-full") && target.alt) {
+    target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(target.alt)}&backgroundColor=1f1f1f&textColor=ffffff`;
+  } else if (target.src !== FALLBACK_COVER) {
     target.src = FALLBACK_COVER;
   }
 };
@@ -709,7 +711,7 @@ const GENRES = [
   { name: "Nostalgia 2000-an", color: "bg-[#503750]" }
 ];
 
-// Cold-Start Onboarding Candidates for New & Existing Users (32 Top Artists with Verified High-Res Avatars)
+// Cold-Start Onboarding Candidates for New & Existing Users (63 Top Global & Indonesian Artists with 100% Verified HD Covers)
 const ONBOARDING_ARTISTS = [
   {
     name: "Sal Priadi",
@@ -725,6 +727,146 @@ const ONBOARDING_ARTISTS = [
     name: "Hindia",
     sub: "Indie Rock",
     img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/57/f8/d2/57f8d295-5ea9-f7b2-70ff-9494ce50fc5c/cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Justin Bieber",
+    sub: "Global Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/73/08/1a/73081a96-0f7c-b5f8-2757-5c17fb714323/12UMGIM31899.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Bruno Mars",
+    sub: "Global Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ed/46/bf/ed46bf4e-7cb9-965a-54f3-03059977fe6c/075679589293.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Taylor Swift",
+    sub: "Global Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/49/3d/ab/493dab54-f920-9043-6181-80993b8116c9/19UMGIM53909.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Billie Eilish",
+    sub: "Alt Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/92/9f/69/929f69f1-9977-3a44-d674-11f70c852d1b/24UMGIM36186.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "The Weeknd",
+    sub: "R&B / Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/db/28/e7/db28e7c3-f53a-76c8-eaa4-d92a22e4f160/23UMGIM72115.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Coldplay",
+    sub: "Alt Rock",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/0c/82/48/0c8248a8-4a5b-d30d-8056-f32d650d2fc9/190295978068.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Ed Sheeran",
+    sub: "Pop Acoustic",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/f0/bc/a9/f0bca9a9-47bc-ec59-0f28-361b7ef5bfde/12UMDIM01011.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Ariana Grande",
+    sub: "Pop R&B",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/d6/21/2d/d6212d80-242c-3ddb-8b66-a722b3937b79/26UM1IM38195.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Olivia Rodrigo",
+    sub: "Pop Rock",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/1d/1b/f9/1d1bf9b1-44c6-9a6c-6ffb-c158488c06ce/26UMGIM39303.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Sabrina Carpenter",
+    sub: "Pop Dance",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/ae/c6/58/aec6589c-f5cf-0d81-2727-bc8775e34049/25UMGIM76990.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Dua Lipa",
+    sub: "Pop Dance",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/82/89/15/828915ea-d716-61c4-3de7-ef00c1f800fb/5054197853630.jpg/600x600bb.jpg"
+  },
+  {
+    name: "NIKI",
+    sub: "R&B / Soul",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/6e/ff/43/6eff434b-8a53-3704-41d9-9cf34cb57f41/190296083709.jpg/600x600bb.jpg"
+  },
+  {
+    name: "BTS",
+    sub: "K-Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/ce/fb/eb/cefbebd4-d53b-8d6c-33cf-2ee55408bd79/8804775077494_Cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "BLACKPINK",
+    sub: "K-Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/ee/5e/74/ee5e747e-52e5-458c-e850-0ed3d703b184/8809519880736.jpg/600x600bb.jpg"
+  },
+  {
+    name: "NewJeans",
+    sub: "K-Pop / R&B",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ab/ce/d6/abced6f6-2b90-c230-eb4b-e146734a3a22/196922907821_Cover.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Post Malone",
+    sub: "Hip-Hop / Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/cd/78/35/cd783589-6ab9-8d51-d99e-308bee672e6f/26UM1IM40196.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Maroon 5",
+    sub: "Pop Rock",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/d3/b1/f9/d3b1f91c-f2c0-7cc8-97fb-035db64b0ab2/12UMGIM26179.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Harry Styles",
+    sub: "Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/07/41/6a/07416a78-38b9-2d47-7ce8-8a52a44c510f/196874010112.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Eminem",
+    sub: "Hip-Hop/Rap",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/27/79/d5/2779d529-ff10-c15d-1c50-08cd46dd1237/06UMGIM17625.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Drake",
+    sub: "Hip-Hop / R&B",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bb/6d/8f/bb6d8f67-6d04-10b5-dd62-eb5809ac54fc/00602567879152.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Kendrick Lamar",
+    sub: "Hip-Hop / Rap",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/50/c2/cc/50c2cc95-3658-9417-0d4b-831abde44ba1/24UM1IM28978.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Rex Orange County",
+    sub: "Indie Pop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/c0/80/be/c080be0b-c579-4dba-27a1-8ac82768e1f2/885288429602.jpg/600x600bb.jpg"
+  },
+  {
+    name: "wave to earth",
+    sub: "Indie Rock",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/c5/61/fac561dc-8db4-b2e9-d3db-6e246da72bfa/5054197890017.jpg/600x600bb.jpg"
+  },
+  {
+    name: "SZA",
+    sub: "R&B / Soul",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/bd/3b/a9/bd3ba9fb-9609-144f-bcfe-ead67b5f6ab3/196589564931.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Avicii",
+    sub: "EDM / Dance",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/35/4d/a0/354da058-972b-dcf9-feec-609895ba8cb2/14UMGIM56567.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Alan Walker",
+    sub: "EDM / Dance",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/95/14/0d/95140deb-c17e-c44d-b4dc-7fbabf47bee8/8721639532428.png/600x600bb.jpg"
+  },
+  {
+    name: "Queen",
+    sub: "Classic Rock",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b0/ca/05/b0ca05aa-29c9-4e01-5a16-f6fa06bce05c/602527594347.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Oasis",
+    sub: "Britpop Rock",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/91/9d/c6/919dc6db-73f5-48ab-5e68-1d746c3d3042/4550795884898_cover.png/600x600bb.jpg"
   },
   {
     name: "Nadin Amizah",
@@ -822,64 +964,14 @@ const ONBOARDING_ARTISTS = [
     img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/e3/c5/de/e3c5dec9-330c-22d0-6671-42bed632f5b2/25UMGIM58920.rgb.jpg/600x600bb.jpg"
   },
   {
-    name: "Bruno Mars",
-    sub: "Global Pop",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/ed/46/bf/ed46bf4e-7cb9-965a-54f3-03059977fe6c/075679589293.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Billie Eilish",
-    sub: "Alt Pop",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/92/9f/69/929f69f1-9977-3a44-d674-11f70c852d1b/24UMGIM36186.rgb.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Lady Gaga",
-    sub: "Pop Dance",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b1/9f/ef/b19fef51-79de-a940-e8ab-9e4e07b04d96/18UMGIM53752.rgb.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Taylor Swift",
-    sub: "Global Pop",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/49/3d/ab/493dab54-f920-9043-6181-80993b8116c9/19UMGIM53909.rgb.jpg/600x600bb.jpg"
-  },
-  {
-    name: "The Weeknd",
-    sub: "R&B / Pop",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/db/28/e7/db28e7c3-f53a-76c8-eaa4-d92a22e4f160/23UMGIM72115.rgb.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Coldplay",
-    sub: "Alt Rock",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/0c/82/48/0c8248a8-4a5b-d30d-8056-f32d650d2fc9/190295978068.jpg/600x600bb.jpg"
-  },
-  {
-    name: "NIKI",
-    sub: "R&B / Soul",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/6e/ff/43/6eff434b-8a53-3704-41d9-9cf34cb57f41/190296083709.jpg/600x600bb.jpg"
-  },
-  {
-    name: "SZA",
-    sub: "R&B / Soul",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/bd/3b/a9/bd3ba9fb-9609-144f-bcfe-ead67b5f6ab3/196589564931.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Olivia Rodrigo",
-    sub: "Pop Rock",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/1d/1b/f9/1d1bf9b1-44c6-9a6c-6ffb-c158488c06ce/26UMGIM39303.rgb.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Sabrina Carpenter",
-    sub: "Pop Dance",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/ae/c6/58/aec6589c-f5cf-0d81-2727-bc8775e34049/25UMGIM76990.rgb.jpg/600x600bb.jpg"
-  },
-  {
     name: "Kunto Aji",
     sub: "Indie Folk",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/10/7c/be/107cbe02-4735-e1fc-7aa7-0bc45781a719/197189196558.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/c1/32/07/c13207c5-316a-a5e3-863a-29d4b70419aa/20UMGIM30613.rgb.jpg/600x600bb.jpg"
   },
   {
     name: "Yura Yunita",
     sub: "Pop Soul",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/80/7e/15/807e15bf-73c1-073c-747d-5a822003c2be/196292395689.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/36/da/2f/36da2fee-3e4c-fbc9-aa92-4db1216b907f/cover.jpg/600x600bb.jpg"
   },
   {
     name: "Adrian Khalif",
@@ -889,77 +981,47 @@ const ONBOARDING_ARTISTS = [
   {
     name: "Fabio Asher",
     sub: "Pop Ballad",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/05/cf/a5/05cfa5e6-7eb6-e554-d897-4279fc93b668/196626601423.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/a5/04/00/a504005b-61ad-0d6d-9109-2764eeceb549/5447.jpg/600x600bb.jpg"
   },
   {
     name: "Ziva Magnolya",
     sub: "Pop Indonesia",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/c2/f7/6d/c2f76d49-436f-e3c7-4592-3a525b74100b/22UMGIM86175.rgb.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/aa/03/6b/aa036b46-c982-325e-4c4e-6dabef961760/23UMGIM61528.rgb.jpg/600x600bb.jpg"
   },
   {
     name: "Rizky Febian",
     sub: "Pop R&B",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/33/c4/62/33c4627b-2e90-c637-25e1-512c0199e4c1/cover.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/b8/88/0d/b8880d04-e5a6-acc3-25d0-424d6ae806f4/198704756115_Cover.jpg/600x600bb.jpg"
   },
   {
     name: "Keisya Levronka",
     sub: "Pop Ballad",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/32/c7/2b/32c72b53-48ee-8951-fc62-ba92239f1042/22UMGIM47854.rgb.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/50/a3/cf/50a3cf82-3048-9758-cae6-c91fc6104bd0/26UMGIM31653.rgb.jpg/600x600bb.jpg"
   },
   {
     name: "Anggi Marito",
     sub: "Pop Ballad",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/4a/01/fa/4a01fa42-c515-d41d-2826-ebf99480bc40/23UMGIM26760.rgb.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/59/b4/b8/59b4b872-6c07-242b-4a46-dffd4aa22f77/22UM1IM34409.rgb.jpg/600x600bb.jpg"
   },
   {
     name: "Idgitaf",
     sub: "Indie Pop",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/21/e4/20/21e420b9-502a-3eb3-c6ae-3fc8c03567e9/cover.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/78/d2/b3/78d2b35f-8a06-9449-4d95-9416e16b206f/cover.jpg/600x600bb.jpg"
   },
   {
     name: "Barasuara",
     sub: "Indie Rock",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/cb/aa/34/cbaa348a-6945-fc42-7a54-61019d0a1b63/198704257131_Cover.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/32/e0/62/32e06291-5849-ee28-bdfa-4fcbe8c76730/859776425711_cover.jpg/600x600bb.jpg"
   },
   {
     name: "Padi",
     sub: "Rock Indonesia",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/bf/16/ef/bf16ef80-60b7-c6fb-320e-c2c62c2f6d0f/886447814880.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music/f9/5d/f9/mzi.cqsqbhcm.jpg/600x600bb.jpg"
   },
   {
     name: "Noah",
     sub: "Pop Rock",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/f1/a0/0a/f1a00a12-fc29-37ea-8316-248434547948/cover.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Ari Lasso",
-    sub: "Pop Rock",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/b2/ae/30/b2ae306a-ff55-cf6e-cb4b-fc03ef06ce12/00602547072535.rgb.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Gilga Sahid",
-    sub: "Dangdut Koplo",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/e5/ee/48/e5ee48ce-8f0a-3ce8-a28d-1ee90432130e/cover.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Ndarboy Genk",
-    sub: "Koplo Jawa",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/b6/4a/1b/b64a1b0d-b4f7-3474-c36b-cb8cf79a3770/cover.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Woro Widowati",
-    sub: "Koplo Akustik",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/cf/ae/08/cfae08f5-4e78-958f-b98a-77e8a93aa40e/cover.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Kendrick Lamar",
-    sub: "Hip Hop Global",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/65/c6/3d/65c63d59-3d12-1f48-a003-883a66fbc0e9/22UMGIM47842.rgb.jpg/600x600bb.jpg"
-  },
-  {
-    name: "Dua Lipa",
-    sub: "Disco Pop",
-    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/1e/8c/74/1e8c7407-21fb-cae9-fce2-598e3b5dfd46/190295286101.jpg/600x600bb.jpg"
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/3f/0b/52/3f0b5222-7709-df06-aa80-83bbf7225779/24UMGIM29039.rgb.jpg/600x600bb.jpg"
   }
 ];
 
@@ -1222,7 +1284,18 @@ export default function BrnsicMusicPage() {
   const [showSplash, setShowSplash] = useState<boolean>(true);
 
   // 2. Playback State - Restores from cache or starts fresh
-  const [currentTrack, setCurrentTrack] = useState<Track>(DEFAULT_CATALOG[0]);
+  const [currentTrack, setCurrentTrack] = useState<Track>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("brnsic_cached_track");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.title) return parsed;
+        }
+      } catch (e) {}
+    }
+    return DEFAULT_CATALOG[0];
+  });
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const currentTimeRef = useRef<number>(0);
@@ -2298,14 +2371,30 @@ export default function BrnsicMusicPage() {
       }
       setIsPlaying(playing);
       isPlayingRef.current = playing;
-      if (ytPlayerRef.current) {
-        try {
-          if (playing && typeof ytPlayerRef.current.playVideo === "function") {
-            ytPlayerRef.current.playVideo();
-          } else if (!playing && typeof ytPlayerRef.current.pauseVideo === "function") {
-            ytPlayerRef.current.pauseVideo();
-          }
-        } catch (e) {}
+      if (playing) {
+        // Cold-start guard: If user resumes playback from the native notification
+        // and the session hasn't been active in WebView memory yet,
+        // trigger playAnySong so the EXACT song currently displayed on the notification is resolved and played!
+        if (!hasSessionPlaybackStartedRef.current && (currentTrackRef.current || currentTrack)) {
+          hasSessionPlaybackStartedRef.current = true;
+          playAnySong(currentTrackRef.current || currentTrack, true);
+          return;
+        }
+        if (ytPlayerRef.current) {
+          try {
+            if (typeof ytPlayerRef.current.playVideo === "function") {
+              ytPlayerRef.current.playVideo();
+            }
+          } catch (e) {}
+        }
+      } else {
+        if (ytPlayerRef.current) {
+          try {
+            if (typeof ytPlayerRef.current.pauseVideo === "function") {
+              ytPlayerRef.current.pauseVideo();
+            }
+          } catch (e) {}
+        }
       }
     };
 
@@ -3240,6 +3329,23 @@ export default function BrnsicMusicPage() {
     }
   };
 
+  const handleDismissOnboarding = () => {
+    setIsOnboardingModalOpen(false);
+    try {
+      localStorage.setItem("brnsic_onboarding_done", "true");
+    } catch (e) {}
+    if (currentUser) {
+      fetch("/api/user/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selectedArtists: selectedOnboardingArtists,
+          selectedGenres: selectedOnboardingGenres
+        })
+      }).catch(() => {});
+    }
+  };
+
   const handleCreatePlaylist = () => {
     if (!currentUser) {
       setIsAuthModalOpen(true);
@@ -3404,7 +3510,7 @@ export default function BrnsicMusicPage() {
 
         ytPlayerRef.current = new window.YT.Player("master-yt-player", {
           host: "https://www.youtube.com",
-          videoId: currentTrack.youtubeId || "kv2WIY8RLQQ",
+          videoId: currentTrackRef.current?.youtubeId || currentTrack.youtubeId || "kv2WIY8RLQQ",
           playerVars: {
             autoplay: 0, // Starts PAUSED! No sudden blast of sound!
             controls: 0,
@@ -9698,7 +9804,7 @@ export default function BrnsicMusicPage() {
           ==================================================================== */}
       {isOnboardingModalOpen && (
         <div
-          onClick={() => setIsOnboardingModalOpen(false)}
+          onClick={handleDismissOnboarding}
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
         >
           <div
@@ -9706,8 +9812,8 @@ export default function BrnsicMusicPage() {
             className="w-full max-w-2xl bg-black/95 backdrop-blur-2xl rounded-3xl p-5 sm:p-7 border border-white/10 shadow-2xl relative max-h-[92vh] flex flex-col"
           >
             <button
-              onClick={() => setIsOnboardingModalOpen(false)}
-              className="absolute top-4 right-4 text-white/50 hover:text-white text-xl font-bold w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition z-10"
+              onClick={handleDismissOnboarding}
+              className="absolute top-4 right-4 text-white/50 hover:text-white text-xl font-bold w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition z-10 cursor-pointer"
               title="Tutup"
             >
               &times;
@@ -9715,12 +9821,6 @@ export default function BrnsicMusicPage() {
 
             {/* Header */}
             <div className="flex flex-col gap-1.5 flex-shrink-0 pr-8">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1ed760]/10 border border-[#1ed760]/30 w-fit">
-                <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse"></span>
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#1ed760]">
-                  Spotify Music Curation
-                </span>
-              </div>
               <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 Artis apa saja yang kamu sukai?
               </h2>
@@ -9806,6 +9906,31 @@ export default function BrnsicMusicPage() {
                     </button>
                   );
                 })}
+
+                {ONBOARDING_ARTISTS.filter(
+                  (a) =>
+                    a.name.toLowerCase().includes(onboardingSearch.toLowerCase()) ||
+                    a.sub.toLowerCase().includes(onboardingSearch.toLowerCase())
+                ).length === 0 && onboardingSearch.trim() && (
+                  <div className="col-span-full py-8 flex flex-col items-center justify-center text-center gap-2.5">
+                    <p className="text-xs text-[#b3b3b3]">
+                      Artis &ldquo;{onboardingSearch.trim()}&rdquo; belum ada di daftar pilihan cepat.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const customName = onboardingSearch.trim();
+                        if (!selectedOnboardingArtists.includes(customName)) {
+                          setSelectedOnboardingArtists((prev) => [...prev, customName]);
+                        }
+                        setOnboardingSearch("");
+                      }}
+                      className="py-2 px-5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black font-extrabold text-xs transition shadow cursor-pointer active:scale-95"
+                    >
+                      + Tambahkan &ldquo;{onboardingSearch.trim()}&rdquo; ke Artis Favorit
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Section 2: Spotify Genre Pills */}
