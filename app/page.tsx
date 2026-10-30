@@ -3723,14 +3723,17 @@ export default function BrnsicMusicPage() {
             rel: 0,
             playsinline: 1,
             enablejsapi: 1,
-            origin: typeof window !== "undefined" ? window.location.origin : "https://brnsic.vercel.app"
+            origin:
+              typeof window !== "undefined" && !window.location.origin.includes("localhost")
+                ? window.location.origin
+                : "https://brnsic.vercel.app"
           },
           events: {
             onReady: (event: any) => {
               setIsLoadingSong(false);
               try {
                 event.target.unMute();
-                event.target.setVolume(volume * 100);
+                event.target.setVolume(Math.max(80, volume * 100));
                 if (pendingVideoIdRef.current) {
                   activeVideoIdRef.current = pendingVideoIdRef.current;
                   event.target.loadVideoById({
@@ -4147,11 +4150,12 @@ export default function BrnsicMusicPage() {
     // Dynamic Learning: Record play in user's on-device taste profile
     recordTasteInteraction(song, "play");
 
-    // 1. Direct user interaction: immediately un-mute
+    // 1. Direct user interaction: immediately un-mute and guarantee audio volume
     if (userInitiated && ytPlayerRef.current) {
       try {
         ytPlayerRef.current.unMute();
-        ytPlayerRef.current.setVolume(volume * 100);
+        if (isMuted) setIsMuted(false);
+        ytPlayerRef.current.setVolume(Math.max(80, volume * 100));
       } catch (e) {}
     }
 
@@ -4254,7 +4258,8 @@ export default function BrnsicMusicPage() {
             startSeconds: 0
           });
           ytPlayerRef.current.unMute();
-          ytPlayerRef.current.setVolume(volume * 100);
+          if (isMuted) setIsMuted(false);
+          ytPlayerRef.current.setVolume(Math.max(80, volume * 100));
           ytPlayerRef.current.playVideo();
           setTimeout(() => setIsLoadingSong(false), 1500);
         } catch (e) {

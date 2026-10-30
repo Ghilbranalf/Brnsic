@@ -33,7 +33,7 @@ public class BackgroundAudioService extends Service implements
         MediaPlayer.OnCompletionListener,
         MediaPlayer.OnErrorListener {
 
-    public static final String CHANNEL_ID = "brnsic_background_playback";
+    public static final String CHANNEL_ID = "brnsic_media_playback_v2";
     public static final int NOTIFICATION_ID = 2026;
 
     public static final String ACTION_START = "com.brnsic.app.action.START";
@@ -433,6 +433,11 @@ public class BackgroundAudioService extends Service implements
                 wifiLock.acquire();
             }
 
+            android.media.AudioManager audioManager = (android.media.AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (audioManager != null) {
+                audioManager.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN);
+            }
+
             if (url != null && url.startsWith("http")) {
                 seekOnPrepared = positionMs;
                 mediaPlayer.reset();
@@ -641,12 +646,14 @@ public class BackgroundAudioService extends Service implements
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Brnsic Music Playback",
-                    NotificationManager.IMPORTANCE_LOW
+                    "Brnsic Music Player",
+                    NotificationManager.IMPORTANCE_HIGH
             );
-            channel.setDescription("Menjaga musik tetap berjalan di latar belakang dan kontrol pemutar di layar kunci");
-            channel.setShowBadge(false);
+            channel.setDescription("Kontrol pemutar musik di layar kunci dan bilah notifikasi");
+            channel.setShowBadge(true);
             channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.enableVibration(false);
+            channel.setSound(null, null); // Keep silent on track changes, but HIGH importance forces lock screen widget
             NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
