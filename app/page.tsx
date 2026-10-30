@@ -5459,47 +5459,38 @@ export default function BrnsicMusicPage() {
             <span>+ Buat Playlist</span>
           </button>
 
-          {/* Account Profile Button (Enlarged Profile Avatar Badge - Image 1) */}
+          {/* Account Profile Button (Spotify Circular Initial Badge - Image 3) */}
           {currentUser ? (
             <div className="relative">
               <button
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="w-11 h-11 rounded-full bg-[#181818] p-[2.5px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow-lg cursor-pointer flex-shrink-0"
+                className="w-9 h-9 rounded-full bg-[#181818] p-[3px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
                 title={`Profil: ${currentUser.name}`}
               >
-                <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm overflow-hidden">
-                  {currentUser?.avatar && currentUser.avatar.startsWith("http") && !currentUser.avatar.includes("dicebear") && !currentUser.avatar.includes("identicon") ? (
-                    <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover rounded-full" />
-                  ) : (
-                    <span className="text-black font-black text-xl select-none leading-none">
-                      {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                    </span>
-                  )}
+                <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm">
+                  <span className="text-black font-black text-xs select-none">
+                    {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
+                  </span>
                 </div>
               </button>
 
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 top-13 w-56 bg-[#181818] rounded-xl p-1.5 border border-white/10 shadow-2xl z-50 flex flex-col text-left animate-fadeIn">
-                  <div className="px-3 py-2 border-b border-white/10 mb-1">
-                    <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
-                    <p className="text-[11px] text-[#b3b3b3] truncate">{currentUser.email}</p>
-                  </div>
+                <div className="absolute right-0 top-12 w-48 bg-[#282828] rounded-md p-1 border border-white/10 shadow-2xl z-50 flex flex-col text-left animate-fadeIn">
                   <button
                     onClick={() => {
                       setIsProfileDropdownOpen(false);
                       setIsProfileModalOpen(true);
                     }}
-                    className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-white hover:bg-white/10 transition flex items-center justify-between"
+                    className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
-                    <span>Profil Saya</span>
-                    <span className="text-[10px] text-[#1ed760] font-bold">Buka</span>
+                    Profil
                   </button>
-                  <div className="h-[1px] bg-white/5 my-1"></div>
+                  <div className="h-[1px] bg-white/10 my-1"></div>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-500/10 transition"
+                    className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
                   >
-                    Keluar (Logout)
+                    Keluar
                   </button>
                 </div>
               )}
@@ -5514,7 +5505,7 @@ export default function BrnsicMusicPage() {
                 className="flex items-center gap-2 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 py-1.5 rounded-full hover:scale-105 active:scale-95 transition shadow"
                 title="Masuk via Google untuk simpan preferensi di Supabase cloud"
               >
-                <svg className="w-4.5 h-4.5 flex-shrink-0" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
@@ -5649,17 +5640,13 @@ export default function BrnsicMusicPage() {
                 {currentUser ? (
                   <button
                     onClick={() => setIsProfileModalOpen(true)}
-                    className="w-10 h-10 rounded-full bg-[#181818] p-[2.5px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
-                    title={`Profil: ${currentUser.name}`}
+                    className="w-8 h-8 rounded-full bg-[#181818] p-[3px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
+                    title={currentUser.name}
                   >
-                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm overflow-hidden">
-                      {currentUser?.avatar && currentUser.avatar.startsWith("http") && !currentUser.avatar.includes("dicebear") && !currentUser.avatar.includes("identicon") ? (
-                        <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover rounded-full" />
-                      ) : (
-                        <span className="text-black font-black text-lg select-none leading-none">
-                          {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                        </span>
-                      )}
+                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm">
+                      <span className="text-black font-black text-xs select-none">
+                        {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
+                      </span>
                     </div>
                   </button>
                 ) : (
@@ -5668,9 +5655,9 @@ export default function BrnsicMusicPage() {
                       setAuthError(null);
                       setIsAuthModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 text-[11px] font-black bg-white text-black px-3 py-1.5 rounded-full shadow active:scale-95 transition"
+                    className="flex items-center gap-1.5 text-[11px] font-black bg-white text-black px-2.5 py-1 rounded-full shadow active:scale-95 transition"
                   >
-                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                       <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
