@@ -5459,19 +5459,17 @@ export default function BrnsicMusicPage() {
             <span>+ Buat Playlist</span>
           </button>
 
-          {/* Account Profile Button (Spotify Circular Initial Badge - Image 3) */}
+          {/* Account Profile Button (Pure Black & White, perfectly matching download button size) */}
           {currentUser ? (
             <div className="relative">
               <button
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="w-9 h-9 rounded-full bg-[#181818] p-[3px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
+                className="w-9 h-9 rounded-full bg-white text-black hover:bg-neutral-200 border border-white/20 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
                 title={`Profil: ${currentUser.name}`}
               >
-                <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm">
-                  <span className="text-black font-black text-xs select-none">
-                    {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                  </span>
-                </div>
+                <span className="text-black font-black text-sm select-none leading-none">
+                  {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
+                </span>
               </button>
 
               {isProfileDropdownOpen && (
@@ -5640,14 +5638,12 @@ export default function BrnsicMusicPage() {
                 {currentUser ? (
                   <button
                     onClick={() => setIsProfileModalOpen(true)}
-                    className="w-8 h-8 rounded-full bg-[#181818] p-[3px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded-full bg-white text-black hover:bg-neutral-200 border border-white/20 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
                     title={currentUser.name}
                   >
-                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm">
-                      <span className="text-black font-black text-xs select-none">
-                        {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                      </span>
-                    </div>
+                    <span className="text-black font-black text-xs sm:text-sm select-none leading-none">
+                      {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
+                    </span>
                   </button>
                 ) : (
                   <button
