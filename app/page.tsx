@@ -5070,14 +5070,16 @@ export default function BrnsicMusicPage() {
             <div className="relative">
               <button
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="w-10 h-10 rounded-full bg-[#1f1f1f] hover:bg-[#282828] p-1 flex items-center justify-center transition active:scale-95 shadow cursor-pointer border border-white/10"
+                className="w-9 h-9 rounded-full bg-white text-black hover:bg-neutral-200 flex items-center justify-center transition active:scale-95 shadow cursor-pointer border border-white/20 flex-shrink-0"
                 title={`Profil: ${currentUser.name}`}
               >
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                {currentUser.avatar && currentUser.avatar.startsWith("http") ? (
+                  <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full rounded-full object-cover" />
+                ) : (
                   <span className="text-black font-black text-sm select-none">
                     {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
                   </span>
-                </div>
+                )}
               </button>
 
               {isProfileDropdownOpen && (
@@ -5246,14 +5248,16 @@ export default function BrnsicMusicPage() {
                 {currentUser ? (
                   <button
                     onClick={() => setIsProfileModalOpen(true)}
-                    className="w-8 h-8 rounded-full bg-[#1f1f1f] p-0.5 flex items-center justify-center border border-white/10 active:scale-95 transition shadow-md"
+                    className="w-8 h-8 rounded-full bg-white text-black hover:bg-neutral-200 flex items-center justify-center transition active:scale-95 shadow-md cursor-pointer border border-white/20 flex-shrink-0"
                     title={currentUser.name}
                   >
-                    <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
+                    {currentUser.avatar && currentUser.avatar.startsWith("http") ? (
+                      <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full rounded-full object-cover" />
+                    ) : (
                       <span className="text-black font-black text-xs select-none">
                         {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
                       </span>
-                    </div>
+                    )}
                   </button>
                 ) : (
                   <button
@@ -6637,21 +6641,21 @@ export default function BrnsicMusicPage() {
 
               {/* SHELF 1: TOP 50 INDONESIA */}
               <section>
-                <div className="flex items-end justify-between mb-4">
-                  <div>
+                <div className="flex items-start sm:items-end justify-between gap-3 mb-4">
+                  <div className="min-w-0 flex-1">
                     <h2
                       onClick={() => setCurrentView("top50-indo")}
-                      className="text-xl sm:text-2xl font-bold text-white hover:underline cursor-pointer"
+                      className="text-xl sm:text-2xl font-bold text-white hover:underline cursor-pointer leading-tight"
                     >
                       Top 50 - Indonesia
                     </h2>
-                    <p className="text-xs text-[#b3b3b3] mt-1">
+                    <p className="text-xs text-[#b3b3b3] mt-1 line-clamp-2 sm:line-clamp-none">
                       Diperbarui setiap 15 menit otomatis • Lagu paling banyak diputar hari ini
                     </p>
                   </div>
                   <span
                     onClick={() => setCurrentView("top50-indo")}
-                    className="text-xs font-bold text-[#b3b3b3] hover:underline cursor-pointer"
+                    className="text-xs font-bold text-[#b3b3b3] hover:text-white hover:underline cursor-pointer whitespace-nowrap flex-shrink-0 pt-1 sm:pt-0"
                   >
                     Lihat semua
                   </span>
@@ -6717,21 +6721,21 @@ export default function BrnsicMusicPage() {
 
               {/* SHELF 2: LAGU PALING SERING DIPUTAR DI INDONESIA */}
               <section>
-                <div className="flex items-end justify-between mb-4">
-                  <div>
+                <div className="flex items-start sm:items-end justify-between gap-3 mb-4">
+                  <div className="min-w-0 flex-1">
                     <h2
                       onClick={() => setCurrentView("most-played-indo")}
-                      className="text-xl sm:text-2xl font-bold text-white hover:underline cursor-pointer"
+                      className="text-xl sm:text-2xl font-bold text-white hover:underline cursor-pointer leading-tight"
                     >
                       Lagu Paling Sering Diputar di Indonesia
                     </h2>
-                    <p className="text-xs text-[#b3b3b3] mt-1">
+                    <p className="text-xs text-[#b3b3b3] mt-1 line-clamp-2 sm:line-clamp-none">
                       Data tangga lagu real-time streaming pecinta musik Indonesia hari ini
                     </p>
                   </div>
                   <span
                     onClick={() => setCurrentView("most-played-indo")}
-                    className="text-xs font-bold text-[#b3b3b3] hover:underline cursor-pointer"
+                    className="text-xs font-bold text-[#b3b3b3] hover:text-white hover:underline cursor-pointer whitespace-nowrap flex-shrink-0 pt-1 sm:pt-0"
                   >
                     Lihat semua
                   </span>
@@ -6786,19 +6790,19 @@ export default function BrnsicMusicPage() {
 
               {/* SHELF 3: TOP GLOBAL DUNIA */}
               <section>
-                <div className="flex items-end justify-between mb-4">
-                  <div>
+                <div className="flex items-start sm:items-end justify-between gap-3 mb-4">
+                  <div className="min-w-0 flex-1">
                     <h2
                       onClick={() => setCurrentView("top50-global")}
-                      className="text-xl sm:text-2xl font-bold text-white hover:underline cursor-pointer"
+                      className="text-xl sm:text-2xl font-bold text-white hover:underline cursor-pointer leading-tight"
                     >
                       Top 50 - Global (Dunia)
                     </h2>
-                    <p className="text-xs text-[#b3b3b3] mt-1">Lagu paling banyak diputar di seluruh dunia</p>
+                    <p className="text-xs text-[#b3b3b3] mt-1 line-clamp-2 sm:line-clamp-none">Lagu paling banyak diputar di seluruh dunia</p>
                   </div>
                   <span
                     onClick={() => setCurrentView("top50-global")}
-                    className="text-xs font-bold text-[#b3b3b3] hover:underline cursor-pointer"
+                    className="text-xs font-bold text-[#b3b3b3] hover:text-white hover:underline cursor-pointer whitespace-nowrap flex-shrink-0 pt-1 sm:pt-0"
                   >
                     Lihat semua
                   </span>
