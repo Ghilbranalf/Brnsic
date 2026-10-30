@@ -15,7 +15,15 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.png",
-    apple: "/apple-touch-icon.png",
+    apple: [
+      { url: "/app-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Brnsic",
   },
 };
 
@@ -27,7 +35,12 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/app-icon.png" />
+        <link rel="apple-touch-icon" href="/app-icon.png" />
+        <link rel="apple-touch-icon-precomposed" href="/app-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Brnsic" />
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="antialiased bg-black text-white overflow-hidden select-none" suppressHydrationWarning>

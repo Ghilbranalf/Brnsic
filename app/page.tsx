@@ -1923,11 +1923,7 @@ export default function BrnsicMusicPage() {
         const token =
           explicitToken ||
           (typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null);
-        if (!token) {
-          setCurrentUser(null);
-          setIsAuthChecking(false);
-          return;
-        }
+        // Allow cookie session fallback if token is not yet in PWA localStorage
         const headers: Record<string, string> = {};
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
@@ -1941,6 +1937,11 @@ export default function BrnsicMusicPage() {
           const data = await res.json();
           if (data.authenticated && data.user) {
             setCurrentUser(data.user);
+            if (data.token) {
+              try {
+                localStorage.setItem("brnsic_auth_token", data.token);
+              } catch (e) {}
+            }
             try {
               localStorage.setItem("brnsic_user_profile", JSON.stringify(data.user));
             } catch (e) {}
@@ -2067,6 +2068,9 @@ export default function BrnsicMusicPage() {
         if (urlToken) {
           checkAuthSession(urlToken);
         }
+      } else if (urlToken) {
+        window.history.replaceState({ page: "home" }, "", "/");
+        checkAuthSession(urlToken);
       } else if (urlParams.get("auth_error")) {
         setAuthError(decodeURIComponent(urlParams.get("auth_error") || "Gagal masuk"));
         setIsAuthModalOpen(true);

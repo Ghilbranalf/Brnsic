@@ -3,6 +3,7 @@
   "short_name": "Brnsic",
   "description": "Stream all songs with high fidelity audio, synced lyrics, and real-time trending charts.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

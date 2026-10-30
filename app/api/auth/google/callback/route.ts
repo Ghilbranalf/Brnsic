@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
       return response;
     }
 
-    const redirectUrl = `/?login_success=true&token=${encodeURIComponent(sessionToken)}&user=${userJson}`;
+    const redirectUrl = `/?login_success=true&token=${encodeURIComponent(sessionToken)}`;
     const html = `<!DOCTYPE html>
 <html>
 <head>
