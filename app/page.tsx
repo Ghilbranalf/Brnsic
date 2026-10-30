@@ -5459,38 +5459,46 @@ export default function BrnsicMusicPage() {
             <span>+ Buat Playlist</span>
           </button>
 
-          {/* Account Profile Button (Spotify Circular Initial Badge - Image 3) */}
+          {/* Account Profile Button (Google Account Badge) */}
           {currentUser ? (
             <div className="relative">
               <button
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="w-9 h-9 rounded-full bg-[#181818] p-[3px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
-                title={`Profil: ${currentUser.name}`}
+                className="w-10 h-10 rounded-full bg-[#181818] p-[3px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
+                title={`Akun Google: ${currentUser.name} (${currentUser.email})`}
               >
                 <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm">
-                  <span className="text-black font-black text-xs select-none">
-                    {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                  </span>
+                  <svg className="w-[23px] h-[23px] flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
                 </div>
               </button>
 
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 top-12 w-48 bg-[#282828] rounded-md p-1 border border-white/10 shadow-2xl z-50 flex flex-col text-left animate-fadeIn">
+                <div className="absolute right-0 top-12 w-56 bg-[#181818] rounded-xl p-1.5 border border-white/10 shadow-2xl z-50 flex flex-col text-left animate-fadeIn">
+                  <div className="px-3 py-2 border-b border-white/10 mb-1">
+                    <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                    <p className="text-[11px] text-[#b3b3b3] truncate">{currentUser.email}</p>
+                  </div>
                   <button
                     onClick={() => {
                       setIsProfileDropdownOpen(false);
                       setIsProfileModalOpen(true);
                     }}
-                    className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
+                    className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-white hover:bg-white/10 transition flex items-center justify-between"
                   >
-                    Profil
+                    <span>Profil Saya</span>
+                    <span className="text-[10px] text-[#1ed760] font-bold">Buka</span>
                   </button>
-                  <div className="h-[1px] bg-white/10 my-1"></div>
+                  <div className="h-[1px] bg-white/5 my-1"></div>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-3 py-2.5 rounded text-sm font-semibold text-white hover:bg-white/10 transition"
+                    className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-500/10 transition"
                   >
-                    Keluar
+                    Keluar (Logout)
                   </button>
                 </div>
               )}
@@ -5505,7 +5513,7 @@ export default function BrnsicMusicPage() {
                 className="flex items-center gap-2 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 py-1.5 rounded-full hover:scale-105 active:scale-95 transition shadow"
                 title="Masuk via Google untuk simpan preferensi di Supabase cloud"
               >
-                <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24">
+                <svg className="w-4.5 h-4.5 flex-shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
@@ -5640,13 +5648,16 @@ export default function BrnsicMusicPage() {
                 {currentUser ? (
                   <button
                     onClick={() => setIsProfileModalOpen(true)}
-                    className="w-8 h-8 rounded-full bg-[#181818] p-[3px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
-                    title={currentUser.name}
+                    className="w-9 h-9 rounded-full bg-[#181818] p-[2.5px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
+                    title={`Akun Google: ${currentUser.name}`}
                   >
                     <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm">
-                      <span className="text-black font-black text-xs select-none">
-                        {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                      </span>
+                      <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                      </svg>
                     </div>
                   </button>
                 ) : (
@@ -5655,9 +5666,9 @@ export default function BrnsicMusicPage() {
                       setAuthError(null);
                       setIsAuthModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 text-[11px] font-black bg-white text-black px-2.5 py-1 rounded-full shadow active:scale-95 transition"
+                    className="flex items-center gap-1.5 text-[11px] font-black bg-white text-black px-3 py-1.5 rounded-full shadow active:scale-95 transition"
                   >
-                    <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                       <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
