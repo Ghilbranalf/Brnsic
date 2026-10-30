@@ -3625,6 +3625,19 @@ export default function BrnsicMusicPage() {
       // Preload chosen artist tracks immediately so home shelf is populated in 0ms
       const primaryArtist = selectedOnboardingArtists[0];
       if (primaryArtist) {
+        if (!hasUserStartedPlayback) {
+          const match = POPULAR_SEARCH_CATALOG.find((s) =>
+            s.artist.toLowerCase().includes(primaryArtist.toLowerCase())
+          );
+          if (match) {
+            const norm = normalizeSong(match);
+            setCurrentTrack(norm);
+            try {
+              localStorage.setItem("brnsic_cached_track", JSON.stringify(norm));
+            } catch (e) {}
+          }
+        }
+
         fetch(`/api/search?q=${encodeURIComponent(primaryArtist)}`)
           .then((r) => r.json())
           .then((sData) => {
@@ -3640,6 +3653,13 @@ export default function BrnsicMusicPage() {
                 genre: "Pop"
               }));
               setTopArtistShelfTracks(formatted);
+              if (!hasUserStartedPlayback && formatted[0]) {
+                const norm = normalizeSong(formatted[0]);
+                setCurrentTrack(norm);
+                try {
+                  localStorage.setItem("brnsic_cached_track", JSON.stringify(norm));
+                } catch (e) {}
+              }
               try {
                 localStorage.setItem("brnsic_cached_top_artist_tracks", JSON.stringify(formatted));
               } catch (e) {}
@@ -7107,7 +7127,7 @@ export default function BrnsicMusicPage() {
               )}
               
               {/* SMART RECOMMENDATION BANNER */}
-              {relatedQueue.length > 0 && (
+              {hasUserStartedPlayback && relatedQueue.length > 0 && (
                 <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 flex flex-col gap-3 border border-white/10">
                   <div className="flex items-center justify-between gap-3 min-w-0">
                     <div className="flex items-center gap-2 flex-shrink-0">
