@@ -3524,17 +3524,28 @@ export default function BrnsicMusicPage() {
                 } catch (e) {}
 
                 // CRITICAL SHIELD: If pause was NOT triggered by the user clicking pause
-                // (e.g. Chromium / OS paused video on screen lock or tab blur):
-                if (!isUserExplicitlyPausedRef.current && isPlayingRef.current) {
-                  // Do NOT kill the background service! Immediately resume playback!
+                // (e.g. Chromium / Android OS background keepalive):
+                const isNative =
+                  (typeof window !== "undefined" && Boolean((window as any).BrnsicNative)) ||
+                  (typeof navigator !== "undefined" && navigator.userAgent.includes("BrnsicNative")) ||
+                  (window as any).Capacitor?.getPlatform?.() === "android";
+
+                if (isNative && !isUserExplicitlyPausedRef.current && isPlayingRef.current) {
+                  // Do NOT kill the native background service! Immediately resume playback!
                   try {
                     ytPlayerRef.current?.playVideo?.();
                   } catch (e) {}
                   return;
                 }
 
+                // For Web & iOS Safari: update state cleanly so Lock Screen widget shows the ▶ Play button properly!
                 setIsPlaying(false);
                 isPlayingRef.current = false;
+                if (typeof window !== "undefined" && "mediaSession" in navigator) {
+                  try {
+                    navigator.mediaSession.playbackState = "paused";
+                  } catch (e) {}
+                }
                 stopBackgroundKeepalive();
               } else if (event.data === 0) {
                 // Ended naturally by YouTube engine
@@ -3688,8 +3699,30 @@ export default function BrnsicMusicPage() {
         ]
       });
 
-      navigator.mediaSession.setActionHandler("play", () => togglePlay());
-      navigator.mediaSession.setActionHandler("pause", () => togglePlay());
+      navigator.mediaSession.setActionHandler("play", () => {
+        isUserExplicitlyPausedRef.current = false;
+        isPlayingRef.current = true;
+        setIsPlaying(true);
+        startBackgroundKeepalive();
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
+          try {
+            ytPlayerRef.current.unMute?.();
+            ytPlayerRef.current.setVolume?.(volume * 100);
+            ytPlayerRef.current.playVideo();
+          } catch (e) {}
+        }
+      });
+      navigator.mediaSession.setActionHandler("pause", () => {
+        isUserExplicitlyPausedRef.current = true;
+        isPlayingRef.current = false;
+        setIsPlaying(false);
+        stopBackgroundKeepalive();
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === "function") {
+          try {
+            ytPlayerRef.current.pauseVideo();
+          } catch (e) {}
+        }
+      });
       navigator.mediaSession.setActionHandler("previoustrack", () => playPrevSong());
       navigator.mediaSession.setActionHandler("nexttrack", () => playNextSong(true));
       navigator.mediaSession.setActionHandler("seekto", (details) => {
@@ -4936,15 +4969,15 @@ export default function BrnsicMusicPage() {
           position: "fixed",
           bottom: 0,
           right: 0,
-          width: "1px",
-          height: "1px",
-          opacity: 0.01,
+          width: "240px",
+          height: "180px",
+          opacity: 0.001,
           zIndex: -50,
           pointerEvents: "none",
           overflow: "hidden"
         }}
       >
-        <div id="master-yt-player" style={{ width: "1px", height: "1px" }}></div>
+        <div id="master-yt-player" style={{ width: "240px", height: "180px" }}></div>
       </div>
 
       {/* ====================================================================
