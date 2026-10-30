@@ -10,7 +10,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Brnsic - Pure Liquid Audio",
+  title: "Brnsic",
   description: "Brnsic Web Player with full songs, smart recommendations, and synchronized lyrics.",
   manifest: "/manifest.json",
   icons: {

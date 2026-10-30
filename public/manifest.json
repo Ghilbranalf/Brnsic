@@ -1,7 +1,7 @@
 {
   "name": "Brnsic",
   "short_name": "Brnsic",
-  "description": "Stream all songs with pure liquid audio, synced lyrics, and real-time trending charts.",
+  "description": "Stream all songs with high fidelity audio, synced lyrics, and real-time trending charts.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",
