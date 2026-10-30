@@ -682,6 +682,60 @@ const POPULAR_SEARCH_CATALOG = [
     duration: 256,
     youtubeId: "CnVVjLOGVoY",
     tags: ["seasons", "wave", "to", "earth", "korean", "indie", "flaws"]
+  },
+  {
+    title: "SAD!",
+    artist: "XXXTENTACION",
+    album: "?",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bf/16/be/bf16be88-3486-3536-bb15-beaa293ea2eb/00842812106654.rgb.jpg/600x600bb.jpg",
+    duration: 166,
+    youtubeId: "pgN-vvVVxMA",
+    tags: ["sad", "xxxtentacion", "xxx", "tentacion", "who", "am", "i"]
+  },
+  {
+    title: "Moonlight",
+    artist: "XXXTENTACION",
+    album: "?",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bf/16/be/bf16be88-3486-3536-bb15-beaa293ea2eb/00842812106654.rgb.jpg/600x600bb.jpg",
+    duration: 135,
+    youtubeId: "GX8Hg6kWQYI",
+    tags: ["moonlight", "xxxtentacion", "xxx", "tentacion", "spotlight"]
+  },
+  {
+    title: "Jocelyn Flores",
+    artist: "XXXTENTACION",
+    album: "17",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/93/ea/a3/93eaa3b6-5fe1-c913-e407-1c39ea9f0f90/888915474635_cover.jpg/600x600bb.jpg",
+    duration: 119,
+    youtubeId: "FAucVNRx_m0",
+    tags: ["jocelyn", "flores", "xxxtentacion", "xxx", "tentacion", "17"]
+  },
+  {
+    title: "changes",
+    artist: "XXXTENTACION",
+    album: "?",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bf/16/be/bf16be88-3486-3536-bb15-beaa293ea2eb/00842812106654.rgb.jpg/600x600bb.jpg",
+    duration: 121,
+    youtubeId: "f0bbDFRYD_A",
+    tags: ["changes", "xxxtentacion", "xxx", "tentacion", "baby"]
+  },
+  {
+    title: "Hope",
+    artist: "XXXTENTACION",
+    album: "?",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bf/16/be/bf16be88-3486-3536-bb15-beaa293ea2eb/00842812106654.rgb.jpg/600x600bb.jpg",
+    duration: 110,
+    youtubeId: "7PzgK3zYVzU",
+    tags: ["hope", "xxxtentacion", "xxx", "tentacion"]
+  },
+  {
+    title: "Look At Me!",
+    artist: "XXXTENTACION",
+    album: "Revenge",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/10/7b/25/107b2505-1a8c-a1d2-a74e-5ffbc0f7036a/00842812102144.rgb.jpg/600x600bb.jpg",
+    duration: 126,
+    youtubeId: "wJGcwEv7838",
+    tags: ["look", "at", "me", "xxxtentacion", "xxx", "tentacion"]
   }
 ];
 
@@ -908,6 +962,21 @@ const ONBOARDING_ARTISTS = [
     name: "Eminem",
     sub: "Hip-Hop/Rap",
     img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/27/79/d5/2779d529-ff10-c15d-1c50-08cd46dd1237/06UMGIM17625.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "XXXTENTACION",
+    sub: "Hip-Hop / Rap",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bf/16/be/bf16be88-3486-3536-bb15-beaa293ea2eb/00842812106654.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Juice WRLD",
+    sub: "Hip-Hop / Rap",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/37/c4/86/37c48601-e236-fa90-2529-679951660ca3/00602508892404.rgb.jpg/600x600bb.jpg"
+  },
+  {
+    name: "Travis Scott",
+    sub: "Trap / Hip-Hop",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/a4/09/b3/a409b30c-7833-c2c5-115f-6a9c1c5ce1d2/196871344406.jpg/600x600bb.jpg"
   },
   {
     name: "Drake",
@@ -1422,7 +1491,18 @@ export default function BrnsicMusicPage() {
   const [newPlaylistName, setNewPlaylistName] = useState<string>("");
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<any | null>(null);
   const [songActionMenu, setSongActionMenu] = useState<{ song: any; playlistId?: string } | null>(null);
-  const [topArtistShelfTracks, setTopArtistShelfTracks] = useState<any[]>([]);
+  const [topArtistShelfTracks, setTopArtistShelfTracks] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("brnsic_cached_top_artist_tracks");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
   const [searchCorrectedQuery, setSearchCorrectedQuery] = useState<string | null>(null);
 
   // 7. Charts & Navigation State
@@ -1577,6 +1657,14 @@ export default function BrnsicMusicPage() {
     return null;
   }, [userTaste?.artistWeights, userPreferredArtists]);
 
+  // Sync AI Taste Vector whenever User Preferred Artists change
+  useEffect(() => {
+    if (userPreferredArtists.length > 0) {
+      const nextVec = buildUserTasteVector(userPreferredArtists, selectedOnboardingGenres);
+      setUserTasteVector(nextVec);
+    }
+  }, [userPreferredArtists, selectedOnboardingGenres]);
+
   // Real-time dynamic fetch of artist catalog & related albums for user's chosen artists
   useEffect(() => {
     if (userPreferredArtists.length === 0) {
@@ -1586,16 +1674,46 @@ export default function BrnsicMusicPage() {
 
     const artistsToQuery = userPreferredArtists.slice(0, 3);
     Promise.allSettled(
-      artistsToQuery.map((a) =>
-        fetch(`/api/related?artist=${encodeURIComponent(a)}`)
-          .then((res) => res.json())
-          .then((data) => (data && Array.isArray(data.related) ? data.related : []))
-          .catch(() => [])
-      )
-    ).then((results) => {
+      artistsToQuery.map(async (a) => {
+        const results: any[] = [];
+
+        // 1. Fetch top hits directly from /api/search (SAD!, Moonlight, Jocelyn Flores, changes, etc.)
+        try {
+          const sRes = await fetch(`/api/search?q=${encodeURIComponent(a)}`);
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            const list = sData.songs || sData.results || [];
+            list.forEach((s: any) => {
+              results.push({
+                id: s.trackId || `track-${s.id}`,
+                title: s.trackName || s.title,
+                artist: s.artistName || s.artist,
+                album: s.album || "Single",
+                cover: s.artworkUrl100 || s.cover,
+                duration: s.duration || 210,
+                genre: "Pop"
+              });
+            });
+          }
+        } catch (e) {}
+
+        // 2. Fetch discography & related from /api/related
+        try {
+          const res = await fetch(`/api/related?artist=${encodeURIComponent(a)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.related)) {
+              results.push(...data.related);
+            }
+          }
+        } catch (e) {}
+
+        return results;
+      })
+    ).then((settled) => {
       const combined: any[] = [];
       const seen = new Set<string>();
-      for (const res of results) {
+      for (const res of settled) {
         if (res.status === "fulfilled" && Array.isArray(res.value)) {
           for (const track of res.value) {
             const key = `${track.title} ${track.artist}`.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -1608,6 +1726,9 @@ export default function BrnsicMusicPage() {
       }
       if (combined.length > 0) {
         setTopArtistShelfTracks(combined);
+        try {
+          localStorage.setItem("brnsic_cached_top_artist_tracks", JSON.stringify(combined));
+        } catch (e) {}
       }
     });
   }, [userPreferredArtists]);
@@ -1707,7 +1828,9 @@ export default function BrnsicMusicPage() {
           youtubeId: item.youtubeId
         }));
 
-        const candidatePool = [...topArtistShelfTracks, ...instantHits, ...relatedQueue];
+        // ABSOLUTE ISOLATION: DO NOT include relatedQueue!
+        // relatedQueue belongs to the player audio queue (which can be any unrelated song)!
+        const candidatePool = [...topArtistShelfTracks, ...instantHits];
         const artistMatchingTracks = candidatePool.filter((s: any) => {
           const a = ((s as any).artist || (s as any).artistName || "").toLowerCase();
           return lowerPrefs.some((pref) => a.includes(pref) || pref.includes(a));
@@ -1718,13 +1841,13 @@ export default function BrnsicMusicPage() {
         });
 
         rawPool = [...artistMatchingTracks, ...circleTracks];
-        // If still loading, fallback to Spotify Top 50 Indonesia & Global, NEVER old database test plays
+        // If still loading and completely empty, fallback cleanly
         if (rawPool.length === 0) {
-          rawPool = [...indonesiaTop50, ...globalTrending];
+          const isIndo = lowerPrefs.some((p) => /sal|bernadya|hindia|nadin|tulus|sheila|dewa|mahalini|tiara|denny/i.test(p));
+          rawPool = isIndo ? [...indonesiaTop50, ...globalTrending] : [...globalTrending, ...indonesiaTop50];
         }
       } else {
         rawPool = [
-          ...relatedQueue,
           ...indonesiaTop50,
           ...globalTrending,
           ...viralIndonesia
@@ -1746,9 +1869,10 @@ export default function BrnsicMusicPage() {
       recentHistoryRef.current,
       dislikedSongIds,
       24,
-      true // allowRecent = true: boosts user's favorite played songs right to the top!
+      true, // allowRecent = true: boosts user's favorite played songs right to the top!
+      userPreferredArtists // Strict priority for chosen artists
     );
-  }, [homeFilter, userPreferredArtists, topArtistShelfTracks, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, globalTrending, relatedQueue, activeMoodInfo, dislikedSongIds]);
+  }, [homeFilter, userPreferredArtists, topArtistShelfTracks, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, globalTrending, activeMoodInfo, dislikedSongIds]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
@@ -3498,6 +3622,32 @@ export default function BrnsicMusicPage() {
         }).catch(() => {});
       }
 
+      // Preload chosen artist tracks immediately so home shelf is populated in 0ms
+      const primaryArtist = selectedOnboardingArtists[0];
+      if (primaryArtist) {
+        fetch(`/api/search?q=${encodeURIComponent(primaryArtist)}`)
+          .then((r) => r.json())
+          .then((sData) => {
+            const list = sData.songs || sData.results || [];
+            if (list.length > 0) {
+              const formatted = list.map((s: any) => ({
+                id: s.trackId || `track-${s.id}`,
+                title: s.trackName || s.title,
+                artist: s.artistName || s.artist,
+                album: s.album || "Single",
+                cover: s.artworkUrl100 || s.cover,
+                duration: s.duration || 210,
+                genre: "Pop"
+              }));
+              setTopArtistShelfTracks(formatted);
+              try {
+                localStorage.setItem("brnsic_cached_top_artist_tracks", JSON.stringify(formatted));
+              } catch (e) {}
+            }
+          })
+          .catch(() => {});
+      }
+
       setIsOnboardingModalOpen(false);
       showToast(`Preferensi tersimpan! Selera: ${persona}`);
 
@@ -3512,7 +3662,9 @@ export default function BrnsicMusicPage() {
           rest,
           recentHistoryRef.current,
           dislikedSongIds,
-          rest.length
+          rest.length,
+          false,
+          selectedOnboardingArtists
         );
 
         return [current, ...ranked];

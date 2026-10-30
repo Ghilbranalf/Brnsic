@@ -103,7 +103,11 @@ export const ARTIST_EMBEDDINGS: Record<string, FeatureVector> = {
   "ndarboy genk": [0.35, 0.85, 0.7, 0.9, 0.6, 0.2, 0.3, 1.0, 0.1, 0.0, 0.3, 0.85],
   "woro widowati": [0.6, 0.7, 0.6, 0.8, 0.6, 0.3, 0.2, 0.95, 0.2, 0.0, 0.3, 0.8],
   "kendrick lamar": [0.2, 0.9, 0.6, 0.85, 0.1, 0.2, 0.3, 0.0, 1.0, 0.95, 0.3, 0.95],
-  "dua lipa": [0.2, 0.9, 0.85, 0.95, 0.2, 0.1, 0.2, 0.0, 0.7, 1.0, 0.3, 0.95]
+  "dua lipa": [0.2, 0.9, 0.85, 0.95, 0.2, 0.1, 0.2, 0.0, 0.7, 1.0, 0.3, 0.95],
+  "xxxtentacion": [0.35, 0.85, 0.25, 0.75, 0.1, 0.3, 0.3, 0.0, 0.95, 0.95, 0.2, 0.95],
+  "juice wrld": [0.35, 0.8, 0.3, 0.75, 0.1, 0.3, 0.4, 0.0, 0.95, 0.9, 0.25, 0.9],
+  "travis scott": [0.15, 0.95, 0.5, 0.85, 0.1, 0.1, 0.2, 0.0, 0.9, 0.95, 0.4, 0.95],
+  "drake": [0.25, 0.85, 0.6, 0.85, 0.1, 0.1, 0.2, 0.0, 0.95, 0.95, 0.5, 0.95]
 };
 
 // Generic Fallback Vector
@@ -253,18 +257,21 @@ export function rankTracksByDeepLearning(
   recentCooldown: string[] = [],
   dislikedIds: string[] = [],
   count: number = 24,
-  allowRecent: boolean = false
+  allowRecent: boolean = false,
+  priorityArtists: string[] = []
 ): any[] {
   const seen = new Set<string>();
   const scored: Array<{ track: any; finalScore: number }> = [];
 
   const cooldownSet = new Set(recentCooldown.map((t) => t.toLowerCase().trim()));
   const dislikeSet = new Set(dislikedIds.map((id) => id.toLowerCase().trim()));
+  const priorityList = priorityArtists.map((a) => a.toLowerCase().trim()).filter(Boolean);
 
   for (let i = 0; i < candidates.length; i++) {
     const t = candidates[i];
     if (!t) continue;
     const cleanTitle = (t.title || t.trackName || "").toLowerCase().trim();
+    const trackArtist = (t.artist || t.artistName || "").toLowerCase().trim();
     const trackId = (t.id || t.trackId || "").toString().toLowerCase().trim();
 
     if (!cleanTitle || seen.has(cleanTitle)) continue;
@@ -284,9 +291,13 @@ export function rankTracksByDeepLearning(
     // If the song was played by the user recently, boost its relevance on personalized shelves!
     const familiarityBoost = (allowRecent && isRecent) ? 0.25 : 0;
 
+    // Priority artist guarantee: If shelf is dedicated to an artist, their songs ALWAYS rank first!
+    const isPriority = priorityList.length > 0 && priorityList.some((p) => trackArtist.includes(p) || p.includes(trackArtist));
+    const priorityBoost = isPriority ? 5.0 : 0;
+
     // UCB1 Exploration Term (Balances familiar songs with fresh discoveries)
     const explorationTerm = 0.08 * Math.sqrt(Math.log(candidates.length + 1) / (i + 1));
-    const finalScore = cosine + familiarityBoost + explorationTerm;
+    const finalScore = cosine + familiarityBoost + explorationTerm + priorityBoost;
 
     scored.push({ track: t, finalScore });
   }
@@ -315,36 +326,85 @@ export function detectUserMood(
   const indie = userVector[5];
   const rockNostalgia = userVector[6];
   const dangdut = userVector[7];
+  const hiphop = userVector[8];
   const globalPop = userVector[9];
 
   // 1. Personalized Artist AI Intelligence (When user has established listening preference or chosen onboarding artists)
   if (topArtist) {
-    if (indie > 0.5 || globalPop > 0.6) {
+    if (
+      hiphop > 0.55 ||
+      /xxxtentacion|juice wrld|travis scott|drake|kendrick|eminem|post malone|kanye|21 savage|future|j\.? cole|lil |tyler|playboi/i.test(topArtist)
+    ) {
+      return {
+        moodKey: "energetic",
+        badgeText: `AI Taste Intelligence • Hip-Hop & Rap • Favorit: ${topArtist}`,
+        shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
+        shelfDescription: `Disesuaikan dengan pilihan artismu: ${topArtist} dan vibe musik hip-hop favoritmu.`,
+        targetVector: userVector
+      };
+    }
+
+    if (
+      rockNostalgia > 0.5 ||
+      /sheila|dewa|peterpan|padi|noah|naif|ungu|slank|my chemical|mcr|coldplay|green day|linkin park|paramore|avenged|bring me/i.test(topArtist)
+    ) {
+      return {
+        moodKey: "nostalgia",
+        badgeText: `AI Taste Intelligence • Rock & Alternatif • Favorit: ${topArtist}`,
+        shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
+        shelfDescription: `Racikan lagu terbaik dari ${topArtist} dan distorsi musik favoritmu.`,
+        targetVector: userVector
+      };
+    }
+
+    if (
+      dangdut > 0.5 ||
+      /denny caknan|happy asmara|guyon waton|ndx|gilga|woro widowati|ndarboy/i.test(topArtist)
+    ) {
+      return {
+        moodKey: "energetic",
+        badgeText: `AI Taste Intelligence • Dangdut Koplo • Favorit: ${topArtist}`,
+        shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
+        shelfDescription: `Lagu terpopuler dari ${topArtist} dan irama dangdut modern favoritmu.`,
+        targetVector: userVector
+      };
+    }
+
+    if (
+      (popIndo > 0.65 && valence < 0.45) ||
+      /bernadya|mahalini|tiara andini|lyodra|fabio asher|keisya|anggi marito|judika|raisa/i.test(topArtist)
+    ) {
+      return {
+        moodKey: "melancholy",
+        badgeText: `AI Taste Intelligence • Pop Galau Indonesia • Favorit: ${topArtist}`,
+        shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
+        shelfDescription: `Disesuaikan dengan nuansa reflektif dan deretan lagu ${topArtist} yang kamu sukai.`,
+        targetVector: userVector
+      };
+    }
+
+    if (
+      indie > 0.5 ||
+      /sal priadi|hindia|nadin amizah|fourtwnty|pamungkas|fiersa besari|kunto aji|idgitaf/i.test(topArtist)
+    ) {
       return {
         moodKey: "neutral",
-        badgeText: `AI Taste Intelligence • Indie Pop & Alternative • Favorit: ${topArtist}`,
+        badgeText: `AI Taste Intelligence • Indie Pop & Senja • Favorit: ${topArtist}`,
         shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
         shelfDescription: `Disesuaikan dengan pilihan artismu: ${topArtist} dan musisi satu frekuensi yang kamu sukai.`,
         targetVector: userVector
       };
     }
 
-    if (rockNostalgia > 0.5 || /sheila|dewa|peterpan|padi|noah|naif|ungu|slank|my chemical|mcr|coldplay/i.test(topArtist)) {
+    if (
+      globalPop > 0.55 ||
+      /taylor swift|ariana grande|billie eilish|dua lipa|justin bieber|olivia rodrigo|sabrina carpenter|ed sheeran|bruno mars|the weeknd/i.test(topArtist)
+    ) {
       return {
-        moodKey: "nostalgia",
-        badgeText: `AI Taste Intelligence • Favorit: ${topArtist}`,
+        moodKey: "energetic",
+        badgeText: `AI Taste Intelligence • Hits Global & Pop • Favorit: ${topArtist}`,
         shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
-        shelfDescription: `Racikan lagu terbaik dari ${topArtist} dan album favoritmu.`,
-        targetVector: userVector
-      };
-    }
-
-    if (popIndo > 0.65 && valence < 0.4) {
-      return {
-        moodKey: "melancholy",
-        badgeText: `AI Taste Intelligence • Reflektif & Sendu • Favorit: ${topArtist}`,
-        shelfTitle: `Spesial Untukmu & Fans ${topArtist}`,
-        shelfDescription: `Disesuaikan dengan nuansa reflektif dan musik ${topArtist} yang kamu sukai.`,
+        shelfDescription: `Koleksi lagu terbaik dari ${topArtist} dan deretan hits internasional favoritmu.`,
         targetVector: userVector
       };
     }
