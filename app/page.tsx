@@ -5713,7 +5713,7 @@ export default function BrnsicMusicPage() {
           {!isInsideNativeApk && (
             <button
               onClick={handleInstallClick}
-              className="w-9 h-9 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black transition flex items-center justify-center shadow-[0_0_15px_rgba(30,215,96,0.3)] hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0"
+              className="w-9 h-9 rounded-full bg-white hover:bg-neutral-200 text-black transition flex items-center justify-center shadow hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0"
               title="Download APK Resmi Brnsic (Android)"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -5901,7 +5901,7 @@ export default function BrnsicMusicPage() {
                 {!isInsideNativeApk && (
                   <button
                     onClick={handleInstallClick}
-                    className="w-8 h-8 rounded-full bg-[#1ed760] text-black hover:bg-[#1fdf64] shadow-[0_0_15px_rgba(30,215,96,0.4)] hover:scale-105 active:scale-95 transition flex items-center justify-center cursor-pointer flex-shrink-0"
+                    className="w-8 h-8 rounded-full bg-white text-black hover:bg-neutral-200 shadow hover:scale-105 active:scale-95 transition flex items-center justify-center cursor-pointer flex-shrink-0"
                     title="Download APK Android"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -9216,7 +9216,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className={`relative flex items-center justify-center transition-all duration-300 ${
                   currentView === "home"
-                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
+                    ? "w-11 h-11 rounded-full bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105 font-black"
                     : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
                 }`}
                 title="Home"
@@ -9234,7 +9234,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className={`relative flex items-center justify-center transition-all duration-300 ${
                   currentView === "liked"
-                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
+                    ? "w-11 h-11 rounded-full bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105 font-black"
                     : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
                 }`}
                 title="Lagu yang Disukai"
@@ -9252,7 +9252,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className={`relative flex items-center justify-center transition-all duration-300 ${
                   currentView === "search"
-                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
+                    ? "w-11 h-11 rounded-full bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105 font-black"
                     : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
                 }`}
                 title="Cari"
@@ -9271,7 +9271,7 @@ export default function BrnsicMusicPage() {
                 }}
                 className={`relative flex items-center justify-center transition-all duration-300 ${
                   currentView === "playlists" || currentView === "custom-playlist"
-                    ? "w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-[0_0_20px_rgba(30,215,96,0.5)] scale-105 font-black"
+                    ? "w-11 h-11 rounded-full bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] scale-105 font-black"
                     : "w-11 h-11 rounded-full text-white/50 hover:text-white hover:bg-white/5"
                 }`}
                 title="My Playlist"
