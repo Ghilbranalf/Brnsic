@@ -619,6 +619,69 @@ const POPULAR_SEARCH_CATALOG = [
     duration: 311,
     youtubeId: "G-I9csAflBs",
     tags: ["welcome", "black", "parade", "mcr", "my", "chemical", "romance"]
+  },
+  {
+    title: "Baby (feat. Ludacris)",
+    artist: "Justin Bieber",
+    album: "My World 2.0",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/73/08/1a/73081a96-0f7c-b5f8-2757-5c17fb714323/12UMGIM31899.rgb.jpg/600x600bb.jpg",
+    duration: 214,
+    youtubeId: "TpddIBTiDUc",
+    tags: ["baby", "justin", "bieber", "ludacris", "pop"]
+  },
+  {
+    title: "Ghost",
+    artist: "Justin Bieber",
+    album: "Justice",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/73/08/1a/73081a96-0f7c-b5f8-2757-5c17fb714323/12UMGIM31899.rgb.jpg/600x600bb.jpg",
+    duration: 153,
+    youtubeId: "Fp8msa5uYsc",
+    tags: ["ghost", "justin", "bieber", "justice"]
+  },
+  {
+    title: "Birds of a Feather",
+    artist: "Billie Eilish",
+    album: "HIT ME HARD AND SOFT",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/92/9f/69/929f69f1-9977-3a44-d674-11f70c852d1b/24UMGIM36186.rgb.jpg/600x600bb.jpg",
+    duration: 196,
+    youtubeId: "V9PVRfjEBTI",
+    tags: ["birds", "feather", "billie", "eilish", "hit", "hard", "soft"]
+  },
+  {
+    title: "Yellow",
+    artist: "Coldplay",
+    album: "Parachutes",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/0c/82/48/0c8248a8-4a5b-d30d-8056-f32d650d2fc9/190295978068.jpg/600x600bb.jpg",
+    duration: 269,
+    youtubeId: "mRP72Ib2e9I",
+    tags: ["yellow", "coldplay", "parachutes", "look", "at", "the", "stars"]
+  },
+  {
+    title: "Bohemian Rhapsody",
+    artist: "Queen",
+    album: "A Night at the Opera",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/b0/ca/05/b0ca05aa-29c9-4e01-5a16-f6fa06bce05c/602527594347.jpg/600x600bb.jpg",
+    duration: 354,
+    youtubeId: "xG16sdjLtc0",
+    tags: ["bohemian", "rhapsody", "queen", "freddie", "mercury", "mama"]
+  },
+  {
+    title: "Wonderwall",
+    artist: "Oasis",
+    album: "(What's the Story) Morning Glory?",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/91/9d/c6/919dc6db-73f5-48ab-5e68-1d746c3d3042/4550795884898_cover.png/600x600bb.jpg",
+    duration: 258,
+    youtubeId: "FVdjZYfDuLE",
+    tags: ["wonderwall", "oasis", "liam", "gallagher", "today", "is", "gonna"]
+  },
+  {
+    title: "seasons",
+    artist: "wave to earth",
+    album: "0.1 flaws and all.",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/fa/c5/61/fac561dc-8db4-b2e9-d3db-6e246da72bfa/5054197890017.jpg/600x600bb.jpg",
+    duration: 256,
+    youtubeId: "CnVVjLOGVoY",
+    tags: ["seasons", "wave", "to", "earth", "korean", "indie", "flaws"]
   }
 ];
 
@@ -1396,6 +1459,11 @@ export default function BrnsicMusicPage() {
   // 9. Instant Live Search State
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchTopResult, setSearchTopResult] = useState<any | null>(null);
+  const [searchArtists, setSearchArtists] = useState<any[]>([]);
+  const [searchAlbums, setSearchAlbums] = useState<any[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+  const [searchFilterTab, setSearchFilterTab] = useState<"all" | "songs" | "artists" | "albums">("all");
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [userIsScrollingLyrics, setUserIsScrollingLyrics] = useState<boolean>(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
@@ -4680,6 +4748,19 @@ export default function BrnsicMusicPage() {
     }
   };
 
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchTopResult(null);
+    setSearchArtists([]);
+    setSearchAlbums([]);
+    setSearchSuggestions([]);
+    setSearchFilterTab("all");
+    setSearchCorrectedQuery(null);
+    setIsSearching(false);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+  };
+
   // SPOTIFY-LIKE INSTANT SEARCH WITH FUZZY & TYPO MATCHING (0ms Client Response!)
   const handleSearchInput = (query: string) => {
     setSearchQuery(query);
@@ -4687,8 +4768,7 @@ export default function BrnsicMusicPage() {
 
     const trimmed = query.trim();
     if (!trimmed) {
-      setSearchResults([]);
-      setIsSearching(false);
+      handleClearSearch();
       return;
     }
 
@@ -4812,6 +4892,10 @@ export default function BrnsicMusicPage() {
     const q = query.trim();
     if (!q) {
       setSearchResults([]);
+      setSearchTopResult(null);
+      setSearchArtists([]);
+      setSearchAlbums([]);
+      setSearchSuggestions([]);
       setSearchCorrectedQuery(null);
       setIsSearching(false);
       return;
@@ -4828,14 +4912,19 @@ export default function BrnsicMusicPage() {
           setSearchCorrectedQuery(null);
         }
 
-        const fetchedResults = data.results || [];
-        if (fetchedResults.length > 0) {
-          setSearchResults(fetchedResults);
+        const fetchedSongs = data.songs || data.results || [];
+        if (fetchedSongs.length > 0) {
+          setSearchResults(fetchedSongs);
         } else if (existingInstant.length > 0) {
           setSearchResults(existingInstant);
         } else {
           setSearchResults([]);
         }
+
+        setSearchTopResult(data.topResult || null);
+        setSearchArtists(data.artists || []);
+        setSearchAlbums(data.albums || []);
+        setSearchSuggestions(data.suggestions || []);
       }
     } catch (err) {
       if (latestSearchQueryRef.current === q) {
@@ -4854,6 +4943,21 @@ export default function BrnsicMusicPage() {
     // Build an intelligent radio queue of related songs by this artist & recommendations,
     // instead of playing only other songs matching the raw search query keyword!
     handlePlaySingleSongWithRadio(song);
+  };
+
+  const handlePlayArtistTopResult = (artistItem: any) => {
+    hasUserStartedPlaybackRef.current = true;
+    setHasUserStartedPlayback(true);
+    if (artistItem.topTracks && artistItem.topTracks.length > 0) {
+      handlePlayFromList(artistItem.topTracks[0], artistItem.topTracks, 0);
+    } else {
+      const matchingSong = searchResults.find(
+        (s) => (s.artistName || "").toLowerCase().includes((artistItem.title || artistItem.name || "").toLowerCase())
+      ) || searchResults[0];
+      if (matchingSong) {
+        handlePlaySingleSongWithRadio(matchingSong);
+      }
+    }
   };
 
   const togglePlay = () => {
@@ -5313,10 +5417,7 @@ export default function BrnsicMusicPage() {
             />
             {searchQuery && (
               <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setSearchResults([]);
-                }}
+                onClick={handleClearSearch}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#b3b3b3] hover:text-white p-1.5 flex items-center justify-center transition"
                 title="Hapus pencarian"
               >
@@ -7200,10 +7301,7 @@ export default function BrnsicMusicPage() {
                   {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setSearchQuery("");
-                        setSearchResults([]);
-                      }}
+                      onClick={handleClearSearch}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#b3b3b3] hover:text-white p-1.5 flex items-center justify-center transition"
                       title="Hapus pencarian"
                     >
@@ -7215,6 +7313,58 @@ export default function BrnsicMusicPage() {
                   )}
                 </form>
               </div>
+
+              {/* SEARCH TABS & LIVE SUGGESTIONS BAR */}
+              {searchQuery && (
+                <div className="flex flex-col gap-2.5 -mt-2">
+                  {/* Category Filter Tabs (Spotify Style) */}
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                    {[
+                      { id: "all", label: "Semua" },
+                      { id: "songs", label: "Lagu" },
+                      { id: "artists", label: "Artis" },
+                      { id: "albums", label: "Album" }
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setSearchFilterTab(tab.id as any)}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer flex-shrink-0 ${
+                          searchFilterTab === tab.id
+                            ? "bg-white text-black shadow"
+                            : "bg-white/10 hover:bg-white/15 text-white/80"
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Live Trending Query Suggestions as user types */}
+                  {searchSuggestions.length > 0 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs pt-1">
+                      <span className="text-white/40 text-[11px] font-bold flex-shrink-0">
+                        Sering dicari:
+                      </span>
+                      {searchSuggestions.slice(0, 5).map((sugg, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setSearchQuery(sugg);
+                            performSearch(sugg);
+                          }}
+                          className="px-3 py-1 rounded-full bg-white/5 hover:bg-white/15 text-white/80 hover:text-white border border-white/5 text-[11px] font-medium transition cursor-pointer flex-shrink-0 flex items-center gap-1"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[#1ed760]">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                          </svg>
+                          <span>{sugg}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {searchQuery ? (
                 <div>
@@ -7240,125 +7390,436 @@ export default function BrnsicMusicPage() {
                   </div>
 
                   {isSearching && searchResults.length === 0 ? (
-                    <div className="py-16 flex items-center justify-center">
-                      <BrnsicLoader size="lg" text="Mencari lagu &amp; artis terverifikasi..." />
+                    <div className="py-20 flex items-center justify-center">
+                      <BrnsicLoader size="lg" text="Mencari lagu, artis &amp; album terverifikasi..." />
                     </div>
-                  ) : searchResults.length > 0 ? (
-                    <div className="flex flex-col gap-6">
-                      {/* SPOTIFY-STYLE TOP RESULT & MATCHING SONGS SPLIT */}
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                        {/* 1. TOP RESULT CARD (HASIL TERATAS) */}
-                        <div className="col-span-12 md:col-span-5 flex flex-col gap-2">
-                          <span className="text-xs font-black uppercase tracking-wider text-white/50">
-                            Hasil Teratas
-                          </span>
-                          <div
-                            onClick={() => playSearchedSong(searchResults[0], 0)}
-                            className="bg-white/5 hover:bg-white/10 p-5 rounded-2xl flex flex-col justify-between group cursor-pointer transition relative border border-white/5 h-full min-h-[220px]"
-                          >
-                            <div className="w-24 h-24 rounded-2xl overflow-hidden shadow-2xl relative mb-3">
-                              <img
-                                src={searchResults[0].artworkUrl100}
-                                alt="top result thumb"
-                                onError={handleImgError}
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                              />
-                            </div>
-                            <div className="pr-16 min-w-0 max-w-full">
-                              <MarqueeText
-                                text={searchResults[0].trackName}
-                                className="text-2xl font-black text-white tracking-tight group-hover:text-[#1ed760] transition"
-                              />
-                              <div className="flex items-center gap-2 mt-1 min-w-0">
-                                <span className="text-xs bg-white/10 text-white font-bold px-2 py-0.5 rounded-full flex-shrink-0">
-                                  Lagu
+                  ) : searchResults.length > 0 || searchArtists.length > 0 || searchAlbums.length > 0 ? (
+                    <>
+                      {/* ============================================================== */}
+                      {/* VIEW: ALL (TAB "SEMUA") - SPOTIFY SPLIT & RICH MULTI-SHELF */}
+                      {/* ============================================================== */}
+                      {searchFilterTab === "all" && (
+                        <div className="flex flex-col gap-8">
+                          {/* 1. TOP RESULT & TOP SONGS SPLIT */}
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                            {/* TOP RESULT CARD */}
+                            {searchTopResult && (
+                              <div className="col-span-12 md:col-span-5 flex flex-col gap-2">
+                                <span className="text-xs font-black uppercase tracking-wider text-white/50">
+                                  Hasil Teratas
                                 </span>
-                                <span className="text-xs text-[#b3b3b3] font-semibold truncate min-w-0">
-                                  {searchResults[0].artistName}
-                                </span>
-                              </div>
 
-                              {/* Quick Queue Controls */}
-                              <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/5">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    addToNextQueue({
-                                      id: searchResults[0].trackId,
-                                      title: searchResults[0].trackName,
-                                      artist: searchResults[0].artistName,
-                                      album: searchResults[0].album || "Single",
-                                      cover: searchResults[0].artworkUrl100,
-                                      duration: searchResults[0].duration
-                                    });
-                                  }}
-                                  className="text-[11px] px-2.5 py-1 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-bold transition flex items-center gap-1 cursor-pointer"
-                                  title="Putar lagu ini berikutnya"
-                                >
-                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <polygon points="5 4 15 12 5 20 5 4"></polygon>
-                                    <line x1="19" y1="5" x2="19" y2="19"></line>
-                                  </svg>
-                                  <span>Putar Berikutnya</span>
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    addToQueueEnd({
-                                      id: searchResults[0].trackId,
-                                      title: searchResults[0].trackName,
-                                      artist: searchResults[0].artistName,
-                                      album: searchResults[0].album || "Single",
-                                      cover: searchResults[0].artworkUrl100,
-                                      duration: searchResults[0].duration
-                                    });
-                                  }}
-                                  className="text-[11px] px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/80 font-semibold transition cursor-pointer"
-                                  title="Tambahkan ke antrean"
-                                >
-                                  + Antrean
-                                </button>
+                                {searchTopResult.type === "artist" ? (
+                                  /* TOP RESULT: ARTIST CARD */
+                                  <div
+                                    onClick={() => handlePlayArtistTopResult(searchTopResult)}
+                                    className="bg-white/5 hover:bg-white/10 p-6 rounded-3xl flex flex-col justify-between group cursor-pointer transition relative border border-white/5 h-full min-h-[240px]"
+                                  >
+                                    <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden shadow-2xl relative mb-4 ring-2 ring-transparent group-hover:ring-[#1ed760] transition duration-500">
+                                      <img
+                                        src={searchTopResult.avatar}
+                                        alt={searchTopResult.title}
+                                        onError={handleImgError}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                      />
+                                    </div>
+                                    <div className="pr-16 min-w-0 max-w-full">
+                                      <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight group-hover:text-[#1ed760] transition truncate">
+                                        {searchTopResult.title}
+                                      </h3>
+                                      <div className="flex items-center gap-2 mt-1.5">
+                                        <span className="text-[11px] bg-[#1ed760] text-black font-extrabold px-2.5 py-0.5 rounded-full flex-shrink-0">
+                                          Artis
+                                        </span>
+                                        <span className="text-xs text-[#b3b3b3] font-semibold truncate">
+                                          {searchTopResult.artist || "Penyanyi Populer"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    {/* Play Artist Discography Button */}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePlayArtistTopResult(searchTopResult);
+                                      }}
+                                      className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-[#1ed760] text-black shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition cursor-pointer"
+                                      title={`Putar semua lagu ${searchTopResult.title}`}
+                                    >
+                                      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M8 5v14l11-7z" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  /* TOP RESULT: SONG CARD */
+                                  <div
+                                    onClick={() => playSearchedSong(searchTopResult, 0)}
+                                    className="bg-white/5 hover:bg-white/10 p-5 rounded-3xl flex flex-col justify-between group cursor-pointer transition relative border border-white/5 h-full min-h-[220px]"
+                                  >
+                                    <div className="w-24 h-24 rounded-2xl overflow-hidden shadow-2xl relative mb-3">
+                                      <img
+                                        src={searchTopResult.artworkUrl100}
+                                        alt="top result thumb"
+                                        onError={handleImgError}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                      />
+                                    </div>
+                                    <div className="pr-16 min-w-0 max-w-full">
+                                      <MarqueeText
+                                        text={searchTopResult.trackName}
+                                        className="text-2xl font-black text-white tracking-tight group-hover:text-[#1ed760] transition"
+                                      />
+                                      <div className="flex items-center gap-2 mt-1 min-w-0">
+                                        <span className="text-xs bg-white/10 text-white font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                                          Lagu
+                                        </span>
+                                        <span className="text-xs text-[#b3b3b3] font-semibold truncate min-w-0">
+                                          {searchTopResult.artistName}
+                                        </span>
+                                      </div>
+
+                                      {/* Quick Queue Controls */}
+                                      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/5">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            addToNextQueue({
+                                              id: searchTopResult.trackId,
+                                              title: searchTopResult.trackName,
+                                              artist: searchTopResult.artistName,
+                                              album: searchTopResult.album || "Single",
+                                              cover: searchTopResult.artworkUrl100,
+                                              duration: searchTopResult.duration
+                                            });
+                                          }}
+                                          className="text-[11px] px-2.5 py-1 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-bold transition flex items-center gap-1 cursor-pointer"
+                                          title="Putar lagu ini berikutnya"
+                                        >
+                                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                                            <line x1="19" y1="5" x2="19" y2="19"></line>
+                                          </svg>
+                                          <span>Putar Berikutnya</span>
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            addToQueueEnd({
+                                              id: searchTopResult.trackId,
+                                              title: searchTopResult.trackName,
+                                              artist: searchTopResult.artistName,
+                                              album: searchTopResult.album || "Single",
+                                              cover: searchTopResult.artworkUrl100,
+                                              duration: searchTopResult.duration
+                                            });
+                                          }}
+                                          className="text-[11px] px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/80 font-semibold transition cursor-pointer"
+                                          title="Tambahkan ke antrean"
+                                        >
+                                          + Antrean
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Floating Play Button */}
+                                    <button
+                                      className="absolute bottom-5 right-5 w-12 h-12 rounded-full bg-[#1ed760] text-black shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition"
+                                      title="Putar Lagu Ini"
+                                    >
+                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M8 5v14l11-7z" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* MATCHING SONGS LIST (TOP 4 TRACKS) */}
+                            <div className={`col-span-12 ${searchTopResult ? "md:col-span-7" : "md:col-span-12"} flex flex-col gap-2`}>
+                              <span className="text-xs font-black uppercase tracking-wider text-white/50">
+                                {searchTopResult?.type === "artist" ? `Lagu Terpopuler ${searchTopResult.title}` : "Lagu Terkait"}
+                              </span>
+                              <div className="flex flex-col gap-1">
+                                {searchResults.slice(0, 4).map((song, i) => (
+                                  <div
+                                    key={song.trackId || i}
+                                    onClick={() => playSearchedSong(song, i)}
+                                    className="grid grid-cols-[32px_1fr_auto_45px] items-center gap-3 p-2 rounded-xl hover:bg-white/10 cursor-pointer transition group"
+                                  >
+                                    <span className="text-[#b3b3b3] text-xs text-center font-medium">{i + 1}</span>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <img
+                                        src={song.artworkUrl100}
+                                        alt="thumb"
+                                        onError={handleImgError}
+                                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                      />
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-semibold text-white truncate group-hover:text-[#1ed760]">
+                                          {song.trackName}
+                                        </div>
+                                        <div className="text-xs text-[#b3b3b3] truncate">
+                                          {song.artistName}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          addToQueueEnd({
+                                            id: song.trackId,
+                                            title: song.trackName,
+                                            artist: song.artistName,
+                                            album: song.album || "Single",
+                                            cover: song.artworkUrl100,
+                                            duration: song.duration
+                                          });
+                                        }}
+                                        className="hidden sm:inline-flex text-[11px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-medium transition cursor-pointer"
+                                        title="Tambahkan ke antrean"
+                                      >
+                                        + Antrean
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSongActionMenu({
+                                            song: {
+                                              id: song.trackId,
+                                              title: song.trackName,
+                                              artist: song.artistName,
+                                              album: song.album || "Single",
+                                              cover: song.artworkUrl100,
+                                              duration: song.duration
+                                            }
+                                          });
+                                        }}
+                                        className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
+                                        title="Opsi lagu lainnya"
+                                      >
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                          <circle cx="5" cy="12" r="2" />
+                                          <circle cx="12" cy="12" r="2" />
+                                          <circle cx="19" cy="12" r="2" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                    <span className="text-xs text-[#b3b3b3] text-right">
+                                      {formatTime(song.duration)}
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
                             </div>
-
-                            {/* Floating Play Button */}
-                            <button
-                              className="absolute bottom-5 right-5 w-12 h-12 rounded-full bg-[#1ed760] text-black shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition"
-                              title="Putar Lagu Ini"
-                            >
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                            </button>
                           </div>
-                        </div>
 
-                        {/* 2. MATCHING SONGS LIST (LAGU TERKAIT) */}
-                        <div className="col-span-12 md:col-span-7 flex flex-col gap-2">
-                          <span className="text-xs font-black uppercase tracking-wider text-white/50">
-                            Lagu Terkait Lainnya
+                          {/* 2. ARTISTS SECTION (PROFIL ARTIS SPOTIFY) */}
+                          {searchArtists.length > 0 && (
+                            <section className="flex flex-col gap-3 pt-2 border-t border-white/5">
+                              <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-black text-white tracking-tight">Artis Terkait</h2>
+                                <button
+                                  onClick={() => setSearchFilterTab("artists")}
+                                  className="text-xs text-white/50 hover:text-white font-bold transition cursor-pointer"
+                                >
+                                  Lihat semua
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+                                {searchArtists.slice(0, 6).map((artist) => (
+                                  <div
+                                    key={artist.id}
+                                    onClick={() => {
+                                      setSearchQuery(artist.name);
+                                      performSearch(artist.name);
+                                    }}
+                                    className="bg-white/5 hover:bg-white/10 p-4 rounded-2xl flex flex-col items-center text-center group cursor-pointer transition border border-white/5"
+                                  >
+                                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden shadow-xl mb-3 relative ring-2 ring-transparent group-hover:ring-[#1ed760] transition duration-300">
+                                      <img
+                                        src={artist.avatar}
+                                        alt={artist.name}
+                                        onError={handleImgError}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                      />
+                                    </div>
+                                    <span className="text-xs sm:text-sm font-bold text-white group-hover:text-[#1ed760] transition truncate max-w-full">
+                                      {artist.name}
+                                    </span>
+                                    <span className="text-[10px] text-white/50 capitalize mt-0.5">
+                                      Artis
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+
+                          {/* 3. ALBUMS SECTION (ALBUM RESMI SPOTIFY) */}
+                          {searchAlbums.length > 0 && (
+                            <section className="flex flex-col gap-3 pt-2 border-t border-white/5">
+                              <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-black text-white tracking-tight">Album &amp; Single</h2>
+                                <button
+                                  onClick={() => setSearchFilterTab("albums")}
+                                  className="text-xs text-white/50 hover:text-white font-bold transition cursor-pointer"
+                                >
+                                  Lihat semua
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 sm:gap-4">
+                                {searchAlbums.slice(0, 4).map((album) => (
+                                  <div
+                                    key={album.id}
+                                    onClick={() => openAlbumView(album.name, album.artist, album.collectionId)}
+                                    className="bg-white/5 hover:bg-white/10 p-3.5 rounded-2xl flex flex-col group cursor-pointer transition border border-white/5 relative"
+                                  >
+                                    <div className="w-full aspect-square rounded-xl overflow-hidden shadow-lg mb-3 relative">
+                                      <img
+                                        src={album.cover}
+                                        alt={album.name}
+                                        onError={handleImgError}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                      />
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openAlbumView(album.name, album.artist, album.collectionId);
+                                        }}
+                                        className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black shadow-xl flex items-center justify-center opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-2 transition duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+                                        title="Buka Album"
+                                      >
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M8 5v14l11-7z" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                    <span className="text-xs sm:text-sm font-bold text-white group-hover:text-[#1ed760] transition truncate max-w-full">
+                                      {album.name}
+                                    </span>
+                                    <span className="text-[11px] text-white/50 truncate max-w-full mt-0.5">
+                                      {album.year ? `${album.year} • ` : ""}{album.artist}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+
+                          {/* 4. REMAINING SONGS FULL LIST */}
+                          {searchResults.length > 4 && (
+                            <section className="flex flex-col gap-2 pt-2 border-t border-white/5">
+                              <span className="text-xs font-black uppercase tracking-wider text-white/50 mb-1">
+                                Semua Lagu Lainnya
+                              </span>
+                              <div className="flex flex-col gap-1">
+                                {searchResults.slice(4).map((song, i) => (
+                                  <div
+                                    key={song.trackId || i + 4}
+                                    onClick={() => playSearchedSong(song, i + 4)}
+                                    className="grid grid-cols-[32px_1fr_auto_45px] items-center gap-3 p-2 rounded-xl hover:bg-white/10 cursor-pointer transition group"
+                                  >
+                                    <span className="text-[#b3b3b3] text-xs text-center font-medium">{i + 5}</span>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <img
+                                        src={song.artworkUrl100}
+                                        alt="thumb"
+                                        onError={handleImgError}
+                                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                      />
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-semibold text-white truncate group-hover:text-[#1ed760]">
+                                          {song.trackName}
+                                        </div>
+                                        <div className="text-xs text-[#b3b3b3] truncate">
+                                          {song.artistName}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          addToQueueEnd({
+                                            id: song.trackId,
+                                            title: song.trackName,
+                                            artist: song.artistName,
+                                            album: song.album || "Single",
+                                            cover: song.artworkUrl100,
+                                            duration: song.duration
+                                          });
+                                        }}
+                                        className="hidden sm:inline-flex text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-medium transition cursor-pointer"
+                                        title="Tambahkan ke antrean"
+                                      >
+                                        + Antrean
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSongActionMenu({
+                                            song: {
+                                              id: song.trackId,
+                                              title: song.trackName,
+                                              artist: song.artistName,
+                                              album: song.album || "Single",
+                                              cover: song.artworkUrl100,
+                                              duration: song.duration
+                                            }
+                                          });
+                                        }}
+                                        className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
+                                        title="Opsi lagu lainnya"
+                                      >
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                          <circle cx="5" cy="12" r="2" />
+                                          <circle cx="12" cy="12" r="2" />
+                                          <circle cx="19" cy="12" r="2" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                    <span className="text-xs text-[#b3b3b3] text-right">
+                                      {formatTime(song.duration)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ============================================================== */}
+                      {/* VIEW: ONLY SONGS (TAB "LAGU") */}
+                      {/* ============================================================== */}
+                      {searchFilterTab === "songs" && (
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-black uppercase tracking-wider text-white/50 mb-1">
+                            Daftar Semua Lagu ({searchResults.length})
                           </span>
                           <div className="flex flex-col gap-1">
-                            {searchResults.slice(1, 6).map((song, i) => (
+                            {searchResults.map((song, i) => (
                               <div
-                                key={song.trackId || i + 1}
-                                onClick={() => playSearchedSong(song, i + 1)}
-                                className="grid grid-cols-[32px_1fr_auto_45px] items-center gap-3 p-2 rounded-xl hover:bg-white/10 cursor-pointer transition group"
+                                key={song.trackId || i}
+                                onClick={() => playSearchedSong(song, i)}
+                                className="grid grid-cols-[32px_1fr_auto_45px] items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 cursor-pointer transition group"
                               >
-                                <span className="text-[#b3b3b3] text-xs text-center font-medium">{i + 2}</span>
+                                <span className="text-[#b3b3b3] text-xs text-center font-medium">{i + 1}</span>
                                 <div className="flex items-center gap-3 min-w-0">
                                   <img
                                     src={song.artworkUrl100}
                                     alt="thumb"
                                     onError={handleImgError}
-                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                    className="w-11 h-11 rounded-lg object-cover flex-shrink-0 shadow"
                                   />
                                   <div className="min-w-0">
                                     <div className="text-sm font-semibold text-white truncate group-hover:text-[#1ed760]">
                                       {song.trackName}
                                     </div>
                                     <div className="text-xs text-[#b3b3b3] truncate">
-                                      {song.artistName} {song.source === "youtube" ? "• YouTube" : ""}
+                                      {song.artistName} {song.album ? `• ${song.album}` : ""}
                                     </div>
                                   </div>
                                 </div>
@@ -7375,7 +7836,7 @@ export default function BrnsicMusicPage() {
                                         duration: song.duration
                                       });
                                     }}
-                                    className="hidden sm:inline-flex text-[11px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-medium transition cursor-pointer"
+                                    className="hidden sm:inline-flex text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-medium transition cursor-pointer"
                                     title="Tambahkan ke antrean"
                                   >
                                     + Antrean
@@ -7411,87 +7872,94 @@ export default function BrnsicMusicPage() {
                             ))}
                           </div>
                         </div>
-                      </div>
+                      )}
 
-                      {/* Remaining songs in full width */}
-                      {searchResults.length > 6 && (
-                        <div className="flex flex-col gap-1 pt-2 border-t border-white/5">
-                          <span className="text-xs font-black uppercase tracking-wider text-white/50 mb-2">
-                            Semua Hasil Pencarian
+                      {/* ============================================================== */}
+                      {/* VIEW: ONLY ARTISTS (TAB "ARTIS") */}
+                      {/* ============================================================== */}
+                      {searchFilterTab === "artists" && (
+                        <div className="flex flex-col gap-4">
+                          <span className="text-xs font-black uppercase tracking-wider text-white/50">
+                            Semua Artis Terkait ({searchArtists.length})
                           </span>
-                          {searchResults.slice(6).map((song, i) => (
-                            <div
-                              key={song.trackId || i + 6}
-                              onClick={() => playSearchedSong(song, i + 6)}
-                              className="grid grid-cols-[36px_1fr_auto_50px] items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 cursor-pointer transition group"
-                            >
-                              <span className="text-[#b3b3b3] text-sm text-center font-medium">{i + 7}</span>
-                              <div className="flex items-center gap-3 min-w-0">
-                                <img
-                                  src={song.artworkUrl100}
-                                  alt="thumb"
-                                  onError={handleImgError}
-                                  className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                                />
-                                <div className="min-w-0">
-                                  <div className="text-sm font-semibold text-white truncate group-hover:text-[#1ed760]">
-                                    {song.trackName}
-                                  </div>
-                                  <div className="text-xs text-[#b3b3b3] truncate">
-                                    {song.artistName} {song.source === "youtube" ? "• YouTube Indie" : ""}
-                                  </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {searchArtists.map((artist) => (
+                              <div
+                                key={artist.id}
+                                onClick={() => {
+                                  setSearchQuery(artist.name);
+                                  performSearch(artist.name);
+                                  setSearchFilterTab("all");
+                                }}
+                                className="bg-white/5 hover:bg-white/10 p-5 rounded-3xl flex flex-col items-center text-center group cursor-pointer transition border border-white/5 relative"
+                              >
+                                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden shadow-2xl mb-4 relative ring-2 ring-transparent group-hover:ring-[#1ed760] transition duration-300">
+                                  <img
+                                    src={artist.avatar}
+                                    alt={artist.name}
+                                    onError={handleImgError}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                  />
                                 </div>
+                                <span className="text-sm sm:text-base font-bold text-white group-hover:text-[#1ed760] transition truncate max-w-full">
+                                  {artist.name}
+                                </span>
+                                <span className="text-xs text-white/50 capitalize mt-1">
+                                  {artist.genre || "Artis"}
+                                </span>
                               </div>
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    addToQueueEnd({
-                                      id: song.trackId,
-                                      title: song.trackName,
-                                      artist: song.artistName,
-                                      album: song.album || "Single",
-                                      cover: song.artworkUrl100,
-                                      duration: song.duration
-                                    });
-                                  }}
-                                  className="hidden sm:inline-flex text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-[#1ed760] hover:text-black text-white font-medium transition cursor-pointer"
-                                  title="Tambahkan ke antrean"
-                                >
-                                  + Antrean
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSongActionMenu({
-                                      song: {
-                                        id: song.trackId,
-                                        title: song.trackName,
-                                        artist: song.artistName,
-                                        album: song.album || "Single",
-                                        cover: song.artworkUrl100,
-                                        duration: song.duration
-                                      }
-                                    });
-                                  }}
-                                  className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition cursor-pointer"
-                                  title="Opsi lagu lainnya"
-                                >
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                                    <circle cx="5" cy="12" r="2" />
-                                    <circle cx="12" cy="12" r="2" />
-                                    <circle cx="19" cy="12" r="2" />
-                                  </svg>
-                                </button>
-                              </div>
-                              <span className="text-xs text-[#b3b3b3] text-right">
-                                {formatTime(song.duration)}
-                              </span>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
-                    </div>
+
+                      {/* ============================================================== */}
+                      {/* VIEW: ONLY ALBUMS (TAB "ALBUM") */}
+                      {/* ============================================================== */}
+                      {searchFilterTab === "albums" && (
+                        <div className="flex flex-col gap-4">
+                          <span className="text-xs font-black uppercase tracking-wider text-white/50">
+                            Semua Album &amp; Single ({searchAlbums.length})
+                          </span>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {searchAlbums.map((album) => (
+                              <div
+                                key={album.id}
+                                onClick={() => openAlbumView(album.name, album.artist, album.collectionId)}
+                                className="bg-white/5 hover:bg-white/10 p-4 rounded-2xl flex flex-col group cursor-pointer transition border border-white/5 relative"
+                              >
+                                <div className="w-full aspect-square rounded-xl overflow-hidden shadow-lg mb-3 relative">
+                                  <img
+                                    src={album.cover}
+                                    alt={album.name}
+                                    onError={handleImgError}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openAlbumView(album.name, album.artist, album.collectionId);
+                                    }}
+                                    className="absolute bottom-2 right-2 w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-xl flex items-center justify-center opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-2 transition duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+                                    title="Buka Album"
+                                  >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M8 5v14l11-7z" />
+                                    </svg>
+                                  </button>
+                                </div>
+                                <span className="text-sm font-bold text-white group-hover:text-[#1ed760] transition truncate max-w-full">
+                                  {album.name}
+                                </span>
+                                <span className="text-xs text-white/50 truncate max-w-full mt-1">
+                                  {album.year ? `${album.year} • ` : ""}{album.artist}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     !isSearching && (
                       <div className="text-center py-12 text-[#b3b3b3]">
@@ -7512,21 +7980,31 @@ export default function BrnsicMusicPage() {
                     </h2>
                     <div className="flex flex-wrap gap-2">
                       {[
-                        "Gala Bunga Matahari",
+                        "Justin Bieber",
+                        "Bernadya",
+                        "Helena",
+                        "Welcome to the Black Parade",
+                        "Sal Priadi",
+                        "Coldplay",
+                        "Taylor Swift",
+                        "Billie Eilish",
                         "Satu Bulan",
+                        "Gala Bunga Matahari",
                         "Evaluasi",
                         "Tampar",
                         "Dan...",
-                        "Sialan",
-                        "Mati-Matian",
-                        "Untungnya, Hidup Harus Tetap Berjalan",
-                        "Bunga Abadi",
-                        "Kangen"
+                        "Die With A Smile",
+                        "Birds of a Feather",
+                        "Queen",
+                        "Oasis"
                       ].map((chip, idx) => (
                         <button
                           key={idx}
-                          onClick={() => handleSearchInput(chip)}
-                          className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition border border-white/5 flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                          onClick={() => {
+                            setSearchQuery(chip);
+                            performSearch(chip);
+                          }}
+                          className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition border border-white/5 flex items-center gap-1.5 hover:scale-105 active:scale-95 cursor-pointer"
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <circle cx="11" cy="11" r="8"></circle>
