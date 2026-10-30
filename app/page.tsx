@@ -1845,10 +1845,21 @@ export default function BrnsicMusicPage() {
       if (islandPos === "left" || islandPos === "right") setIslandPosition(islandPos);
 
       const cachedUser = localStorage.getItem("brnsic_user_profile");
-      if (cachedUser) {
+      const cachedToken = localStorage.getItem("brnsic_auth_token");
+      if (cachedUser && cachedToken) {
         try {
-          setCurrentUser(JSON.parse(cachedUser));
+          const parsed = JSON.parse(cachedUser);
+          if (parsed && !parsed.email?.includes("@guest.") && !parsed.id?.startsWith("dev_")) {
+            setCurrentUser(parsed);
+          } else {
+            localStorage.removeItem("brnsic_user_profile");
+            setCurrentUser(null);
+          }
         } catch (e) {}
+      } else {
+        // Without an active auth token, user is in Guest Mode - NEVER show a fake "Pengguna" profile
+        localStorage.removeItem("brnsic_user_profile");
+        setCurrentUser(null);
       }
 
       const storedLikes = localStorage.getItem("brnsic_liked_songs");
@@ -1924,6 +1935,51 @@ export default function BrnsicMusicPage() {
               localStorage.setItem("brnsic_user_profile", JSON.stringify(data.user));
             } catch (e) {}
             setIsAuthModalOpen(false);
+
+            // OTOMATIS GABUNGKAN DATA TAMU KE AKUN:
+            // Menggabungkan lagu disukai, playlist, profil selera AI, dan riwayat aktivitas dari perangkat tamu
+            try {
+              const guestDevId = localStorage.getItem("brnsic_device_id");
+              const localLikes = JSON.parse(localStorage.getItem("brnsic_liked_songs") || "[]");
+              const localPls = JSON.parse(localStorage.getItem("brnsic_user_playlists") || "[]");
+              const localTaste = JSON.parse(localStorage.getItem("brnsic_user_taste_v1") || "{}");
+
+              if (guestDevId || localLikes.length > 0 || localPls.length > 0) {
+                fetch("/api/user/sync", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                  },
+                  credentials: "include",
+                  body: JSON.stringify({
+                    deviceId: guestDevId,
+                    likedSongs: localLikes,
+                    playlists: localPls,
+                    taste: localTaste
+                  })
+                })
+                  .then((sRes) => sRes.json())
+                  .then((sData) => {
+                    if (sData?.user) {
+                      setCurrentUser(sData.user);
+                      try {
+                        localStorage.setItem("brnsic_user_profile", JSON.stringify(sData.user));
+                        if (Array.isArray(sData.user.likedSongs)) {
+                          setLikedSongIds(sData.user.likedSongs);
+                          localStorage.setItem("brnsic_liked_songs", JSON.stringify(sData.user.likedSongs));
+                        }
+                        if (Array.isArray(sData.user.playlists)) {
+                          setUserPlaylists(sData.user.playlists);
+                          localStorage.setItem("brnsic_user_playlists", JSON.stringify(sData.user.playlists));
+                        }
+                      } catch (e) {}
+                    }
+                  })
+                  .catch(() => {});
+              }
+            } catch (e) {}
+
             if (data.user.taste) {
               setUserTaste(data.user.taste);
               const dbVector = buildUserTasteVector(
@@ -1950,6 +2006,13 @@ export default function BrnsicMusicPage() {
             if (!data.user.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
               setIsOnboardingModalOpen(true);
             }
+          } else {
+            // Not authenticated: ensure Guest mode has null currentUser
+            setCurrentUser(null);
+            try {
+              localStorage.removeItem("brnsic_user_profile");
+              localStorage.removeItem("brnsic_auth_token");
+            } catch (e) {}
           }
         }
       } catch (e) {}
@@ -2502,7 +2565,9 @@ export default function BrnsicMusicPage() {
               localStorage.setItem("brnsic_user_taste_v1", JSON.stringify(data.taste));
             } catch (e) {}
           }
-          if (data?.user) {
+          // ONLY update currentUser if there is an active authenticated token!
+          // Unauthenticated guest activity must never overwrite currentUser with a dummy "Pengguna" profile.
+          if (data?.user && token) {
             setCurrentUser(data.user);
           }
         })
@@ -9023,7 +9088,7 @@ export default function BrnsicMusicPage() {
                   <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-2xl sm:text-3xl font-black text-[#1ed760]">
-                    {(currentUser?.name?.[0] || "P").toUpperCase()}
+                    {(currentUser?.name?.[0] || "T").toUpperCase()}
                   </span>
                 )}
               </div>
@@ -9033,10 +9098,10 @@ export default function BrnsicMusicPage() {
                   PROFIL
                 </span>
                 <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate mt-0.5">
-                  {currentUser?.name || "Pengguna Brnsic"}
+                  {currentUser?.name || "Tamu (Belum Masuk)"}
                 </h1>
                 <p className="text-xs text-[#b3b3b3] truncate mt-0.5">
-                  {currentUser?.email || "Mode Tamu"}
+                  {currentUser?.email || "Masuk dengan Google untuk simpan & sinkronkan riwayat"}
                 </p>
                 <div className="flex items-center gap-2 text-[11px] text-[#b3b3b3] mt-2 font-medium flex-wrap">
                   <span>{userPlaylists.length} Playlist</span>

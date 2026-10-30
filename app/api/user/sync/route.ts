@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthUser, toSafeUser } from "@/lib/auth";
-import { dbUpdateUser } from "@/lib/db";
+import { dbUpdateUser, dbMergeGuestActivityToUser } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,12 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { likedSongs, playlists, taste } = body || {};
+    const { likedSongs, playlists, taste, deviceId } = body || {};
+
+    // 0. Merge anonymous device history/activities into this authenticated user
+    if (deviceId && typeof deviceId === "string") {
+      await dbMergeGuestActivityToUser(deviceId, user.id);
+    }
 
     const updates: any = {};
 

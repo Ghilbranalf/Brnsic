@@ -425,6 +425,21 @@ export const supabaseLogActivity = async (userId: string, activity: UserActivity
   }
 };
 
+export const supabaseMergeActivities = async (fromUserId: string, toUserId: string): Promise<boolean> => {
+  if (!isSupabaseConfigured() || !fromUserId || !toUserId || fromUserId === toUserId) return false;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/user_activity?user_id=eq.${encodeURIComponent(fromUserId)}`, {
+      method: "PATCH",
+      headers: getHeaders({ Prefer: "return=minimal" }),
+      body: JSON.stringify({ user_id: toUserId })
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("Supabase merge activity error:", err);
+    return false;
+  }
+};
+
 // 6. Get playlist by ID from Supabase
 export const supabaseGetPlaylistById = async (playlistId: string) => {
   if (!isSupabaseConfigured()) return null;

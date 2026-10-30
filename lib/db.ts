@@ -7,6 +7,7 @@ import {
   prismaCreateUser,
   prismaUpdateUser,
   prismaLogActivity,
+  prismaMergeActivities,
   prismaGetPlaylistById
 } from "./prisma-db";
 import {
@@ -16,6 +17,7 @@ import {
   supabaseCreateUser,
   supabaseUpdateUser,
   supabaseLogActivity,
+  supabaseMergeActivities,
   supabaseGetPlaylistById
 } from "./supabase";
 
@@ -273,7 +275,7 @@ export const dbLogUserActivity = async (
     user = await dbFindUserByEmail(cleanEmail);
     if (!user) {
       user = await dbCreateUser(
-        isGuest ? "Pengguna Brnsic (Tamu)" : "Pengguna Brnsic",
+        isGuest ? "Tamu" : "Pengguna Brnsic",
         cleanEmail,
         "guest-hash",
         "guest-salt",
@@ -399,4 +401,29 @@ export const dbGetPlaylistById = async (playlistId: string) => {
     }
   }
   return null;
+};
+
+// Reassign and merge guest activity records (by deviceId) into an authenticated user account
+export const dbMergeGuestActivityToUser = async (fromUserId: string, toUserId: string) => {
+  if (!fromUserId || !toUserId || fromUserId === toUserId) return;
+  try {
+    if (isPrismaConfigured()) {
+      await prismaMergeActivities(fromUserId, toUserId);
+    } else if (isSupabaseConfigured()) {
+      await supabaseMergeActivities(fromUserId, toUserId);
+    }
+
+    // Also transfer from local json db if exists
+    const db = loadDb();
+    const guestUser = Object.values(db.users).find((u) => u.id === fromUserId);
+    if (guestUser && guestUser.history && guestUser.history.length > 0) {
+      const targetUser = Object.values(db.users).find((u) => u.id === toUserId);
+      if (targetUser) {
+        targetUser.history = [...(targetUser.history || []), ...guestUser.history];
+        saveDb(db);
+      }
+    }
+  } catch (err) {
+    console.warn("Merge guest activity error:", err);
+  }
 };

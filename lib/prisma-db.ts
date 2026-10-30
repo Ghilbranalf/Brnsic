@@ -338,6 +338,22 @@ export const prismaLogActivity = async (userId: string, activity: UserActivity):
   }
 };
 
+export const prismaMergeActivities = async (fromUserId: string, toUserId: string): Promise<boolean> => {
+  if (!isPrismaConfigured() || !fromUserId || !toUserId || fromUserId === toUserId) return false;
+  try {
+    const prisma = await getPrisma();
+    if (!prisma) return false;
+    await prisma.userActivity.updateMany({
+      where: { userId: fromUserId },
+      data: { userId: toUserId }
+    });
+    return true;
+  } catch (err) {
+    console.error("Prisma mergeActivities error:", err);
+    return false;
+  }
+};
+
 export const prismaGetPlaylistById = async (playlistId: string) => {
   if (!isPrismaConfigured()) return null;
   try {
