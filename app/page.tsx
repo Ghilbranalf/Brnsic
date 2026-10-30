@@ -5073,14 +5073,10 @@ export default function BrnsicMusicPage() {
                 className="w-9 h-9 rounded-full bg-[#181818] p-[3px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
                 title={`Profil: ${currentUser.name}`}
               >
-                <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm overflow-hidden">
-                  {currentUser.avatar && currentUser.avatar.startsWith("http") ? (
-                    <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-black font-black text-xs select-none">
-                      {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                    </span>
-                  )}
+                <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm">
+                  <span className="text-black font-black text-xs select-none">
+                    {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
+                  </span>
                 </div>
               </button>
 
@@ -5253,14 +5249,10 @@ export default function BrnsicMusicPage() {
                     className="w-8 h-8 rounded-full bg-[#181818] p-[3px] border border-white/20 hover:border-white/40 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0"
                     title={currentUser.name}
                   >
-                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm overflow-hidden">
-                      {currentUser.avatar && currentUser.avatar.startsWith("http") ? (
-                        <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-black font-black text-[11px] select-none">
-                          {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
-                        </span>
-                      )}
+                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center shadow-sm">
+                      <span className="text-black font-black text-xs select-none">
+                        {(currentUser.name?.[0] || currentUser.email?.[0] || "G").toUpperCase()}
+                      </span>
                     </div>
                   </button>
                 ) : (
