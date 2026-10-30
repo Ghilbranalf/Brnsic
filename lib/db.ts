@@ -270,19 +270,9 @@ export const dbLogUserActivity = async (
 ): Promise<User | null> => {
   let user = await dbFindUserById(userId);
   if (!user) {
-    const isGuest = userId.startsWith("dev_") || userId.startsWith("guest");
-    const cleanEmail = isGuest ? `${userId.toLowerCase()}@guest.brnsic.app` : `${userId}@user.brnsic.app`;
-    user = await dbFindUserByEmail(cleanEmail);
-    if (!user) {
-      user = await dbCreateUser(
-        isGuest ? "Tamu" : "Pengguna Brnsic",
-        cleanEmail,
-        "guest-hash",
-        "guest-salt",
-        userId
-      );
-    }
+    user = await dbFindUserByEmail(userId);
   }
+  // Require authenticated user (No dummy guest account creation)
   if (!user) return null;
 
   const artist = (activity.artist || "Unknown").trim();

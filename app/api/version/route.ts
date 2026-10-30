@@ -20,10 +20,10 @@ export async function GET() {
     minVersionCode: 18,
     releaseDate: "2026-10-29",
     title: "Brnsic v4.0.0",
-    notes: "Sinkronisasi akun otomatis: penggabungan riwayat tamu ke akun Google, perbaikan label profil, dan stabilitas pemutar.",
+    notes: "Fitur Wajib Masuk (Fullscreen Welcome Gate): eliminasi total mode tamu, autentikasi 1-klik Google, sinkronisasi cloud real-time.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: false,
-    buildId: "20261030-auth-sync-v1"
+    buildId: "20261030-welcome-gate-v1"
   });
 }

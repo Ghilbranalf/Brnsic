@@ -1340,8 +1340,13 @@ export default function BrnsicMusicPage() {
   const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("off");
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
 
-  // 15. User Authentication & Cloud Preference Sync (Google-Only Auth with Supabase)
+  // 15. User Authentication & Cloud Preference Sync (Mandatory Login - No Guest Mode)
   const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authEmail, setAuthEmail] = useState<string>("");
+  const [authPassword, setAuthPassword] = useState<string>("");
+  const [authName, setAuthName] = useState<string>("");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [googleEmail, setGoogleEmail] = useState<string>("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -1918,6 +1923,11 @@ export default function BrnsicMusicPage() {
         const token =
           explicitToken ||
           (typeof window !== "undefined" ? localStorage.getItem("brnsic_auth_token") : null);
+        if (!token) {
+          setCurrentUser(null);
+          setIsAuthChecking(false);
+          return;
+        }
         const headers: Record<string, string> = {};
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
@@ -2014,8 +2024,14 @@ export default function BrnsicMusicPage() {
               localStorage.removeItem("brnsic_auth_token");
             } catch (e) {}
           }
+        } else {
+          setCurrentUser(null);
         }
-      } catch (e) {}
+      } catch (e) {
+        setCurrentUser(null);
+      } finally {
+        setIsAuthChecking(false);
+      }
     }
 
     // History Trap: Push an anchor barrier so browser back button never traverses to Google OAuth
@@ -3008,7 +3024,89 @@ export default function BrnsicMusicPage() {
     }
   };
 
-  // Logout Handler
+  // Email & Password Auth Handler (Login & Register)
+  const handleEmailAuthSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setAuthError(null);
+    if (!authEmail || !authEmail.includes("@")) {
+      setAuthError("Masukkan alamat email yang valid");
+      return;
+    }
+    if (!authPassword || authPassword.length < 6) {
+      setAuthError("Kata sandi minimal 6 karakter");
+      return;
+    }
+    if (authMode === "register" && !authName.trim()) {
+      setAuthError("Nama lengkap wajib diisi");
+      return;
+    }
+
+    setIsAuthSubmitting(true);
+    try {
+      const endpoint = authMode === "register" ? "/api/auth/register" : "/api/auth/login";
+      const payload: any = {
+        email: authEmail.trim().toLowerCase(),
+        password: authPassword
+      };
+      if (authMode === "register") {
+        payload.name = authName.trim();
+      }
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setAuthError(data.error || "Gagal masuk");
+        return;
+      }
+
+      if (data.token) {
+        try {
+          localStorage.setItem("brnsic_auth_token", data.token);
+        } catch (e) {}
+      }
+
+      if (data.user) {
+        setCurrentUser(data.user);
+        try {
+          localStorage.setItem("brnsic_user_profile", JSON.stringify(data.user));
+        } catch (e) {}
+        if (data.user.taste) {
+          setUserTaste(data.user.taste);
+          const dbVector = buildUserTasteVector(
+            data.user.taste.likedArtists || [],
+            data.user.selectedGenres || Object.keys(data.user.taste.genreWeights || {})
+          );
+          setUserTasteVector(dbVector);
+        }
+        if (Array.isArray(data.user.likedSongs)) {
+          setLikedSongIds(data.user.likedSongs);
+          try {
+            localStorage.setItem("brnsic_liked_songs", JSON.stringify(data.user.likedSongs));
+          } catch (e) {}
+        }
+        if (Array.isArray(data.user.playlists)) {
+          setUserPlaylists(data.user.playlists);
+          try {
+            localStorage.setItem("brnsic_user_playlists", JSON.stringify(data.user.playlists));
+          } catch (e) {}
+        }
+        if (!data.user.onboardingCompleted && !localStorage.getItem("brnsic_onboarding_done")) {
+          setIsOnboardingModalOpen(true);
+        }
+        showToast(`Selamat datang, ${data.user.name}!`);
+      }
+    } catch (err) {
+      setAuthError("Gagal menghubungi server. Periksa koneksi internet.");
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  };
+
+  // Logout Handler (Stops audio, purges auth token & cached data, locks to Welcome Gate)
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -3016,11 +3114,28 @@ export default function BrnsicMusicPage() {
     try {
       localStorage.removeItem("brnsic_auth_token");
       localStorage.removeItem("brnsic_user_profile");
+      localStorage.removeItem("brnsic_liked_songs");
+      localStorage.removeItem("brnsic_user_playlists");
+      localStorage.removeItem("brnsic_user_taste_v1");
     } catch (e) {}
+    try {
+      if (ytPlayerRef.current?.stopVideo) {
+        ytPlayerRef.current.stopVideo();
+      }
+      if ((window as any).BrnsicNative?.pauseAudio) {
+        (window as any).BrnsicNative.pauseAudio();
+      }
+    } catch (e) {}
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    hasUserStartedPlaybackRef.current = false;
+    setHasUserStartedPlayback(false);
     setCurrentUser(null);
+    setLikedSongIds([]);
+    setUserPlaylists([]);
     setIsProfileDropdownOpen(false);
     setIsProfileModalOpen(false);
-    showToast("Berhasil keluar dari akun. Kamu sekarang dalam mode tamu.");
+    showToast("Berhasil keluar dari akun.");
   };
 
   // Cold-Start Onboarding Submit Handler (Saves to state, LocalStorage & Supabase DB)
@@ -4645,23 +4760,173 @@ export default function BrnsicMusicPage() {
     <div className="w-full max-w-[100vw] h-screen bg-black text-white flex flex-col p-0 md:p-2 gap-2 overflow-x-hidden overflow-y-hidden font-sans select-none relative">
       
       {/* ====================================================================
-          0. INTRO SPLASH SCREEN (IMAGE 2)
+          O. MANDATORY AUTHENTICATION: FULLSCREEN WELCOME GATE (OPSI A)
           ==================================================================== */}
-      {showSplash && (
-        <div
-          onClick={() => setShowSplash(false)}
-          className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center cursor-pointer select-none transition-opacity duration-700 animate-fadeIn"
-        >
-          <div className="relative flex flex-col items-center justify-center gap-6">
-            <div className="absolute w-80 h-80 bg-white/[0.08] rounded-full blur-[100px] pointer-events-none" />
+      {isAuthChecking ? (
+        <div className="fixed inset-0 z-[120] bg-black flex flex-col items-center justify-center select-none animate-fadeIn">
+          <div className="relative flex flex-col items-center justify-center gap-5">
+            <div className="absolute w-72 h-72 bg-[#1ed760]/15 rounded-full blur-[90px] pointer-events-none animate-pulse" />
+            <img
+              src="/app-icon.png"
+              alt="Brnsic"
+              className="w-20 h-20 rounded-2xl object-contain shadow-2xl relative z-10"
+            />
+            <div className="flex items-center gap-2 mt-2">
+              <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-ping" />
+              <span className="text-xs text-[#b3b3b3] font-bold tracking-widest uppercase">
+                Menghubungkan Akun...
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : !currentUser ? (
+        <div className="fixed inset-0 z-[110] bg-black text-white flex flex-col justify-between p-6 sm:p-12 overflow-y-auto no-scrollbar font-sans select-none animate-fadeIn">
+          {/* Top Brand Bar */}
+          <div className="flex items-center justify-between w-full max-w-md mx-auto">
+            <div className="flex items-center gap-2.5">
+              <img src="/app-icon.png" alt="Brnsic" className="w-8 h-8 rounded-lg object-contain shadow" />
+              <span className="font-black text-lg text-white">Brnsic</span>
+            </div>
+            <div className="text-[11px] font-bold text-[#1ed760] bg-[#1ed760]/10 border border-[#1ed760]/20 px-3 py-1 rounded-full">
+              Pure Audio
+            </div>
+          </div>
+
+          {/* Center Hero Content */}
+          <div className="relative flex flex-col items-center text-center max-w-sm w-full mx-auto my-auto py-8">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#1ed760]/10 rounded-full blur-[100px] pointer-events-none" />
+
             <img
               src="/splash-logo.png"
               alt="Brnsic"
-              className="w-64 sm:w-80 object-contain relative z-10 drop-shadow-[0_0_40px_rgba(255,255,255,0.45)] transform hover:scale-105 transition"
+              className="w-56 sm:w-64 object-contain relative z-10 drop-shadow-[0_0_35px_rgba(255,255,255,0.35)] mb-4"
             />
+
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight relative z-10">
+              Musikmu. Tanpa Batas.
+            </h1>
+            <p className="text-xs text-[#b3b3b3] mt-2 max-w-xs leading-relaxed relative z-10">
+              Masuk ke akun untuk menikmati jutaan lagu resmi, lirik tersinkronisasi, dan playlist cerdas.
+            </p>
+
+            {authError && (
+              <div className="w-full mt-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold text-center animate-fadeIn relative z-10">
+                {authError}
+              </div>
+            )}
+
+            {/* Auth Actions Container */}
+            <div className="w-full flex flex-col gap-3 mt-6 relative z-10">
+              {/* Primary 1-Click Google Sign In */}
+              <button
+                type="button"
+                onClick={() => handleGoogleSignIn()}
+                disabled={isAuthSubmitting}
+                className="w-full py-3.5 px-6 rounded-full bg-white hover:bg-neutral-100 active:scale-95 text-black font-extrabold text-sm flex items-center justify-center gap-3 transition shadow-[0_0_30px_rgba(255,255,255,0.25)] cursor-pointer disabled:opacity-50"
+              >
+                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span>{isAuthSubmitting ? "Membuka Google..." : "Lanjutkan dengan Google"}</span>
+              </button>
+
+              {/* Subtle Divider */}
+              <div className="flex items-center gap-3 my-1">
+                <div className="flex-1 h-px bg-white/10" />
+                <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">atau email</span>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
+
+              {/* Email Form Switcher */}
+              <div className="flex bg-[#121212] p-1 rounded-full border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode("login"); setAuthError(null); }}
+                  className={`flex-1 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${authMode === "login" ? "bg-white text-black shadow" : "text-white/60 hover:text-white"}`}
+                >
+                  Masuk
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode("register"); setAuthError(null); }}
+                  className={`flex-1 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${authMode === "register" ? "bg-white text-black shadow" : "text-white/60 hover:text-white"}`}
+                >
+                  Daftar Baru
+                </button>
+              </div>
+
+              {/* Email Form Inputs */}
+              <form onSubmit={handleEmailAuthSubmit} className="flex flex-col gap-2.5 mt-1">
+                {authMode === "register" && (
+                  <input
+                    type="text"
+                    placeholder="Nama Lengkap"
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                    className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 text-xs text-white placeholder-white/40 outline-none focus:border-[#1ed760] transition"
+                  />
+                )}
+                <input
+                  type="email"
+                  placeholder="Alamat Email"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 text-xs text-white placeholder-white/40 outline-none focus:border-[#1ed760] transition"
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Kata Sandi (min. 6 karakter)"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  className="w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 text-xs text-white placeholder-white/40 outline-none focus:border-[#1ed760] transition"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={isAuthSubmitting}
+                  className="w-full py-3 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] active:scale-95 text-black font-extrabold text-xs transition shadow-[0_0_20px_rgba(30,215,96,0.3)] mt-1 cursor-pointer disabled:opacity-50"
+                >
+                  {isAuthSubmitting
+                    ? "Memproses..."
+                    : authMode === "register"
+                    ? "Buat Akun Baru"
+                    : "Masuk ke Akun"}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Bottom Footer Note */}
+          <div className="w-full max-w-sm mx-auto text-center">
+            <p className="text-[11px] text-[#666] leading-relaxed">
+              Dengan masuk, preferensi playlist, lagu disukai, dan riwayat akan otomatis tersinkronisasi aman di cloud Brnsic.
+            </p>
           </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* ====================================================================
+              0. INTRO SPLASH SCREEN (IMAGE 2)
+              ==================================================================== */}
+          {showSplash && (
+            <div
+              onClick={() => setShowSplash(false)}
+              className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center cursor-pointer select-none transition-opacity duration-700 animate-fadeIn"
+            >
+              <div className="relative flex flex-col items-center justify-center gap-6">
+                <div className="absolute w-80 h-80 bg-white/[0.08] rounded-full blur-[100px] pointer-events-none" />
+                <img
+                  src="/splash-logo.png"
+                  alt="Brnsic"
+                  className="w-64 sm:w-80 object-contain relative z-10 drop-shadow-[0_0_40px_rgba(255,255,255,0.45)] transform hover:scale-105 transition"
+                />
+              </div>
+            </div>
+          )}
 
       {/* 
         MASTER YOUTUBE AUDIO ENGINE & CONTINUOUS BACKGROUND KEEPALIVE ANCHOR:
@@ -9762,6 +10027,9 @@ export default function BrnsicMusicPage() {
             <span className="truncate">{shuffleToast}</span>
           </div>
         </div>
+      )}
+
+        </>
       )}
 
     </div>
