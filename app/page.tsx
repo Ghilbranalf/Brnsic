@@ -8945,7 +8945,7 @@ export default function BrnsicMusicPage() {
 
             <button
               onClick={togglePlay}
-              className="w-8 h-8 rounded-full bg-white text-black hover:scale-105 transition flex items-center justify-center shadow-md"
+              className="w-8 h-8 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black hover:scale-105 transition flex items-center justify-center shadow-md"
             >
               {isPlaying ? (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -9176,7 +9176,7 @@ export default function BrnsicMusicPage() {
                   e.stopPropagation();
                   togglePlay();
                 }}
-                className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center shadow-md active:scale-95 transition"
+                className="w-9 h-9 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black flex items-center justify-center shadow-md active:scale-95 transition"
               >
                 {isPlaying ? (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -9392,7 +9392,7 @@ export default function BrnsicMusicPage() {
                   </div>
                   <button
                     onClick={togglePlay}
-                    className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-md flex-shrink-0"
+                    className="w-10 h-10 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black flex items-center justify-center shadow-md flex-shrink-0"
                   >
                     {isPlaying ? (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -9684,7 +9684,7 @@ export default function BrnsicMusicPage() {
 
                   <button
                     onClick={togglePlay}
-                    className="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center shadow-[0_0_35px_rgba(255,255,255,0.45)] hover:scale-105 active:scale-95 transition"
+                    className="w-16 h-16 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black flex items-center justify-center shadow-[0_0_35px_rgba(30,215,96,0.45)] hover:scale-105 active:scale-95 transition"
                   >
                     {isPlaying ? (
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -9863,7 +9863,7 @@ export default function BrnsicMusicPage() {
                   </button>
                   <button
                     onClick={togglePlay}
-                    className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center shadow-md"
+                    className="w-9 h-9 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black flex items-center justify-center shadow-md"
                   >
                     {isPlaying ? (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
