@@ -389,9 +389,30 @@ public class MainActivity extends BridgeActivity {
                     return;
                 }
             }
+
+            Uri targetUri = apkUri;
+            File downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+            File apkFile = new File(downloadsDir, "Brnsic.apk");
+            if (apkFile.exists()) {
+                try {
+                    targetUri = androidx.core.content.FileProvider.getUriForFile(
+                            this,
+                            getPackageName() + ".fileprovider",
+                            apkFile
+                    );
+                } catch (Exception ignored) {}
+            }
+
             Intent installIntent = new Intent(Intent.ACTION_VIEW);
-            installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            installIntent.setDataAndType(targetUri, "application/vnd.android.package-archive");
             installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            java.util.List<android.content.pm.ResolveInfo> resInfoList = getPackageManager().queryIntentActivities(installIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+            for (android.content.pm.ResolveInfo resolveInfo : resInfoList) {
+                String pkgName = resolveInfo.activityInfo.packageName;
+                grantUriPermission(pkgName, targetUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }
+
             startActivity(installIntent);
         } catch (Exception e) {
             try {
