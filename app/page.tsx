@@ -1009,6 +1009,11 @@ const ONBOARDING_ARTISTS = [
     img: "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/35/4d/a0/354da058-972b-dcf9-feec-609895ba8cb2/14UMGIM56567.rgb.jpg/600x600bb.jpg"
   },
   {
+    name: "Martin Garrix",
+    sub: "EDM / Dance",
+    img: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6e/1e/f0/6e1ef055-195a-bb73-d5a8-5926058366a5/8712944577525.png/600x600bb.jpg"
+  },
+  {
     name: "Alan Walker",
     sub: "EDM / Dance",
     img: "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/95/14/0d/95140deb-c17e-c44d-b4dc-7fbabf47bee8/8721639532428.png/600x600bb.jpg"
@@ -10393,66 +10398,106 @@ export default function BrnsicMusicPage() {
 
             {/* Spotify Hero Header */}
             <div className="flex items-center gap-4 pt-1">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-[#282828] to-[#181818] border-2 border-white/10 shadow-2xl flex items-center justify-center text-white overflow-hidden flex-shrink-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white text-black shadow-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border-2 border-white/20">
                 {currentUser?.avatar && !currentUser.avatar.includes("identicon") ? (
                   <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-2xl sm:text-3xl font-black text-[#1ed760]">
-                    {(currentUser?.name?.[0] || "T").toUpperCase()}
+                  <span className="text-2xl sm:text-3xl font-black text-black select-none">
+                    {(currentUser?.name?.[0] || currentUser?.email?.[0] || "G").toUpperCase()}
                   </span>
                 )}
               </div>
 
               <div className="min-w-0 flex-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/50 block">
-                  PROFIL
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#1ed760] block">
+                  PROFIL RESMI
                 </span>
                 <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate mt-0.5">
                   {currentUser?.name || "Tamu (Belum Masuk)"}
                 </h1>
-                <p className="text-xs text-[#b3b3b3] truncate mt-0.5">
+                <p className="text-xs text-[#b3b3b3] truncate mt-0.5 font-medium">
                   {currentUser?.email || "Masuk dengan Google untuk simpan & sinkronkan riwayat"}
                 </p>
-                <div className="flex items-center gap-2 text-[11px] text-[#b3b3b3] mt-2 font-medium flex-wrap">
-                  <span>{userPlaylists.length} Playlist</span>
-                  <span>•</span>
-                  <span>{likedSongIds.length} Disukai</span>
-                  <span>•</span>
-                  <span>{dislikedTracks.length} Disembunyikan</span>
-                  <span>•</span>
-                  <span>{userTaste.totalPlays} Diputar</span>
-                </div>
+              </div>
+            </div>
+
+            {/* Clean Bento Stats Grid (Never awkwardly line-breaks) */}
+            <div className="grid grid-cols-4 gap-1 p-2.5 bg-white/5 border border-white/10 rounded-2xl text-center">
+              <div className="flex flex-col py-1">
+                <span className="text-base font-black text-white leading-tight">{userPlaylists.length}</span>
+                <span className="text-[10px] text-[#b3b3b3] font-medium mt-0.5">Playlist</span>
+              </div>
+              <div className="flex flex-col py-1 border-l border-white/10">
+                <span className="text-base font-black text-white leading-tight">{likedSongIds.length}</span>
+                <span className="text-[10px] text-[#b3b3b3] font-medium mt-0.5">Disukai</span>
+              </div>
+              <div className="flex flex-col py-1 border-l border-white/10">
+                <span className="text-base font-black text-white leading-tight">{dislikedTracks.length}</span>
+                <span className="text-[10px] text-[#b3b3b3] font-medium mt-0.5 truncate px-0.5">Disembunyikan</span>
+              </div>
+              <div className="flex flex-col py-1 border-l border-white/10">
+                <span className="text-base font-black text-[#1ed760] leading-tight">{userTaste.totalPlays}</span>
+                <span className="text-[10px] text-[#b3b3b3] font-medium mt-0.5">Diputar</span>
               </div>
             </div>
 
             {/* Section: Artis Teratas */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-white">Artis Teratas</h3>
-                <span className="text-[11px] text-white/40">Bulan ini</span>
+                <h3 className="text-xs font-black uppercase tracking-wider text-white/70">Artis Teratas</h3>
+                <span className="text-[10px] font-semibold text-white/40">Bulan ini</span>
               </div>
 
               <div className="grid grid-cols-4 gap-2">
                 {(() => {
-                  const sorted = Object.entries(userTaste.artistWeights)
+                  const isInvalid = (name: string) => {
+                    const l = (name || "").toLowerCase().trim();
+                    return !l || l === "undefined" || l === "null" || l === "english" || l === "indonesia" || l === "unknown" || l === "various artists";
+                  };
+
+                  const weighted = Object.entries(userTaste.artistWeights)
+                    .filter(([name, w]) => w > 0 && !isInvalid(name))
                     .sort((a, b) => b[1] - a[1])
-                    .slice(0, 4);
-                  const displayArtists =
-                    sorted.length > 0
-                      ? sorted.map(([name]) => name)
-                      : ["Sal Priadi", "Bernadya", "Hindia", "Sheila On 7"];
+                    .map(([name]) => name);
+
+                  const preferred = userPreferredArtists.filter((a) => !isInvalid(a));
+                  const combinedList = Array.from(new Set([...weighted, ...preferred]));
+                  const fallbackList = ["XXXTENTACION", "Martin Garrix", "Bernadya", "Hindia"];
+                  const displayArtists = (combinedList.length > 0 ? combinedList : fallbackList).slice(0, 4);
 
                   return displayArtists.map((artistName) => {
-                    const match = ONBOARDING_ARTISTS.find(
-                      (a) => a.name.toLowerCase() === artistName.toLowerCase()
+                    const matchOnboarding = ONBOARDING_ARTISTS.find(
+                      (a) => a.name.toLowerCase() === artistName.toLowerCase() ||
+                             a.name.toLowerCase().includes(artistName.toLowerCase()) ||
+                             artistName.toLowerCase().includes(a.name.toLowerCase())
                     );
+                    const matchCatalog = POPULAR_SEARCH_CATALOG.find(
+                      (s) => s.artist.toLowerCase().includes(artistName.toLowerCase()) ||
+                             artistName.toLowerCase().includes(s.artist.toLowerCase())
+                    );
+                    const matchShelf = topArtistShelfTracks.find(
+                      (s) => (s.artist || "").toLowerCase().includes(artistName.toLowerCase()) ||
+                             artistName.toLowerCase().includes((s.artist || "").toLowerCase())
+                    );
+
                     const photo =
-                      match?.img ||
-                      `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(artistName)}`;
+                      matchOnboarding?.img ||
+                      matchCatalog?.cover ||
+                      matchShelf?.cover ||
+                      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artistName)}&backgroundColor=181818&textColor=1ed760&fontWeight=900`;
 
                     return (
-                      <div key={artistName} className="flex flex-col items-center text-center">
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden shadow-lg border border-white/10 mb-1.5">
+                      <div
+                        key={artistName}
+                        onClick={() => {
+                          setIsProfileModalOpen(false);
+                          setSearchQuery(artistName);
+                          setCurrentView("search");
+                        }}
+                        className="flex flex-col items-center text-center group cursor-pointer"
+                        title={`Buka artis: ${artistName}`}
+                      >
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden shadow-lg border border-white/10 mb-1.5 group-hover:scale-105 transition bg-[#181818]">
                           <img
                             src={photo}
                             alt={artistName}
@@ -10460,10 +10505,10 @@ export default function BrnsicMusicPage() {
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <span className="text-[11px] font-bold text-white/90 truncate max-w-[70px]">
+                        <span className="text-[11px] font-bold text-white/90 truncate max-w-[76px] block">
                           {artistName}
                         </span>
-                        <span className="text-[9px] text-white/40">Artis</span>
+                        <span className="text-[9px] text-[#1ed760] font-semibold">Artis</span>
                       </div>
                     );
                   });
@@ -10472,100 +10517,104 @@ export default function BrnsicMusicPage() {
             </div>
 
             {/* Section: Pengaturan Akun */}
-            <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+            <div className="flex flex-col gap-2.5 pt-2 border-t border-white/10">
               <button
                 onClick={() => {
                   setIsProfileModalOpen(false);
                   setCurrentView("disliked");
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between cursor-pointer border border-white/5"
+                className="w-full py-3 px-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between cursor-pointer border border-white/5"
               >
-                <div className="flex items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-                  </svg>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/80">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                    </svg>
+                  </div>
                   <span>Lagu yang Disembunyikan</span>
                 </div>
-                <span className="text-white/40 text-[11px]">{dislikedTracks.length} lagu</span>
+                <span className="text-white/40 text-[11px] font-semibold">{dislikedTracks.length} lagu &rsaquo;</span>
               </button>
 
-              {/* Dynamic Island Settings Card */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex flex-col gap-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#1ed760] animate-pulse"></span>
-                    <span className="text-xs font-bold text-white">Dynamic Island (Layar Utama)</span>
-                  </div>
-                  <button
-                    onClick={() => handleToggleDynamicIsland(!isDynamicIslandEnabled)}
-                    className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 ease-in-out cursor-pointer ${
-                      isDynamicIslandEnabled ? "bg-[#1ed760]" : "bg-white/20"
-                    }`}
-                  >
-                    <div
-                      className={`w-5 h-5 rounded-full transition-transform duration-200 ease-in-out ${
-                        isDynamicIslandEnabled ? "translate-x-5 bg-black" : "translate-x-0 bg-white"
+              {/* Dynamic Island Settings Card - EXCLUSIVELY FOR NATIVE ANDROID APK */}
+              {isInsideNativeApk && (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#1ed760] animate-pulse"></span>
+                      <span className="text-xs font-bold text-white">Dynamic Island (Layar Utama)</span>
+                    </div>
+                    <button
+                      onClick={() => handleToggleDynamicIsland(!isDynamicIslandEnabled)}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 ease-in-out cursor-pointer ${
+                        isDynamicIslandEnabled ? "bg-[#1ed760]" : "bg-white/20"
                       }`}
-                    />
-                  </button>
-                </div>
-
-                <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
-                  Kapsul mengambang di layar HP saat memutar musik di latar belakang.
-                  Matikan jika HP kamu sudah memiliki Dynamic Island bawaan.
-                </p>
-
-                {isDynamicIslandEnabled && (
-                  <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-white/70">Posisi Kapsul:</span>
-                      <button
-                        onClick={handleRestoreDynamicIsland}
-                        className="text-[10px] font-bold text-[#1ed760] hover:underline cursor-pointer"
-                      >
-                        + Tampilkan Kembali
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <button
-                        onClick={() => handleChangeIslandPosition("left")}
-                        className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition text-center ${
-                          islandPosition === "left"
-                            ? "bg-[#1ed760] text-black shadow-sm"
-                            : "bg-white/10 text-white/80 hover:bg-white/20"
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full transition-transform duration-200 ease-in-out ${
+                          isDynamicIslandEnabled ? "translate-x-5 bg-black" : "translate-x-0 bg-white"
                         }`}
-                        title="Untuk HP dengan kamera di tengah atau kanan"
-                      >
-                        Kiri Atas
-                      </button>
-                      <button
-                        onClick={() => handleChangeIslandPosition("center")}
-                        className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition text-center ${
-                          islandPosition === "center"
-                            ? "bg-[#1ed760] text-black shadow-sm"
-                            : "bg-white/10 text-white/80 hover:bg-white/20"
-                        }`}
-                        title="Tengah di bawah kamera punch-hole"
-                      >
-                        Tengah
-                      </button>
-                      <button
-                        onClick={() => handleChangeIslandPosition("right")}
-                        className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition text-center ${
-                          islandPosition === "right"
-                            ? "bg-[#1ed760] text-black shadow-sm"
-                            : "bg-white/10 text-white/80 hover:bg-white/20"
-                        }`}
-                        title="Untuk HP dengan kamera di kiri"
-                      >
-                        Kanan Atas
-                      </button>
-                    </div>
+                      />
+                    </button>
                   </div>
-                )}
-              </div>
+
+                  <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
+                    Kapsul mengambang di layar HP saat memutar musik di latar belakang.
+                    Matikan jika HP kamu sudah memiliki Dynamic Island bawaan.
+                  </p>
+
+                  {isDynamicIslandEnabled && (
+                    <div className="flex flex-col gap-2 pt-2 border-t border-white/10">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-white/70">Posisi Kapsul:</span>
+                        <button
+                          onClick={handleRestoreDynamicIsland}
+                          className="text-[10px] font-bold text-[#1ed760] hover:underline cursor-pointer"
+                        >
+                          + Tampilkan Kembali
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          onClick={() => handleChangeIslandPosition("left")}
+                          className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition text-center ${
+                            islandPosition === "left"
+                              ? "bg-[#1ed760] text-black shadow-sm"
+                              : "bg-white/10 text-white/80 hover:bg-white/20"
+                          }`}
+                          title="Untuk HP dengan kamera di tengah atau kanan"
+                        >
+                          Kiri Atas
+                        </button>
+                        <button
+                          onClick={() => handleChangeIslandPosition("center")}
+                          className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition text-center ${
+                            islandPosition === "center"
+                              ? "bg-[#1ed760] text-black shadow-sm"
+                              : "bg-white/10 text-white/80 hover:bg-white/20"
+                          }`}
+                          title="Tengah di bawah kamera punch-hole"
+                        >
+                          Tengah
+                        </button>
+                        <button
+                          onClick={() => handleChangeIslandPosition("right")}
+                          className={`py-1.5 px-2 rounded-lg text-[10px] font-bold transition text-center ${
+                            islandPosition === "right"
+                              ? "bg-[#1ed760] text-black shadow-sm"
+                              : "bg-white/10 text-white/80 hover:bg-white/20"
+                          }`}
+                          title="Untuk HP dengan kamera di kiri"
+                        >
+                          Kanan Atas
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {!isInsideNativeApk && (
                 <button
@@ -10573,14 +10622,19 @@ export default function BrnsicMusicPage() {
                     setIsProfileModalOpen(false);
                     handleInstallClick();
                   }}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#1ed760]/10 hover:bg-[#1ed760]/20 text-[#1ed760] font-bold text-xs transition flex items-center justify-between cursor-pointer"
+                  className="w-full py-3 px-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition flex items-center justify-between cursor-pointer border border-white/10 hover:border-white/20"
                 >
-                  <span>Download APK Android</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                  </svg>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-[#1ed760]/20 text-[#1ed760] flex items-center justify-center">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                    </div>
+                    <span>Download APK Android</span>
+                  </div>
+                  <span className="text-[#1ed760] text-[11px] font-bold">APK Gratis &rsaquo;</span>
                 </button>
               )}
 
@@ -10591,7 +10645,7 @@ export default function BrnsicMusicPage() {
                     setAuthError(null);
                     setIsAuthModalOpen(true);
                   }}
-                  className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-neutral-100 text-black font-extrabold text-xs transition flex items-center justify-center gap-2 mt-1"
+                  className="w-full py-3 px-4 rounded-2xl bg-white hover:bg-neutral-100 text-black font-extrabold text-xs transition flex items-center justify-center gap-2 mt-1 shadow"
                 >
                   <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -10604,7 +10658,7 @@ export default function BrnsicMusicPage() {
               ) : (
                 <button
                   onClick={handleLogout}
-                  className="w-full py-2.5 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-xs transition text-center mt-1"
+                  className="w-full py-3 px-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-xs transition text-center cursor-pointer border border-red-500/20 active:scale-95 mt-1"
                 >
                   Keluar dari Akun (Logout)
                 </button>
