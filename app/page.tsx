@@ -1599,7 +1599,7 @@ export default function BrnsicMusicPage() {
   );
 
   // 14. Spotify Shuffle Tri-State: "off" | "standard" (balanced fewer repeats) | "smart" (hybrid recommendation)
-  const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("off");
+  const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("standard");
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
 
   // 15. User Authentication & Cloud Preference Sync (Mandatory Login - No Guest Mode)
@@ -1910,6 +1910,7 @@ export default function BrnsicMusicPage() {
   const activeQueueRef = useRef<any[]>(activeQueue);
   const activeQueueIndexRef = useRef<number>(0);
   const repeatModeRef = useRef<"off" | "all" | "one">("off");
+  const shuffleModeRef = useRef<"off" | "standard" | "smart">("standard");
   const isAlbumLoopModeRef = useRef<boolean>(false);
   const currentTrackRef = useRef<Track>(currentTrack);
   const playNextSongRef = useRef<(userTriggered?: boolean) => void>(() => {});
@@ -1931,6 +1932,7 @@ export default function BrnsicMusicPage() {
   useEffect(() => { isZoomedRef.current = isZoomed; }, [isZoomed]);
   useEffect(() => { currentViewRef.current = currentView; }, [currentView]);
   useEffect(() => { isOnboardingModalOpenRef.current = isOnboardingModalOpen; }, [isOnboardingModalOpen]);
+  useEffect(() => { shuffleModeRef.current = shuffleMode; }, [shuffleMode]);
 
   // Unified Bulletproof Track Completion Trigger & Anti-Skipping Guard
   const lastTrackChangeTimeRef = useRef<number>(0);
@@ -2252,6 +2254,17 @@ export default function BrnsicMusicPage() {
             setActiveQueue(parsed);
             activeQueueRef.current = parsed;
           }
+        } catch (e) {}
+      }
+      const savedShuffle = localStorage.getItem("brnsic_shuffle_mode") as "off" | "standard" | "smart" | null;
+      if (savedShuffle === "off" || savedShuffle === "standard" || savedShuffle === "smart") {
+        setShuffleMode(savedShuffle);
+        shuffleModeRef.current = savedShuffle;
+      } else {
+        setShuffleMode("standard");
+        shuffleModeRef.current = "standard";
+        try {
+          localStorage.setItem("brnsic_shuffle_mode", "standard");
         } catch (e) {}
       }
       const hasPlayed = localStorage.getItem("brnsic_has_user_played") === "true";
@@ -3247,31 +3260,43 @@ export default function BrnsicMusicPage() {
     const nextMode: "off" | "standard" | "smart" =
       shuffleMode === "off" ? "standard" : shuffleMode === "standard" ? "smart" : "off";
     setShuffleMode(nextMode);
+    shuffleModeRef.current = nextMode;
+    try {
+      localStorage.setItem("brnsic_shuffle_mode", nextMode);
+    } catch (e) {}
+
+    const curQ = activeQueueRef.current && activeQueueRef.current.length > 0 ? activeQueueRef.current : activeQueue;
+    const curIdx = activeQueueIndexRef.current >= 0 && activeQueueIndexRef.current < curQ.length ? activeQueueIndexRef.current : 0;
 
     if (nextMode === "standard") {
       if (originalQueueRef.current.length === 0) {
-        originalQueueRef.current = [...activeQueue];
+        originalQueueRef.current = [...curQ];
       }
-      const played = activeQueue.slice(0, activeQueueIndex + 1);
-      const upcoming = activeQueue
-        .slice(activeQueueIndex + 1)
+      const played = curQ.slice(0, curIdx + 1);
+      const upcoming = curQ
+        .slice(curIdx + 1)
         .filter((t) => !t.isSmartRecommendation);
       const shuffledUpcoming = balancedShuffle(upcoming, playedSongTitlesRef.current);
-      setActiveQueue([...played, ...shuffledUpcoming]);
-      showToast("Standard Shuffle: Mengacak playlist via Mersenne Twister & Fewer Repeats");
+      const newQ = [...played, ...shuffledUpcoming];
+      activeQueueRef.current = newQ;
+      setActiveQueue(newQ);
+      try {
+        localStorage.setItem("brnsic_cached_queue", JSON.stringify(newQ.slice(0, 40)));
+      } catch (e) {}
+      showToast("Shuffle Aktif: Lagu di antrean berikutnya diacak variatif!");
     } else if (nextMode === "smart") {
       if (originalQueueRef.current.length === 0) {
-        originalQueueRef.current = [...activeQueue];
+        originalQueueRef.current = [...curQ];
       }
-      const played = activeQueue.slice(0, activeQueueIndex + 1);
-      const upcoming = activeQueue
-        .slice(activeQueueIndex + 1)
+      const played = curQ.slice(0, curIdx + 1);
+      const upcoming = curQ
+        .slice(curIdx + 1)
         .filter((t) => !t.isSmartRecommendation);
       const shuffledUpcoming = balancedShuffle(upcoming, playedSongTitlesRef.current);
 
       const discovery = getSmartShuffleCandidates(
         currentTrack,
-        activeQueue,
+        curQ,
         playedSongTitlesRef.current,
         userTaste,
         {
@@ -3297,30 +3322,41 @@ export default function BrnsicMusicPage() {
         woven.push(discovery[cIdx++]);
       }
 
-      setActiveQueue([...played, ...woven]);
-      showToast("Smart Shuffle aktif: Mengacak dan menyisipkan rekomendasi sesuai selera!");
+      const newQ = [...played, ...woven];
+      activeQueueRef.current = newQ;
+      setActiveQueue(newQ);
+      try {
+        localStorage.setItem("brnsic_cached_queue", JSON.stringify(newQ.slice(0, 40)));
+      } catch (e) {}
+      showToast("Smart Shuffle Aktif: Mengacak & menyisipkan rekomendasi sesuai selera!");
     } else {
       // Off: Restore original queue
       if (originalQueueRef.current.length > 0) {
         const curTitle = (currentTrack.title || "").toLowerCase().trim();
         const cleanedOriginal = originalQueueRef.current.filter((t) => !t.isSmartRecommendation);
-        const curIdx = cleanedOriginal.findIndex(
+        const matchIdx = cleanedOriginal.findIndex(
           (t) => (t.title || "").toLowerCase().trim() === curTitle
         );
-        if (curIdx !== -1) {
+        if (matchIdx !== -1) {
+          activeQueueRef.current = cleanedOriginal;
+          activeQueueIndexRef.current = matchIdx;
           setActiveQueue(cleanedOriginal);
-          setActiveQueueIndex(curIdx);
+          setActiveQueueIndex(matchIdx);
         } else {
-          const played = activeQueue.slice(0, activeQueueIndex + 1).filter((t) => !t.isSmartRecommendation);
+          const played = curQ.slice(0, curIdx + 1).filter((t) => !t.isSmartRecommendation);
           const upcoming = cleanedOriginal.filter(
-            (t) => !played.some((p) => p.title.toLowerCase() === t.title.toLowerCase())
+            (t) => !played.some((p) => p.title?.toLowerCase() === t.title?.toLowerCase())
           );
-          setActiveQueue([...played, ...upcoming]);
+          const restored = [...played, ...upcoming];
+          activeQueueRef.current = restored;
+          setActiveQueue(restored);
         }
       } else {
-        setActiveQueue((prev) => prev.filter((t) => !t.isSmartRecommendation));
+        const filtered = curQ.filter((t) => !t.isSmartRecommendation);
+        activeQueueRef.current = filtered;
+        setActiveQueue(filtered);
       }
-      showToast("Shuffle dimatikan: Kembali ke urutan playlist asli");
+      showToast("Shuffle Dimatikan: Memutar urut sesuai daftar asli.");
     }
   };
 
@@ -4680,9 +4716,15 @@ export default function BrnsicMusicPage() {
         // Spotify-grade Artist & Genre Radio Queue:
         // If we have strong matching tracks from this artist and related circle (5+ tracks),
         // keep the queue strictly aligned with this musical style without diluting it with unrelated catalogs!
+        originalQueueRef.current = [song, ...incomingRelated];
         let radioQueue: any[] = [];
+        const isShuffled = shuffleModeRef.current !== "off";
+
         if (incomingRelated.length >= 5) {
-          radioQueue = [song, ...incomingRelated];
+          const upcoming = isShuffled
+            ? balancedShuffle(incomingRelated, playedSongTitlesRef.current)
+            : incomingRelated;
+          radioQueue = [song, ...upcoming];
         } else {
           const candidatePool = [
             ...incomingRelated,
@@ -4699,11 +4741,16 @@ export default function BrnsicMusicPage() {
             dislikedSongIds,
             30
           );
-          radioQueue = [song, ...rankedDiscovery];
+          const upcoming = isShuffled
+            ? balancedShuffle(rankedDiscovery, playedSongTitlesRef.current)
+            : rankedDiscovery;
+          radioQueue = [song, ...upcoming];
         }
 
         activeQueueRef.current = radioQueue;
+        activeQueueIndexRef.current = 0;
         setActiveQueue(radioQueue);
+        setActiveQueueIndex(0);
         try {
           localStorage.setItem("brnsic_cached_queue", JSON.stringify(radioQueue.slice(0, 40)));
         } catch (e) {}
@@ -9193,6 +9240,40 @@ export default function BrnsicMusicPage() {
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
                 </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleShuffleMode();
+                }}
+                className={`p-1 transition relative ${
+                  shuffleMode !== "off" ? "text-[#1ed760]" : "text-[#b3b3b3] hover:text-white"
+                }`}
+                title={
+                  shuffleMode === "off"
+                    ? "Aktifkan Shuffle (Acak)"
+                    : shuffleMode === "standard"
+                    ? "Shuffle Biasa Aktif: Fewer Repeats (Klik untuk Smart Shuffle)"
+                    : "Smart Shuffle Aktif: Rekomendasi otomatis sesuai selera (Klik untuk Matikan)"
+                }
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="16 3 21 3 21 8"></polyline>
+                  <line x1="4" y1="20" x2="21" y2="3"></line>
+                  <polyline points="21 16 21 21 16 21"></polyline>
+                  <line x1="15" y1="15" x2="21" y2="21"></line>
+                  <line x1="4" y1="4" x2="9" y2="9"></line>
+                </svg>
+                {shuffleMode === "standard" && (
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#1ed760] rounded-full"></span>
+                )}
+                {shuffleMode === "smart" && (
+                  <span className="absolute -top-0.5 -right-0.5 leading-none text-[#1ed760]">
+                    <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+                    </svg>
+                  </span>
+                )}
               </button>
               <button
                 onClick={(e) => {
