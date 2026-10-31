@@ -213,9 +213,9 @@ public class MainActivity extends BridgeActivity {
         public String getAppVersion() {
             try {
                 PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-                return pInfo.versionName != null ? pInfo.versionName : "4.0.0";
+                return pInfo.versionName != null ? pInfo.versionName : "4.0.1";
             } catch (Exception e) {
-                return "4.0.0";
+                return "4.0.1";
             }
         }
 
@@ -229,7 +229,7 @@ public class MainActivity extends BridgeActivity {
                     return pInfo.versionCode;
                 }
             } catch (Exception e) {
-                return 18;
+                return 19;
             }
         }
 
@@ -362,9 +362,7 @@ public class MainActivity extends BridgeActivity {
                     android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
                     if (dm != null) {
                         Uri apkUri = dm.getUriForDownloadedFile(id);
-                        if (apkUri != null) {
-                            promptInstallApk(apkUri);
-                        }
+                        promptInstallApk(apkUri, id);
                     }
                 }
             }
@@ -377,7 +375,7 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    private void promptInstallApk(Uri apkUri) {
+    private void promptInstallApk(Uri apkUri, long downloadId) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!getPackageManager().canRequestPackageInstalls()) {
@@ -391,16 +389,55 @@ public class MainActivity extends BridgeActivity {
             }
 
             Uri targetUri = apkUri;
-            File downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
-            File apkFile = new File(downloadsDir, "Brnsic.apk");
-            if (apkFile.exists()) {
+
+            // Query DownloadManager to get the EXACT downloaded file path (e.g. Brnsic.apk or Brnsic (1).apk)
+            if (downloadId != -1) {
                 try {
-                    targetUri = androidx.core.content.FileProvider.getUriForFile(
-                            this,
-                            getPackageName() + ".fileprovider",
-                            apkFile
-                    );
+                    android.app.DownloadManager dm = (android.app.DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                    if (dm != null) {
+                        android.app.DownloadManager.Query q = new android.app.DownloadManager.Query();
+                        q.setFilterById(downloadId);
+                        android.database.Cursor cursor = dm.query(q);
+                        if (cursor != null) {
+                            if (cursor.moveToFirst()) {
+                                int uriIdx = cursor.getColumnIndex(android.app.DownloadManager.COLUMN_LOCAL_URI);
+                                if (uriIdx != -1) {
+                                    String localUriStr = cursor.getString(uriIdx);
+                                    if (localUriStr != null && localUriStr.startsWith("file://")) {
+                                        File actualFile = new File(Uri.parse(localUriStr).getPath());
+                                        if (actualFile.exists()) {
+                                            targetUri = androidx.core.content.FileProvider.getUriForFile(
+                                                    this,
+                                                    getPackageName() + ".fileprovider",
+                                                    actualFile
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                            cursor.close();
+                        }
+                    }
                 } catch (Exception ignored) {}
+            }
+
+            if (targetUri == null) {
+                File downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+                File apkFile = new File(downloadsDir, "Brnsic.apk");
+                if (apkFile.exists()) {
+                    try {
+                        targetUri = androidx.core.content.FileProvider.getUriForFile(
+                                this,
+                                getPackageName() + ".fileprovider",
+                                apkFile
+                        );
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            if (targetUri == null) {
+                Toast.makeText(this, "File pembaruan tidak ditemukan. Buka folder Download untuk memasang.", Toast.LENGTH_LONG).show();
+                return;
             }
 
             Intent installIntent = new Intent(Intent.ACTION_VIEW);

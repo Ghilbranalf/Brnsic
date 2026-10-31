@@ -15,15 +15,15 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "4.0.0",
-    versionCode: 18,
-    minVersionCode: 18,
-    releaseDate: "2026-10-29",
-    title: "Brnsic v4.0.0",
-    notes: "Fitur Wajib Masuk (Fullscreen Welcome Gate): eliminasi total mode tamu, autentikasi 1-klik Google, sinkronisasi cloud real-time.",
+    version: "4.0.1",
+    versionCode: 19,
+    minVersionCode: 19,
+    releaseDate: "2026-11-01",
+    title: "Brnsic v4.0.1",
+    notes: "Pembaruan v4.0.1: Perbaikan mesin pencarian, integrasi InnerTube, dan sistem self-updater otomatis menimpa APK lama.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: false,
-    buildId: "20261101-welcome-gate-v32"
+    buildId: "20261101-welcome-gate-v33"
   });
 }
