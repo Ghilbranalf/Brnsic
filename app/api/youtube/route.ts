@@ -23,6 +23,17 @@ const VERIFIED_MAP: Record<string, string> = {
   "anji berhenti di kamu": "Vq7zgLz7qpw",
   "berhenti di kamu": "Vq7zgLz7qpw",
 
+  // Luis Fonsi & Daddy Yankee
+  "luis fonsi despacito": "kJQP7kiw5Fk",
+  "despacito": "kJQP7kiw5Fk",
+  "despacito luis fonsi": "kJQP7kiw5Fk",
+  "despacito justin bieber": "72UO0v5ESUo",
+
+  // 6sentani
+  "6sentani only siji": "iQ7gbcjob3w",
+  "only siji": "iQ7gbcjob3w",
+  "only siji 6sentani": "iQ7gbcjob3w",
+
   // Sal Priadi (100% Pure Label Studio Master)
   "sal priadi gala bunga matahari": "kv2WIY8RLQQ",
   "gala bunga matahari": "kv2WIY8RLQQ",

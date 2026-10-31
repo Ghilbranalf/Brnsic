@@ -441,6 +441,24 @@ const DEFAULT_CATALOG: Track[] = [
 // Curated Popular Index for Instant Client-Side Fuzzy & Typo Matching (Like Spotify!)
 const POPULAR_SEARCH_CATALOG = [
   {
+    title: "Despacito",
+    artist: "Luis Fonsi, Daddy Yankee",
+    album: "VIDA",
+    cover: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bf/20/00/bf2000c0-6d45-6677-ee87-aa97a5a3a7c6/00602557434720.rgb.jpg/600x600bb.jpg",
+    duration: 288,
+    youtubeId: "kJQP7kiw5Fk",
+    tags: ["despacito", "luis", "fonsi", "daddy", "yankee", "justin", "bieber"]
+  },
+  {
+    title: "Only Siji",
+    artist: "6sentani",
+    album: "Only Siji - Single",
+    cover: "https://i.ytimg.com/vi/iQ7gbcjob3w/hq720.jpg",
+    duration: 138,
+    youtubeId: "iQ7gbcjob3w",
+    tags: ["only", "siji", "6sentani", "sentani"]
+  },
+  {
     title: "Gala Bunga Matahari",
     artist: "Sal Priadi",
     album: "MARKERS AND SUCH PENS FLASHDISKS",

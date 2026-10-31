@@ -48,7 +48,8 @@ const KNOWN_ARTISTS: string[] = [
   "ariana grande", "olivia rodrigo", "sabrina carpenter", "post malone", "maroon 5",
   "bts", "blackpink", "newjeans", "dua lipa", "harry styles", "eminem", "drake",
   "kendrick lamar", "rex orange county", "wave to earth", "sza", "avicii", "alan walker",
-  "green day", "linkin park", "nirvana", "twenty one pilots", "radiohead", "the 1975"
+  "green day", "linkin park", "nirvana", "twenty one pilots", "radiohead", "the 1975",
+  "xxxtentacion", "martin garrix", "6sentani", "luis fonsi", "daddy yankee", "juice wrld", "travis scott"
 ];
 
 // Verified High-Res Artist Avatars (600x600 HD)
@@ -82,10 +83,23 @@ const VERIFIED_ARTIST_AVATARS: Record<string, string> = {
   "tulus": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/bb/12/3e/bb123e64-7747-78f3-ce81-8b04bfe30e73/cover.jpg/600x600bb.jpg",
   "juicy luicy": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/26/0c/be/260cbe21-9d2d-a2ab-3391-f8fde6ad6840/198704005169_Cover.jpg/600x600bb.jpg",
   "mahalini": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/bb/dd/66/bbdd66d0-f0f4-bad8-b15b-ef0b8754da5b/cover.jpg/600x600bb.jpg",
-  "nadin amizah": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/1d/10/9b/1d109b17-1bbf-1894-e774-4d9ad6baa7b3/cover.jpg/600x600bb.jpg"
+  "nadin amizah": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/1d/10/9b/1d109b17-1bbf-1894-e774-4d9ad6baa7b3/cover.jpg/600x600bb.jpg",
+  "xxxtentacion": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bf/16/be/bf16be88-3486-3536-bb15-beaa293ea2eb/00842812106654.rgb.jpg/600x600bb.jpg",
+  "martin garrix": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6e/1e/f0/6e1ef055-195a-bb73-d5a8-5926058366a5/8712944577525.png/600x600bb.jpg",
+  "luis fonsi": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bf/20/00/bf2000c0-6d45-6677-ee87-aa97a5a3a7c6/00602557434720.rgb.jpg/600x600bb.jpg",
+  "daddy yankee": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/4a/6c/fb/4a6cfb1c-79cf-939e-2ce0-0b6ec86beee2/22UMGIM25828.rgb.jpg/600x600bb.jpg",
+  "6sentani": "https://i.ytimg.com/vi/iQ7gbcjob3w/hq720.jpg"
 };
 
 const KNOWN_TOP_SONGS: Array<{ title: string; artist: string; popularity: number }> = [
+  { title: "Despacito", artist: "Luis Fonsi & Daddy Yankee", popularity: 100 },
+  { title: "Only Siji", artist: "6sentani", popularity: 100 },
+  { title: "SAD!", artist: "XXXTENTACION", popularity: 100 },
+  { title: "Moonlight", artist: "XXXTENTACION", popularity: 100 },
+  { title: "Jocelyn Flores", artist: "XXXTENTACION", popularity: 100 },
+  { title: "changes", artist: "XXXTENTACION", popularity: 100 },
+  { title: "Animals", artist: "Martin Garrix", popularity: 100 },
+  { title: "Faded", artist: "Alan Walker", popularity: 100 },
   { title: "Helena", artist: "My Chemical Romance", popularity: 100 },
   { title: "Welcome to the Black Parade", artist: "My Chemical Romance", popularity: 100 },
   { title: "Baby", artist: "Justin Bieber", popularity: 100 },
@@ -131,6 +145,77 @@ const KNOWN_TOP_SONGS: Array<{ title: string; artist: string; popularity: number
   { title: "Seasons", artist: "wave to earth", popularity: 98 },
   { title: "bad", artist: "wave to earth", popularity: 96 }
 ];
+
+// High-speed InnerTube YouTube Music lookup for guaranteed coverage of underground, regional, and viral songs
+async function searchInnerTubeMusic(query: string): Promise<any[]> {
+  try {
+    const url = "https://www.youtube.com/youtubei/v1/search?prettyPrint=false";
+    const body = {
+      context: {
+        client: { clientName: "WEB", clientVersion: "2.20240410.01.00", hl: "id", gl: "ID" }
+      },
+      query: `${query} audio`
+    };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      next: { revalidate: 3600 }
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items: any[] = [];
+    const walk = (o: any) => {
+      if (!o || typeof o !== "object") return;
+      if (o.videoRenderer) {
+        const vr = o.videoRenderer;
+        const id = vr.videoId;
+        let title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || "";
+        let artist = vr.ownerText?.runs?.[0]?.text || "";
+        const durStr = vr.lengthText?.simpleText || "";
+        const thumb = vr.thumbnail?.thumbnails?.slice(-1)[0]?.url;
+
+        if (id && title) {
+          if (title.includes(" - ")) {
+            const parts = title.split(" - ");
+            artist = parts[0].trim();
+            title = parts.slice(1).join(" - ").trim();
+          }
+          title = title
+            .replace(/\s*[\(\[](official|audio|music video|video|lyric|lyrics|mv|visualizer|lirik)[\)\]]/gi, "")
+            .replace(/#\S+/g, "")
+            .trim();
+          artist = artist.replace(/\s*-\s*topic/i, "").trim();
+
+          // Duration parse
+          let durSec = 210;
+          if (durStr) {
+            const dp = durStr.split(".").join(":").split(":");
+            if (dp.length === 2) durSec = parseInt(dp[0], 10) * 60 + parseInt(dp[1], 10);
+            else if (dp.length === 3) durSec = parseInt(dp[0], 10) * 3600 + parseInt(dp[1], 10) * 60 + parseInt(dp[2], 10);
+          }
+
+          items.push({
+            trackId: `yt-${id}`,
+            trackName: title,
+            artistName: artist || "YouTube Music",
+            album: "Single",
+            collectionId: undefined,
+            artworkUrl100: thumb || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+            duration: durSec,
+            youtubeId: id,
+            source: "youtube-innertube"
+          });
+        }
+      }
+      for (const k of Object.keys(o)) walk(o[k]);
+    };
+    walk(data);
+    return items.slice(0, 10);
+  } catch (e) {
+    return [];
+  }
+}
 
 // As-you-type trending suggestions directly from YouTube & Google Complete API
 async function fetchTrendingSearchSuggestions(query: string): Promise<string[]> {
@@ -234,8 +319,8 @@ export async function GET(request: Request) {
 
     const primaryQuery = searchTerms[0];
 
-    // 3. Multi-Entity Parallel Search on iTunes Worldwide & Local Catalog
-    const [songRes, artistRes, albumRes, indoSongRes] = await Promise.all([
+    // 3. Multi-Entity Parallel Search on iTunes Worldwide, Local Indo Catalog & YouTube Music InnerTube
+    const [songRes, artistRes, albumRes, indoSongRes, innerTubeSongs] = await Promise.all([
       // Songs (Worldwide)
       fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(primaryQuery)}&entity=song&limit=30`, { next: { revalidate: 3600 } })
         .then((r) => (r.ok ? r.json() : { results: [] }))
@@ -251,7 +336,9 @@ export async function GET(request: Request) {
       // Secondary local Indonesian search
       fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(primaryQuery)}&country=id&entity=song&limit=25`, { next: { revalidate: 3600 } })
         .then((r) => (r.ok ? r.json() : { results: [] }))
-        .catch(() => ({ results: [] }))
+        .catch(() => ({ results: [] })),
+      // Real-time InnerTube search (guarantees underground, regional & TikTok hits like 6sentani - Only Siji)
+      searchInnerTubeMusic(primaryQuery)
     ]);
 
     // 4. Parse & Deduplicate Artists
@@ -304,11 +391,15 @@ export async function GET(request: Request) {
       }
     }
 
-    // 6. If Top Artist is strongly matched, fetch their official top streaming hits via Apple Music lookup
+    // 6. Check if Top Artist is legitimately matched
     let artistTopTracks: any[] = [];
     const matchedArtistObj = rawArtists.find((a: any) => {
-      const aName = a.artistName.toLowerCase();
-      return aName === queryClean || aName.startsWith(queryClean) || queryClean.startsWith(aName);
+      const aName = a.artistName.toLowerCase().trim();
+      const isKnown = KNOWN_ARTISTS.includes(aName) || Boolean(VERIFIED_ARTIST_AVATARS[aName]);
+      if (isKnown && (aName === queryClean || aName.startsWith(queryClean))) {
+        return true;
+      }
+      return aName === queryClean;
     });
 
     if (matchedArtistObj && matchedArtistObj.artistId) {
@@ -337,7 +428,12 @@ export async function GET(request: Request) {
     }
 
     // 7. Parse & Normalize Song Candidates
-    const rawSongs = [...(artistTopTracks || []), ...(indoSongRes.results || []), ...(songRes.results || [])];
+    const rawSongs = [
+      ...(artistTopTracks || []),
+      ...(innerTubeSongs || []),
+      ...(indoSongRes.results || []),
+      ...(songRes.results || [])
+    ];
     const uniqueSongs: any[] = [];
     const seenSongs = new Set<string>();
 
@@ -346,8 +442,8 @@ export async function GET(request: Request) {
       const artist = (t.artistName || "").trim();
       if (!title || !artist) continue;
 
-      // Penalize spam / parody
-      if (/karaoke|parody|parodi|remix tribute|cover by|reaction|6sentani|only siji/i.test(title)) {
+      // Penalize spam / parody / workout covers
+      if (/(parody|parodi|reaction video|reaction|workout gym mix|fitness mix)/i.test(title)) {
         continue;
       }
 
@@ -355,7 +451,7 @@ export async function GET(request: Request) {
       if (!seenSongs.has(dedupeKey)) {
         seenSongs.add(dedupeKey);
         uniqueSongs.push({
-          trackId: `itunes-${t.trackId}`,
+          trackId: t.trackId ? `${t.trackId}` : `track-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           trackName: title,
           artistName: artist,
           album: t.collectionName || t.album || "Single",
@@ -363,6 +459,7 @@ export async function GET(request: Request) {
           artworkUrl100: (t.artworkUrl100 || "").replace("100x100bb", "600x600bb"),
           duration: Math.round((t.trackTimeMillis || t.duration || 210000) / 1000),
           previewUrl: t.previewUrl,
+          youtubeId: t.youtubeId,
           source: t.source || "itunes"
         });
       }
@@ -374,40 +471,50 @@ export async function GET(request: Request) {
       const a = item.artistName.toLowerCase().trim();
       let score = 0;
 
-      // Artist top hits lookup bonus
-      if (item.source === "itunes-top") {
-        score += 5000;
+      // 1. Heavy penalty for workout, gym mix, fitness, tribute, parody, or karaoke tracks
+      if (/(workout|gym mix|fitness|tribute|parody|parodi|karaoke|running mix)/i.test(t) ||
+          /(workout|tribute|karaoke|fitness)/i.test(a)) {
+        score -= 15000;
       }
 
-      // Check against known top hits dictionary for stream popularity boost
+      // 2. Exact Title Matches
+      if (t === queryClean) {
+        score += 12000;
+      } else if (t.startsWith(queryClean)) {
+        score += 6000;
+      } else if (t.includes(queryClean)) {
+        score += 3000;
+      }
+
+      // 3. Exact Artist Matches
+      if (a === queryClean) {
+        score += 8000;
+      } else if (a.startsWith(queryClean)) {
+        score += 4000;
+      } else if (a.includes(queryClean)) {
+        score += 2000;
+      }
+
+      // 4. Token matches
+      const tokens = queryClean.split(" ").filter(Boolean);
+      const titleTokensMatch = tokens.filter((tok) => t.includes(tok)).length;
+      const artistTokensMatch = tokens.filter((tok) => a.includes(tok)).length;
+      score += titleTokensMatch * 600;
+      score += artistTokensMatch * 500;
+
+      // 5. Verified Top Hits Bonus
       for (const hit of KNOWN_TOP_SONGS) {
         const hTitle = hit.title.toLowerCase();
         const hArtist = hit.artist.toLowerCase();
-        if (t === hTitle || (t.includes(hTitle) && a.includes(hArtist))) {
-          score += hit.popularity * 25; // Massive boost for verified hits
+        if (t === hTitle || (t.includes(hTitle) && (a.includes(hArtist) || hArtist.includes(a)))) {
+          score += hit.popularity * 45;
           break;
         }
       }
 
-      // Target terms matching (handles both prefix & corrected full terms)
-      for (const term of [queryClean, ...(correctedQuery ? [correctedQuery.toLowerCase()] : [])]) {
-        if (!term) continue;
-
-        // Exact matches
-        if (a === term) score += 4000;
-        else if (a.startsWith(term)) score += 3000;
-        else if (a.includes(term)) score += 1500;
-
-        if (t === term) score += 4500;
-        else if (t.startsWith(term)) score += 3200;
-        else if (t.includes(term)) score += 1800;
-
-        // Token match
-        const tokens = term.split(" ").filter(Boolean);
-        const titleTokensMatch = tokens.filter((tok) => t.includes(tok)).length;
-        const artistTokensMatch = tokens.filter((tok) => a.includes(tok)).length;
-        score += titleTokensMatch * 500;
-        score += artistTokensMatch * 600;
+      // 6. Verified Artist Bonus
+      if (KNOWN_ARTISTS.includes(a)) {
+        score += 1500;
       }
 
       return score;
@@ -418,12 +525,28 @@ export async function GET(request: Request) {
     // 9. Spotify-Grade Top Result (Hasil Teratas) Determination
     let topResult: any = null;
 
-    if (matchedArtistObj) {
+    const isKnownArtist = KNOWN_ARTISTS.includes(queryClean) || Boolean(VERIFIED_ARTIST_AVATARS[queryClean]);
+
+    const exactSongMatch = uniqueSongs.find((s) => {
+      const st = s.trackName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const qc = queryClean.replace(/[^a-z0-9]/g, "");
+      return st === qc;
+    });
+
+    // An artist is Top Result ONLY if:
+    // - The query is explicitly a recognized artist in KNOWN_ARTISTS (e.g. "bernadya", "coldplay", "xxxtentacion"), OR
+    // - There is NO exact song match by another artist.
+    if (
+      matchedArtistObj &&
+      (isKnownArtist || !exactSongMatch || exactSongMatch.artistName.toLowerCase().includes(matchedArtistObj.artistName.toLowerCase()))
+    ) {
       const artistName = matchedArtistObj.artistName;
       const avatar =
         VERIFIED_ARTIST_AVATARS[artistName.toLowerCase()] ||
         uniqueSongs.find((s) => s.artistName.toLowerCase() === artistName.toLowerCase())?.artworkUrl100 ||
         `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artistName)}&backgroundColor=1f1f1f&textColor=ffffff`;
+
+      const topTracks = uniqueSongs.filter((s) => s.artistName.toLowerCase().includes(artistName.toLowerCase())).slice(0, 5);
 
       topResult = {
         type: "artist",
@@ -432,7 +555,12 @@ export async function GET(request: Request) {
         title: artistName,
         artist: matchedArtistObj.primaryGenreName || "Artis Terverifikasi",
         avatar,
-        topTracks: uniqueSongs.filter((s) => s.artistName.toLowerCase() === artistName.toLowerCase()).slice(0, 5)
+        topTracks
+      };
+    } else if (exactSongMatch) {
+      topResult = {
+        type: "song",
+        ...exactSongMatch
       };
     } else if (uniqueSongs.length > 0) {
       topResult = {
