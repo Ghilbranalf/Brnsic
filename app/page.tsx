@@ -1613,6 +1613,9 @@ export default function BrnsicMusicPage() {
   const [seasonalThemeSetting, setSeasonalThemeSetting] = useState<SeasonalThemeId>("auto");
   const [seasonalTheme, setSeasonalTheme] = useState<SeasonalThemeInfo>(() => getSeasonalTheme("auto"));
 
+  // 14C. Real-time Network Connectivity Guard (Offline Mode Support)
+  const [isOnline, setIsOnline] = useState<boolean>(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
+
   // 15. User Authentication & Cloud Preference Sync (Mandatory Login - No Guest Mode)
   const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
@@ -1655,14 +1658,34 @@ export default function BrnsicMusicPage() {
   // 17. Real PWA Install Step State
   const [installStep, setInstallStep] = useState<"downloading" | "ready" | "installed" | "ios_guide">("downloading");
 
+  // Helper to filter out corrupted or invalid artist names (like "Undefined Pattern", "english", etc.)
+  const isInvalidArtist = (str: any): boolean => {
+    if (!str || typeof str !== "string") return true;
+    const l = str.toLowerCase().trim();
+    return (
+      !l ||
+      l === "undefined" ||
+      l.includes("undefined") ||
+      l === "null" ||
+      l.includes("null") ||
+      l === "english" ||
+      l === "indonesia" ||
+      l === "unknown" ||
+      l === "various artists"
+    );
+  };
+
   // User Preferred Artists from Onboarding Choices or Listening Profile
   const userPreferredArtists = useMemo(() => {
+    const sanitize = (list: string[]) =>
+      Array.from(new Set(list.map((s) => s.trim()).filter((s) => !isInvalidArtist(s))));
+
     // 1. Explicit user selections take absolute priority over test history
     if (currentUser?.selectedArtists && currentUser.selectedArtists.length > 0) {
-      return Array.from(new Set(currentUser.selectedArtists.map((s) => s.trim()).filter(Boolean)));
+      return sanitize(currentUser.selectedArtists);
     }
     if (selectedOnboardingArtists && selectedOnboardingArtists.length > 0) {
-      return Array.from(new Set(selectedOnboardingArtists.map((s) => s.trim()).filter(Boolean)));
+      return sanitize(selectedOnboardingArtists);
     }
     // 2. Fallback to listening weights if no onboarding choices exist
     if (userTaste?.artistWeights) {
@@ -1670,10 +1693,11 @@ export default function BrnsicMusicPage() {
         .filter(([_, w]) => w > 0)
         .sort((a, b) => b[1] - a[1])
         .map(([a]) => a);
-      if (sorted.length > 0) return sorted.slice(0, 5);
+      const cleaned = sanitize(sorted);
+      if (cleaned.length > 0) return cleaned.slice(0, 5);
     }
     if (userTaste?.likedArtists && userTaste.likedArtists.length > 0) {
-      return Array.from(new Set(userTaste.likedArtists.map((s) => s.trim()).filter(Boolean)));
+      return sanitize(userTaste.likedArtists);
     }
     return [];
   }, [currentUser?.selectedArtists, selectedOnboardingArtists, userTaste?.artistWeights, userTaste?.likedArtists]);
@@ -1701,9 +1725,17 @@ export default function BrnsicMusicPage() {
       return;
     }
 
-    const queryList = topArtistName
-      ? [topArtistName, ...userPreferredArtists.filter((a) => a.toLowerCase().trim() !== topArtistName.toLowerCase().trim())]
-      : userPreferredArtists;
+    // Do not attempt background network fetching if device is offline
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return;
+    }
+
+    const queryList = (
+      topArtistName
+        ? [topArtistName, ...userPreferredArtists.filter((a) => a.toLowerCase().trim() !== topArtistName.toLowerCase().trim())]
+        : userPreferredArtists
+    ).filter((a) => !isInvalidArtist(a));
+
     const artistsToQuery = queryList.slice(0, 3);
     Promise.allSettled(
       artistsToQuery.map(async (a) => {
@@ -2068,6 +2100,7 @@ export default function BrnsicMusicPage() {
 
     // Automatic Update Check via /api/version (Force Update for Outdated APK Versions)
     const checkAppVersion = async () => {
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
       try {
         const res = await fetch(`/api/version?t=${Date.now()}`, { cache: "no-store" });
         if (res.ok) {
@@ -2139,9 +2172,24 @@ export default function BrnsicMusicPage() {
     checkAppVersion();
     const updateInterval = setInterval(checkAppVersion, 25000);
 
+    const onOnline = () => {
+      setIsOnline(true);
+      showToast("Koneksi internet terhubung kembali.");
+      checkAppVersion();
+    };
+    const onOffline = () => {
+      setIsOnline(false);
+      showToast("Koneksi internet terputus. Mode offline aktif.");
+    };
+
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
       window.removeEventListener("appinstalled", onAppInstalled);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
       clearInterval(updateInterval);
     };
   }, []);
@@ -2223,28 +2271,31 @@ export default function BrnsicMusicPage() {
             setCurrentTrack(parsed);
             currentTrackRef.current = parsed;
             if (parsed.artist) {
-              if (!parsed.youtubeId) {
-                fetch(`/api/youtube?artist=${encodeURIComponent(parsed.artist)}&title=${encodeURIComponent(parsed.title)}`)
+              const isNetOnline = typeof navigator === "undefined" || navigator.onLine;
+              if (isNetOnline) {
+                if (!parsed.youtubeId) {
+                  fetch(`/api/youtube?artist=${encodeURIComponent(parsed.artist)}&title=${encodeURIComponent(parsed.title)}`)
+                    .then((r) => r.json())
+                    .then((d) => {
+                      if (d.videoId) {
+                        setCurrentTrack((prev) => ({ ...prev, youtubeId: d.videoId }));
+                        if (currentTrackRef.current) currentTrackRef.current.youtubeId = d.videoId;
+                        try {
+                          localStorage.setItem("brnsic_cached_track", JSON.stringify({ ...parsed, youtubeId: d.videoId }));
+                        } catch (e) {}
+                      }
+                    })
+                    .catch(() => {});
+                }
+                fetch(`/api/related?artist=${encodeURIComponent(parsed.artist)}&title=${encodeURIComponent(parsed.title)}`)
                   .then((r) => r.json())
                   .then((d) => {
-                    if (d.videoId) {
-                      setCurrentTrack((prev) => ({ ...prev, youtubeId: d.videoId }));
-                      if (currentTrackRef.current) currentTrackRef.current.youtubeId = d.videoId;
-                      try {
-                        localStorage.setItem("brnsic_cached_track", JSON.stringify({ ...parsed, youtubeId: d.videoId }));
-                      } catch (e) {}
+                    if (d.related && d.related.length > 0) {
+                      setRelatedQueue(d.related);
                     }
                   })
                   .catch(() => {});
               }
-              fetch(`/api/related?artist=${encodeURIComponent(parsed.artist)}&title=${encodeURIComponent(parsed.title)}`)
-                .then((r) => r.json())
-                .then((d) => {
-                  if (d.related && d.related.length > 0) {
-                    setRelatedQueue(d.related);
-                  }
-                })
-                .catch(() => {});
             }
           }
         } catch (e) {}
@@ -2466,18 +2517,44 @@ export default function BrnsicMusicPage() {
               setIsOnboardingModalOpen(true);
             }
           } else {
-            // Not authenticated: ensure Guest mode has null currentUser
+            // Server explicitly returned authenticated: false
             setCurrentUser(null);
             try {
               localStorage.removeItem("brnsic_user_profile");
               localStorage.removeItem("brnsic_auth_token");
             } catch (e) {}
           }
-        } else {
+        } else if (res.status === 401 || res.status === 403) {
+          // Explicitly unauthorized by server
           setCurrentUser(null);
+          try {
+            localStorage.removeItem("brnsic_user_profile");
+            localStorage.removeItem("brnsic_auth_token");
+          } catch (e) {}
+        } else {
+          // Server error 500/502/504 or proxy failure: Keep cached session!
+          const cachedUser = typeof window !== "undefined" ? localStorage.getItem("brnsic_user_profile") : null;
+          if (cachedUser) {
+            try {
+              const parsed = JSON.parse(cachedUser);
+              if (parsed && !parsed.email?.includes("@guest.") && !parsed.id?.startsWith("dev_")) {
+                setCurrentUser(parsed);
+              }
+            } catch (e) {}
+          }
         }
       } catch (e) {
-        setCurrentUser(null);
+        // Network error (ERR_INTERNET_DISCONNECTED / offline)
+        // CRITICAL: DO NOT wipe currentUser! Retain cached profile so user stays logged in offline
+        const cachedUser = typeof window !== "undefined" ? localStorage.getItem("brnsic_user_profile") : null;
+        if (cachedUser) {
+          try {
+            const parsed = JSON.parse(cachedUser);
+            if (parsed && !parsed.email?.includes("@guest.") && !parsed.id?.startsWith("dev_")) {
+              setCurrentUser(parsed);
+            }
+          } catch (err) {}
+        }
       } finally {
         setIsAuthChecking(false);
       }
@@ -3414,6 +3491,11 @@ export default function BrnsicMusicPage() {
   // Google Auth Handler (Supports Native Supabase Google OAuth SSO + Email Fallback)
   const handleGoogleSignIn = async (customEmail?: string) => {
     setAuthError(null);
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setAuthError("Koneksi internet terputus. Sambungkan ke WiFi atau kuota data seluler untuk masuk dengan Google.");
+      showToast("Koneksi internet terputus.");
+      return;
+    }
     setIsAuthSubmitting(true);
 
     try {
@@ -3928,8 +4010,27 @@ export default function BrnsicMusicPage() {
     }
   };
 
-  // 4. Fetch Real-Time Charts on Mount
+  // 4. Fetch Real-Time Charts on Mount (with Offline Cache Support)
   const loadTrendingData = async () => {
+    // If device is offline, restore from cache immediately
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      try {
+        const cached = localStorage.getItem("brnsic_cached_trending");
+        if (cached) {
+          const data = JSON.parse(cached);
+          if (data.indonesiaTop50 && data.indonesiaTop50.length > 0) {
+            setIndonesiaTop50(data.indonesiaTop50);
+            setActiveQueue((prev) => (prev.length <= 5 ? data.indonesiaTop50 : prev));
+          }
+          if (data.mostPlayedIndonesia && data.mostPlayedIndonesia.length > 0) setMostPlayedIndonesia(data.mostPlayedIndonesia);
+          if (data.viralIndonesia && data.viralIndonesia.length > 0) setViralIndonesia(data.viralIndonesia);
+          if (data.globalTrending && data.globalTrending.length > 0) setGlobalTrending(data.globalTrending);
+          if (data.popularArtists && data.popularArtists.length > 0) setPopularArtists(data.popularArtists);
+        }
+      } catch (e) {}
+      return;
+    }
+
     try {
       const res = await fetch("/api/trending");
       if (res.ok) {
@@ -3946,9 +4047,23 @@ export default function BrnsicMusicPage() {
         if (data.popularArtists && data.popularArtists.length > 0) setPopularArtists(data.popularArtists);
         const now = new Date();
         setLastChartUpdated(`${now.getHours()}:${now.getMinutes() < 10 ? "0" : ""}${now.getMinutes()}`);
+        try {
+          localStorage.setItem("brnsic_cached_trending", JSON.stringify(data));
+        } catch (e) {}
       }
     } catch (err) {
-      console.error("Failed to load trending music data", err);
+      // Graceful offline fallback from local cache
+      try {
+        const cached = localStorage.getItem("brnsic_cached_trending");
+        if (cached) {
+          const data = JSON.parse(cached);
+          if (data.indonesiaTop50 && data.indonesiaTop50.length > 0) setIndonesiaTop50(data.indonesiaTop50);
+          if (data.mostPlayedIndonesia && data.mostPlayedIndonesia.length > 0) setMostPlayedIndonesia(data.mostPlayedIndonesia);
+          if (data.viralIndonesia && data.viralIndonesia.length > 0) setViralIndonesia(data.viralIndonesia);
+          if (data.globalTrending && data.globalTrending.length > 0) setGlobalTrending(data.globalTrending);
+          if (data.popularArtists && data.popularArtists.length > 0) setPopularArtists(data.popularArtists);
+        }
+      } catch (e) {}
     }
   };
 
@@ -3958,9 +4073,13 @@ export default function BrnsicMusicPage() {
 
   // 5. Initialize YouTube Iframe API Once on Root Player
   useEffect(() => {
+    if (typeof window === "undefined") return;
     if (!window.YT) {
       const tag = document.createElement("script");
       tag.src = "https://www.youtube.com/iframe_api";
+      tag.onerror = () => {
+        // Suppress unhandled network error if offline on initial page load
+      };
       const firstScriptTag = document.getElementsByTagName("script")[0];
       firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
     }
@@ -5580,6 +5699,13 @@ export default function BrnsicMusicPage() {
               Masuk ke akun untuk menikmati jutaan lagu resmi, lirik tersinkronisasi, dan playlist cerdas.
             </p>
 
+            {!isOnline && (
+              <div className="w-full mt-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold text-center animate-fadeIn relative z-10 flex items-center justify-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span>Koneksi internet terputus. Sambungkan WiFi atau kuota data untuk masuk.</span>
+              </div>
+            )}
+
             {authError && (
               <div className="w-full mt-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold text-center animate-fadeIn relative z-10">
                 {authError}
@@ -5810,6 +5936,12 @@ export default function BrnsicMusicPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {!isOnline && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>Mode Offline</span>
+            </div>
+          )}
           <button
             onClick={loadTrendingData}
             className="text-xs text-[#b3b3b3] hover:text-white px-2 py-1 rounded-full transition flex items-center gap-1"
@@ -6005,6 +6137,11 @@ export default function BrnsicMusicPage() {
                 />
                 <span className="font-black text-lg text-white">Brnsic</span>
                 <SeasonalMascotIcon theme={seasonalTheme} onClick={() => showToast(seasonalTheme.toastText)} />
+                {!isOnline && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                    Offline
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {!isInsideNativeApk && (

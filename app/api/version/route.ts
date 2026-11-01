@@ -20,10 +20,10 @@ export async function GET() {
     minVersionCode: 19,
     releaseDate: "2026-11-01",
     title: "Brnsic v4.0.1",
-    notes: "Pembaruan v4.0.1: Fitur tema musiman & aksen hari spesial (Halloween, Natal, Tahun Baru, Valentine, Ramadan, dll) dan variasi suasana harian tanpa merubah desain.",
+    notes: "Pembaruan v4.0.1: Perbaikan offline fallback, pembersihan sesi offline guard, eliminasi error Service Worker Response, dan penanganan koneksi terputus.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: false,
-    buildId: "20261101-welcome-gate-v35"
+    buildId: "20261102-welcome-gate-v36"
   });
 }
