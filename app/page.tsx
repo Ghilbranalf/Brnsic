@@ -10,6 +10,13 @@ import {
   type MoodInsight,
   type FeatureVector
 } from "@/lib/recommendation";
+import {
+  SeasonalThemeId,
+  SeasonalThemeInfo,
+  THEME_OPTIONS,
+  getSeasonalTheme,
+  SeasonalMascotIcon
+} from "@/lib/seasonal";
 
 // --- Types ---
 interface LyricLine {
@@ -1602,6 +1609,10 @@ export default function BrnsicMusicPage() {
   const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("standard");
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
 
+  // 14B. Seasonal Atmosphere & Holiday Easter Eggs Engine
+  const [seasonalThemeSetting, setSeasonalThemeSetting] = useState<SeasonalThemeId>("auto");
+  const [seasonalTheme, setSeasonalTheme] = useState<SeasonalThemeInfo>(() => getSeasonalTheme("auto"));
+
   // 15. User Authentication & Cloud Preference Sync (Mandatory Login - No Guest Mode)
   const [currentUser, setCurrentUser] = useState<SafeUser | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
@@ -2276,6 +2287,14 @@ export default function BrnsicMusicPage() {
 
       const islandPos = localStorage.getItem("brnsic_island_pos");
       if (islandPos === "left" || islandPos === "right") setIslandPosition(islandPos);
+
+      const savedSeasonal = localStorage.getItem("brnsic_seasonal_theme") as SeasonalThemeId | null;
+      if (savedSeasonal) {
+        setSeasonalThemeSetting(savedSeasonal);
+        setSeasonalTheme(getSeasonalTheme(savedSeasonal));
+      } else {
+        setSeasonalTheme(getSeasonalTheme("auto"));
+      }
 
       const cachedUser = localStorage.getItem("brnsic_user_profile");
       const cachedToken = localStorage.getItem("brnsic_auth_token");
@@ -3253,6 +3272,16 @@ export default function BrnsicMusicPage() {
     shuffleToastTimeoutRef.current = setTimeout(() => {
       setShuffleToast(null);
     }, 2800);
+  };
+
+  const handleChangeSeasonalTheme = (themeId: SeasonalThemeId) => {
+    setSeasonalThemeSetting(themeId);
+    const newTheme = getSeasonalTheme(themeId);
+    setSeasonalTheme(newTheme);
+    try {
+      localStorage.setItem("brnsic_seasonal_theme", themeId);
+    } catch (e) {}
+    showToast(newTheme.toastText || `Suasana diubah ke ${newTheme.name}`);
   };
 
   // Spotify-grade Tri-State Shuffle Controller ("off" -> "standard" -> "smart" -> "off")
@@ -5490,6 +5519,14 @@ export default function BrnsicMusicPage() {
   return (
     <div className="w-full max-w-[100vw] h-screen bg-black text-white flex flex-col p-0 md:p-2 gap-2 overflow-x-hidden overflow-y-hidden font-sans select-none relative">
       
+      {/* Subtle Seasonal & Daily Occasion Corner Ambient Glow (Zero layout shift, AMOLED preserved) */}
+      {seasonalTheme.ambientGradient !== "none" && (
+        <div
+          className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-1000 ease-in-out"
+          style={{ background: seasonalTheme.ambientGradient }}
+        />
+      )}
+      
       {/* ====================================================================
           O. MANDATORY AUTHENTICATION: FULLSCREEN WELCOME GATE (OPSI A)
           ==================================================================== */}
@@ -5707,6 +5744,7 @@ export default function BrnsicMusicPage() {
             <span className="font-black text-xl tracking-tight text-white select-none hidden sm:inline-block">
               Brnsic
             </span>
+            <SeasonalMascotIcon theme={seasonalTheme} onClick={() => showToast(seasonalTheme.toastText)} />
           </div>
 
           <button
@@ -5966,6 +6004,7 @@ export default function BrnsicMusicPage() {
                   className="w-8 h-8 rounded-lg object-contain shadow"
                 />
                 <span className="font-black text-lg text-white">Brnsic</span>
+                <SeasonalMascotIcon theme={seasonalTheme} onClick={() => showToast(seasonalTheme.toastText)} />
               </div>
               <div className="flex items-center gap-2">
                 {!isInsideNativeApk && (
@@ -10635,6 +10674,44 @@ export default function BrnsicMusicPage() {
                 </div>
                 <span className="text-white/40 text-[11px] font-semibold">{dislikedTracks.length} lagu &rsaquo;</span>
               </button>
+
+              {/* Suasana & Tema Musiman (Seasonal Atmosphere & Holiday Accents) */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex flex-col gap-2.5 text-left">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base select-none">{seasonalTheme.emoji}</span>
+                    <span className="text-xs font-bold text-white">Suasana &amp; Tema Musiman</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-[#1ed760] truncate max-w-[130px]">
+                    {seasonalTheme.name}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
+                  {seasonalTheme.tagline}. Aksen dekoratif spesial otomatis aktif pada hari-hari tertentu tanpa merubah tata letak desain.
+                </p>
+
+                <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-white/10">
+                  {THEME_OPTIONS.map((opt) => {
+                    const isActive = seasonalThemeSetting === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => handleChangeSeasonalTheme(opt.id)}
+                        className={`py-2 px-2.5 rounded-xl text-[11px] font-bold transition flex items-center gap-2 cursor-pointer ${
+                          isActive
+                            ? "bg-[#1ed760] text-black shadow-sm"
+                            : "bg-white/5 hover:bg-white/10 text-white/80 active:scale-95"
+                        }`}
+                      >
+                        <span className="text-sm select-none">{opt.emoji}</span>
+                        <span className="truncate">{opt.label.split(" ")[0]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Dynamic Island Settings Card - EXCLUSIVELY FOR NATIVE ANDROID APK */}
               {isInsideNativeApk && (
