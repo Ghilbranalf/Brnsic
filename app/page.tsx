@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import type { SafeUser } from "@/lib/auth";
 import {
   buildUserTasteVector,
+  buildTasteVectorFromHistory,
   trainUserVectorOnInteraction,
   rankTracksByDeepLearning,
   detectUserMood,
@@ -1423,19 +1424,21 @@ const getSmartShuffleCandidates = (
     existingQueue.map((s) => ((s.title || s.trackName || "") as string).toLowerCase().trim())
   );
 
-  // If we have related tracks for the current musical circle, prioritize them to stay in the groove!
-  const rawPool = catalogs.related.length >= 4
-    ? [...catalogs.related]
-    : [
-        ...catalogs.related,
-        ...catalogs.topIndo,
-        ...catalogs.mostPlayed,
-        ...catalogs.globalTrending
-      ];
+  // Hybrid candidate pool: prioritize related tracks while still allowing taste-matched discovery from charts
+  const rawPool = [
+    ...catalogs.related,
+    ...catalogs.topIndo,
+    ...catalogs.mostPlayed,
+    ...catalogs.globalTrending
+  ];
 
   const activeVector =
     userVector ||
-    buildUserTasteVector(taste.likedArtists || [], taste.selectedGenres || []);
+    buildTasteVectorFromHistory(
+      taste.artistWeights || {},
+      taste.likedArtists || [],
+      taste.selectedGenres || []
+    );
 
   const cooldownList = Array.from(playedTitles);
   const candidates = rawPool.filter((t) => {
@@ -1443,12 +1446,28 @@ const getSmartShuffleCandidates = (
     return cleanT && !existingSet.has(cleanT);
   });
 
+  const recentArtists = [
+    currentSeed?.artist,
+    ...existingQueue.slice(-2).map((s) => s?.artist)
+  ].filter(Boolean) as string[];
+
   const ranked = rankTracksByDeepLearning(
     activeVector,
     candidates,
     cooldownList,
     dislikedTitles,
-    countNeeded
+    countNeeded,
+    false,
+    [],
+    {
+      seedTrack: currentSeed,
+      seedWeight: 0.55,
+      artistWeights: taste.artistWeights,
+      playCounts: taste.playCounts,
+      maxPerArtist: 2,
+      diversityWeight: 0.4,
+      recentArtists
+    }
   );
 
   return ranked.map((t) => ({
@@ -1712,11 +1731,16 @@ export default function BrnsicMusicPage() {
 
   // Sync AI Taste Vector whenever User Preferred Artists change
   useEffect(() => {
-    if (userPreferredArtists.length > 0) {
-      const nextVec = buildUserTasteVector(userPreferredArtists, selectedOnboardingGenres);
+    const hasWeights = Object.keys(userTaste.artistWeights || {}).length > 0;
+    if (userPreferredArtists.length > 0 || hasWeights) {
+      const nextVec = buildTasteVectorFromHistory(
+        userTaste.artistWeights || {},
+        userPreferredArtists,
+        selectedOnboardingGenres
+      );
       setUserTasteVector(nextVec);
     }
-  }, [userPreferredArtists, selectedOnboardingGenres]);
+  }, [userPreferredArtists, selectedOnboardingGenres, userTaste.artistWeights]);
 
   // Real-time dynamic fetch of artist catalog & related albums for user's chosen artists
   useEffect(() => {
@@ -1907,18 +1931,16 @@ export default function BrnsicMusicPage() {
           return !isPrimary && lowerPrefs.some((pref) => a.includes(pref) || pref.includes(a));
         });
 
-        // On a dedicated shelf ("Spesial Untukmu & Fans XXXTENTACION"):
-        // PRIMARY ARTIST TRACKS MUST COME FIRST!
-        if (primaryArtistTracks.length > 0) {
-          rawPool = [...primaryArtistTracks, ...secondaryArtistTracks];
-        } else {
-          rawPool = [...secondaryArtistTracks];
-        }
+        // Blend user's preferred artists + related/chart discovery for a balanced Daily Mix feel
+        const isIndo = lowerPrefs.some((p) => /sal|bernadya|hindia|nadin|tulus|sheila|dewa|mahalini|tiara|denny|juicy|lomba/i.test(p));
+        const chartDiscovery = isIndo
+          ? [...indonesiaTop50, ...mostPlayedIndonesia, ...globalTrending]
+          : [...globalTrending, ...indonesiaTop50, ...mostPlayedIndonesia];
 
-        // If still loading and completely empty, fallback cleanly
-        if (rawPool.length === 0) {
-          const isIndo = lowerPrefs.some((p) => /sal|bernadya|hindia|nadin|tulus|sheila|dewa|mahalini|tiara|denny/i.test(p));
-          rawPool = isIndo ? [...indonesiaTop50, ...globalTrending] : [...globalTrending, ...indonesiaTop50];
+        if (primaryArtistTracks.length > 0) {
+          rawPool = [...primaryArtistTracks, ...secondaryArtistTracks, ...chartDiscovery];
+        } else {
+          rawPool = [...secondaryArtistTracks, ...chartDiscovery];
         }
       } else {
         rawPool = [
@@ -1943,10 +1965,16 @@ export default function BrnsicMusicPage() {
       recentHistoryRef.current,
       dislikedSongIds,
       24,
-      true, // allowRecent = true: boosts user's favorite played songs right to the top!
-      topArtistName ? [topArtistName] : userPreferredArtists // Strict priority for the featured shelf artist!
+      true, // allowRecent = true: surfaces user's favorite played songs without monopolizing the shelf
+      topArtistName ? [topArtistName] : userPreferredArtists,
+      {
+        artistWeights: userTaste.artistWeights,
+        playCounts: userTaste.playCounts,
+        maxPerArtist: 3,
+        diversityWeight: 0.35
+      }
     );
-  }, [homeFilter, userPreferredArtists, topArtistName, topArtistShelfTracks, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, globalTrending, activeMoodInfo, dislikedSongIds]);
+  }, [homeFilter, userPreferredArtists, topArtistName, topArtistShelfTracks, mostPlayedIndonesia, indonesiaTop50, viralIndonesia, globalTrending, activeMoodInfo, dislikedSongIds, userTaste.artistWeights, userTaste.playCounts]);
 
   // Player State Synchronization Refs (prevents stale closure looping & skips)
   const isPlayingRef = useRef<boolean>(false);
@@ -4868,32 +4896,40 @@ export default function BrnsicMusicPage() {
         let radioQueue: any[] = [];
         const isShuffled = shuffleModeRef.current !== "off";
 
-        if (incomingRelated.length >= 5) {
-          const upcoming = isShuffled
-            ? balancedShuffle(incomingRelated, playedSongTitlesRef.current)
-            : incomingRelated;
-          radioQueue = [song, ...upcoming];
-        } else {
-          const candidatePool = [
-            ...incomingRelated,
-            ...(globalTrending || []),
-            ...(indonesiaTop50 || []),
-            ...(mostPlayedIndonesia || [])
-          ];
+        const cleanSongTitle = (song.title || song.trackName || "").toLowerCase().trim();
+        const candidatePool =
+          incomingRelated.length >= 6
+            ? incomingRelated
+            : [
+                ...incomingRelated,
+                ...(globalTrending || []),
+                ...(indonesiaTop50 || []),
+                ...(mostPlayedIndonesia || [])
+              ];
 
-          const cleanSongTitle = (song.title || song.trackName || "").toLowerCase().trim();
-          const rankedDiscovery = rankTracksByDeepLearning(
-            userTasteVector,
-            candidatePool,
-            [cleanSongTitle, ...recentHistoryRef.current],
-            dislikedSongIds,
-            30
-          );
-          const upcoming = isShuffled
-            ? balancedShuffle(rankedDiscovery, playedSongTitlesRef.current)
-            : rankedDiscovery;
-          radioQueue = [song, ...upcoming];
-        }
+        const rankedDiscovery = rankTracksByDeepLearning(
+          userTasteVector,
+          candidatePool,
+          [cleanSongTitle, ...recentHistoryRef.current],
+          dislikedSongIds,
+          30,
+          false,
+          [],
+          {
+            seedTrack: song,
+            seedWeight: 0.65,
+            artistWeights: userTaste.artistWeights,
+            playCounts: userTaste.playCounts,
+            maxPerArtist: 3,
+            diversityWeight: 0.4,
+            recentArtists: song.artist ? [song.artist] : []
+          }
+        );
+
+        const upcoming = isShuffled
+          ? balancedShuffle(rankedDiscovery, playedSongTitlesRef.current)
+          : rankedDiscovery;
+        radioQueue = [song, ...upcoming];
 
         activeQueueRef.current = radioQueue;
         activeQueueIndexRef.current = 0;
@@ -5139,29 +5175,48 @@ export default function BrnsicMusicPage() {
       }
     };
 
-    // A. Pick next unplayed from related recommendations & candidate pool via Deep Learning UCB1
-    const candidatePool = (relatedQueue && relatedQueue.length >= 4)
-      ? [...relatedQueue]
-      : [
-          ...(relatedQueue || []),
-          ...(globalTrending || []),
-          ...(indonesiaTop50 || []),
-          ...(mostPlayedIndonesia || []),
-          ...(viralIndonesia || [])
-        ];
+    // A. Pick next unplayed from related recommendations & candidate pool via Context-Aware Hybrid Ranking
+    const candidatePool = [
+      ...(relatedQueue || []),
+      ...(globalTrending || []),
+      ...(indonesiaTop50 || []),
+      ...(mostPlayedIndonesia || []),
+      ...(viralIndonesia || [])
+    ];
 
     const currentTitle = (currentTrack.title || "").toLowerCase().trim();
+    const recentArtists = [
+      currentTrack.artist,
+      ...currentQ.slice(-2).map((s: any) => s?.artist)
+    ].filter(Boolean) as string[];
+
     const rankedCandidates = rankTracksByDeepLearning(
       userTasteVector,
       candidatePool,
       [currentTitle, ...recentHistoryRef.current],
       dislikedSongIds,
-      12
+      12,
+      false,
+      [],
+      {
+        seedTrack: currentTrack,
+        seedWeight: 0.6,
+        artistWeights: userTaste.artistWeights,
+        playCounts: userTaste.playCounts,
+        maxPerArtist: 2,
+        diversityWeight: 0.45,
+        recentArtists
+      }
     );
 
     if (rankedCandidates.length > 0) {
-      // Pick with slight stochastic top-choice sampling (top 3) to prevent determinism
-      const topChoices = rankedCandidates.slice(0, Math.min(3, rankedCandidates.length));
+      // Pick from top 2 diverse candidates (preferring artists different from currentTrack)
+      const currentArtistLower = (currentTrack.artist || "").toLowerCase().trim();
+      const nonSameArtist = rankedCandidates.filter(
+        (c) => (c.artist || "").toLowerCase().trim() !== currentArtistLower
+      );
+      const poolToPick = nonSameArtist.length > 0 ? nonSameArtist : rankedCandidates;
+      const topChoices = poolToPick.slice(0, Math.min(2, poolToPick.length));
       const nextSong = topChoices[Math.floor(Math.random() * topChoices.length)];
       markPlayed(nextSong);
       const nextQ = [...currentQ, nextSong];

@@ -107,7 +107,24 @@ export const ARTIST_EMBEDDINGS: Record<string, FeatureVector> = {
   "xxxtentacion": [0.35, 0.85, 0.25, 0.75, 0.1, 0.3, 0.3, 0.0, 0.95, 0.95, 0.2, 0.95],
   "juice wrld": [0.35, 0.8, 0.3, 0.75, 0.1, 0.3, 0.4, 0.0, 0.95, 0.9, 0.25, 0.9],
   "travis scott": [0.15, 0.95, 0.5, 0.85, 0.1, 0.1, 0.2, 0.0, 0.9, 0.95, 0.4, 0.95],
-  "drake": [0.25, 0.85, 0.6, 0.85, 0.1, 0.1, 0.2, 0.0, 0.95, 0.95, 0.5, 0.95]
+  "drake": [0.25, 0.85, 0.6, 0.85, 0.1, 0.1, 0.2, 0.0, 0.95, 0.95, 0.5, 0.95],
+  "lomba sihir": [0.4, 0.8, 0.55, 0.7, 0.6, 0.95, 0.6, 0.0, 0.3, 0.3, 0.2, 0.85],
+  "reality club": [0.35, 0.75, 0.6, 0.7, 0.4, 0.95, 0.7, 0.0, 0.3, 0.6, 0.2, 0.85],
+  "payung teduh": [0.9, 0.35, 0.45, 0.4, 0.6, 0.95, 0.2, 0.0, 0.2, 0.1, 0.4, 0.75],
+  "efek rumah kaca": [0.4, 0.7, 0.3, 0.45, 0.4, 0.95, 0.85, 0.0, 0.2, 0.2, 0.5, 0.75],
+  "fiersa besari": [0.85, 0.45, 0.4, 0.45, 0.7, 0.95, 0.2, 0.0, 0.2, 0.1, 0.2, 0.8],
+  "dere": [0.85, 0.4, 0.45, 0.4, 0.7, 0.95, 0.1, 0.0, 0.3, 0.2, 0.2, 0.8],
+  "feby putri": [0.85, 0.35, 0.35, 0.35, 0.7, 0.95, 0.1, 0.0, 0.2, 0.1, 0.2, 0.85],
+  "keshi": [0.6, 0.5, 0.4, 0.6, 0.1, 0.7, 0.2, 0.0, 0.95, 0.9, 0.2, 0.9],
+  "joji": [0.55, 0.5, 0.3, 0.55, 0.1, 0.75, 0.2, 0.0, 0.95, 0.9, 0.2, 0.9],
+  "daniel caesar": [0.6, 0.5, 0.5, 0.6, 0.1, 0.5, 0.1, 0.0, 1.0, 0.95, 0.2, 0.85],
+  "frank ocean": [0.55, 0.55, 0.45, 0.6, 0.1, 0.6, 0.2, 0.0, 1.0, 0.95, 0.3, 0.9],
+  "arctic monkeys": [0.2, 0.85, 0.55, 0.65, 0.1, 0.85, 0.95, 0.0, 0.2, 0.95, 0.6, 0.9],
+  "the neighbourhood": [0.35, 0.7, 0.4, 0.6, 0.1, 0.9, 0.75, 0.0, 0.4, 0.95, 0.3, 0.9],
+  "yoasobi": [0.15, 0.95, 0.8, 0.85, 0.1, 0.4, 0.5, 0.0, 0.2, 0.95, 0.2, 0.95],
+  "last child": [0.35, 0.85, 0.3, 0.45, 0.75, 0.3, 0.9, 0.0, 0.2, 0.1, 0.7, 0.8],
+  "vierra": [0.4, 0.8, 0.55, 0.6, 0.9, 0.3, 0.7, 0.0, 0.2, 0.2, 0.85, 0.75],
+  "vierratale": [0.4, 0.8, 0.55, 0.6, 0.9, 0.3, 0.7, 0.0, 0.2, 0.2, 0.85, 0.75]
 };
 
 // Generic Fallback Vector
@@ -131,13 +148,18 @@ export function computeCosineSimilarity(a: FeatureVector, b: FeatureVector): num
 
 export function extractTrackFeatureVector(track: any): FeatureVector {
   if (!track) return [...DEFAULT_VECTOR];
-  const artist = (typeof track === "string" ? track : track.artist || track.artistName || "").toLowerCase().trim();
+  const rawArtist = (typeof track === "string" ? track : track.artist || track.artistName || "").toLowerCase().trim();
+  const primaryArtist = rawArtist.split(/,|&|feat\.|ft\.| x /i)[0].trim();
   const genre = (track.genre || track.primaryGenreName || "").toLowerCase().trim();
   const title = (track.title || track.trackName || "").toLowerCase().trim();
 
-  // 1. Direct Artist match from embedded latent space
+  // 1. Direct Artist match from embedded latent space (handles collaborations cleanly)
   for (const [key, vec] of Object.entries(ARTIST_EMBEDDINGS)) {
-    if (artist.includes(key) || key.includes(artist)) {
+    if (
+      primaryArtist === key ||
+      rawArtist.includes(key) ||
+      (primaryArtist.length >= 3 && key.includes(primaryArtist))
+    ) {
       return [...vec];
     }
   }
@@ -250,7 +272,84 @@ export function trainUserVectorOnInteraction(
   return updated;
 }
 
-// Multi-Armed Bandit Scoring with Cooldown Window & Blacklist Filtration
+export function buildTasteVectorFromHistory(
+  artistWeights: Record<string, number> = {},
+  selectedArtists: string[] = [],
+  selectedGenres: string[] = []
+): FeatureVector {
+  const base: FeatureVector = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  let totalCount = 0;
+
+  // 1. Real behavioral listening weights (logarithmic so 1 artist doesn't completely drown out others)
+  for (const [artist, weight] of Object.entries(artistWeights)) {
+    if (!artist || weight <= 0) continue;
+    const vec = getArtistFeatureVector(artist);
+    const w = Math.min(3.5, Math.log1p(weight) * 0.9);
+    for (let i = 0; i < 12; i++) {
+      base[i] += vec[i] * w;
+    }
+    totalCount += w;
+  }
+
+  // 2. Onboarding / liked artists
+  for (const a of selectedArtists) {
+    const vec = getArtistFeatureVector(a);
+    for (let i = 0; i < 12; i++) {
+      base[i] += vec[i] * 1.3;
+    }
+    totalCount += 1.3;
+  }
+
+  // 3. Selected genres
+  for (const g of selectedGenres) {
+    const vec = GENRE_PROFILES[g];
+    if (vec) {
+      for (let i = 0; i < 12; i++) {
+        base[i] += vec[i] * 1.1;
+      }
+      totalCount += 1.1;
+    }
+  }
+
+  if (totalCount === 0) return [...DEFAULT_VECTOR];
+
+  for (let i = 0; i < 12; i++) {
+    base[i] = Math.max(0.01, Math.min(1.0, base[i] / totalCount));
+  }
+
+  return base;
+}
+
+export interface RankOptions {
+  seedTrack?: any;
+  seedWeight?: number; // 0..1 blend between userVector and seedTrack vector
+  artistWeights?: Record<string, number>;
+  playCounts?: Record<string, number>;
+  maxPerArtist?: number;
+  diversityWeight?: number; // MMR artist-spacing penalty (0..1)
+  recentArtists?: string[]; // prevents immediate back-to-back artist repeats
+}
+
+const JUNK_TRACK_REGEX = /\b(karaoke|instrumental|tribute|cover|sped up|slowed|reverb|8d audio|nightcore|ringtone|8-bit|lullaby)\b/i;
+
+function normalizeArtistKey(artist: string): string {
+  return (artist || "")
+    .toLowerCase()
+    .split(/,|&|feat\.|ft\.| x /i)[0]
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim();
+}
+
+function normalizeTitleForDedup(title: string): string {
+  return (title || "")
+    .toLowerCase()
+    .replace(/\s*[\(\[].*?[\)\]]\s*/g, " ")
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Hybrid Context-Aware Scoring with MMR Artist Diversity & Explore/Exploit Balance
 export function rankTracksByDeepLearning(
   userVector: FeatureVector,
   candidates: any[],
@@ -258,52 +357,161 @@ export function rankTracksByDeepLearning(
   dislikedIds: string[] = [],
   count: number = 24,
   allowRecent: boolean = false,
-  priorityArtists: string[] = []
+  priorityArtists: string[] = [],
+  options: RankOptions = {}
 ): any[] {
   const seen = new Set<string>();
-  const scored: Array<{ track: any; finalScore: number }> = [];
+  const scored: Array<{ track: any; baseScore: number; artistKey: string }> = [];
 
-  const cooldownSet = new Set(recentCooldown.map((t) => t.toLowerCase().trim()));
+  const cooldownSet = new Set(recentCooldown.map((t) => normalizeTitleForDedup(t)));
+  const rawCooldownSet = new Set(recentCooldown.map((t) => t.toLowerCase().trim()));
   const dislikeSet = new Set(dislikedIds.map((id) => id.toLowerCase().trim()));
   const priorityList = priorityArtists.map((a) => a.toLowerCase().trim()).filter(Boolean);
+
+  const {
+    seedTrack = null,
+    seedWeight = 0.5,
+    artistWeights = {},
+    playCounts = {},
+    maxPerArtist = 3,
+    diversityWeight = 0.35,
+    recentArtists = []
+  } = options;
+
+  // Build normalized lookup for artistWeights
+  const normArtistWeights = new Map<string, number>();
+  for (const [k, v] of Object.entries(artistWeights)) {
+    const nk = normalizeArtistKey(k);
+    if (nk) normArtistWeights.set(nk, (normArtistWeights.get(nk) || 0) + v);
+  }
+
+  // Blend long-term userVector with short-term session seedTrack vector (if provided)
+  let targetVector: FeatureVector = [...userVector];
+  const seedTitle = (seedTrack?.title || seedTrack?.trackName || "").toLowerCase();
+  if (seedTrack) {
+    const seedVec = extractTrackFeatureVector(seedTrack);
+    const w = Math.max(0, Math.min(1, seedWeight));
+    targetVector = targetVector.map((u, idx) => (1 - w) * u + w * seedVec[idx]) as FeatureVector;
+  }
 
   for (let i = 0; i < candidates.length; i++) {
     const t = candidates[i];
     if (!t) continue;
-    const cleanTitle = (t.title || t.trackName || "").toLowerCase().trim();
+    const rawTitle = (t.title || t.trackName || "").toLowerCase().trim();
+    const cleanTitle = normalizeTitleForDedup(rawTitle);
     const trackArtist = (t.artist || t.artistName || "").toLowerCase().trim();
+    const artistKey = normalizeArtistKey(trackArtist);
     const trackId = (t.id || t.trackId || "").toString().toLowerCase().trim();
 
     if (!cleanTitle || seen.has(cleanTitle)) continue;
     seen.add(cleanTitle);
 
     // Hard Filtration: Disliked songs are always excluded
-    if (dislikeSet.has(trackId) || dislikeSet.has(cleanTitle)) continue;
+    if (dislikeSet.has(trackId) || dislikeSet.has(rawTitle) || dislikeSet.has(cleanTitle)) continue;
 
-    // Cooldown only applies to automated autoplay radio queues to prevent loops,
-    // NEVER ban user's favorite tracks from their home personalized shelf!
-    const isRecent = cooldownSet.has(cleanTitle);
+    // Cooldown only applies to automated autoplay radio queues to prevent loops
+    const isRecent = cooldownSet.has(cleanTitle) || rawCooldownSet.has(rawTitle);
     if (!allowRecent && isRecent) continue;
 
     const trackVector = extractTrackFeatureVector(t);
-    const cosine = computeCosineSimilarity(userVector, trackVector);
+    const cosine = computeCosineSimilarity(targetVector, trackVector);
 
-    // If the song was played by the user recently, boost its relevance on personalized shelves!
-    const familiarityBoost = (allowRecent && isRecent) ? 0.25 : 0;
+    // Behavioral artist affinity (logarithmic so favorite artists rise naturally without monopolizing)
+    const artistWeight = normArtistWeights.get(artistKey) || 0;
+    const affinityBoost = artistWeight > 0 ? Math.min(0.24, Math.log1p(artistWeight) * 0.05) : 0;
 
-    // Priority artist guarantee: If shelf is dedicated to an artist, their songs ALWAYS rank first!
-    const isPriority = priorityList.length > 0 && priorityList.some((p) => trackArtist.includes(p) || p.includes(trackArtist));
-    const priorityBoost = isPriority ? 5.0 : 0;
+    // Familiarity boost for Home shelves vs slight novelty boost for Radio/Discovery
+    const familiarityBoost = allowRecent && isRecent ? 0.16 : 0;
+    const songPlayCount = playCounts[trackId] || playCounts[t.title] || 0;
+    const overplayPenalty = !allowRecent && songPlayCount > 3 ? Math.min(0.15, (songPlayCount - 3) * 0.03) : 0;
+
+    // Related-graph tier bonus (keeps Radio/Autoplay anchored to the current musical circle)
+    const tierBoost =
+      t.tier === "related_artist" ? 0.14 : t.tier === "same_artist" ? 0.08 : 0;
+
+    // Priority artist boost (moderate so shelf still stays diverse)
+    const isPriority =
+      priorityList.length > 0 &&
+      priorityList.some((p) => trackArtist.includes(p) || p.includes(trackArtist));
+    const priorityBoost = isPriority ? 0.35 : 0;
+
+    // Filter out karaoke / slowed+reverb / cover clutter unless seed is one
+    const isJunk = !JUNK_TRACK_REGEX.test(seedTitle) && JUNK_TRACK_REGEX.test(rawTitle);
+    const junkPenalty = isJunk ? -0.8 : 0;
 
     // UCB1 Exploration Term (Balances familiar songs with fresh discoveries)
-    const explorationTerm = 0.08 * Math.sqrt(Math.log(candidates.length + 1) / (i + 1));
-    const finalScore = cosine + familiarityBoost + explorationTerm + priorityBoost;
+    const explorationTerm = 0.06 * Math.sqrt(Math.log(candidates.length + 1) / (i + 1));
 
-    scored.push({ track: t, finalScore });
+    const baseScore =
+      cosine +
+      affinityBoost +
+      familiarityBoost +
+      tierBoost +
+      priorityBoost +
+      explorationTerm +
+      junkPenalty -
+      overplayPenalty;
+
+    scored.push({ track: t, baseScore, artistKey });
   }
 
-  scored.sort((a, b) => b.finalScore - a.finalScore);
-  return scored.slice(0, count).map((s) => s.track);
+  // Greedy MMR Diversity Re-ranking: prevents same-artist streaks and enforces maxPerArtist
+  const selected: any[] = [];
+  const artistCounts = new Map<string, number>();
+  const recentArtistQueue: string[] = recentArtists
+    .map((a) => normalizeArtistKey(a))
+    .filter(Boolean);
+
+  const remaining = [...scored];
+
+  while (selected.length < count && remaining.length > 0) {
+    let bestIdx = -1;
+    let bestAdjustedScore = -Infinity;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const item = remaining[i];
+      const countForArtist = artistCounts.get(item.artistKey) || 0;
+
+      // Hard cap per artist (unless we have no other candidates left)
+      if (countForArtist >= maxPerArtist) continue;
+
+      let penalty = countForArtist * diversityWeight * 0.45;
+      const lastArtist = recentArtistQueue[recentArtistQueue.length - 1];
+      const prevArtist = recentArtistQueue[recentArtistQueue.length - 2];
+
+      // Strong penalty for back-to-back identical artist (like Spotify/YT Music)
+      if (item.artistKey && item.artistKey === lastArtist) {
+        penalty += 0.55;
+      } else if (item.artistKey && item.artistKey === prevArtist) {
+        penalty += 0.2;
+      }
+
+      const adjusted = item.baseScore - penalty;
+      if (adjusted > bestAdjustedScore) {
+        bestAdjustedScore = adjusted;
+        bestIdx = i;
+      }
+    }
+
+    // If all remaining items hit maxPerArtist, relax the cap so we still return up to `count`
+    if (bestIdx === -1) {
+      remaining.sort((a, b) => b.baseScore - a.baseScore);
+      for (const r of remaining) {
+        if (selected.length >= count) break;
+        selected.push(r.track);
+      }
+      break;
+    }
+
+    const chosen = remaining.splice(bestIdx, 1)[0];
+    selected.push(chosen.track);
+    if (chosen.artistKey) {
+      artistCounts.set(chosen.artistKey, (artistCounts.get(chosen.artistKey) || 0) + 1);
+      recentArtistQueue.push(chosen.artistKey);
+    }
+  }
+
+  return selected;
 }
 
 export interface MoodInsight {
