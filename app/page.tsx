@@ -2943,6 +2943,9 @@ export default function BrnsicMusicPage() {
   const startWebAudioKeepalive = () => {
     try {
       if (typeof window === "undefined") return;
+      // Android APK already uses native BackgroundAudioService (MediaPlayer + WakeLock);
+      // running a continuous WebAudio MediaStreamDestination on Android WebView can cause audio stutter.
+      if ((window as any).BrnsicNative?.isNativeApp?.()) return;
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       if (!audioContextRef.current) {
@@ -4154,8 +4157,10 @@ export default function BrnsicMusicPage() {
                   activeVideoIdRef.current = pendingVideoIdRef.current;
                   event.target.loadVideoById({
                     videoId: pendingVideoIdRef.current,
-                    startSeconds: 0
+                    startSeconds: 0,
+                    suggestedQuality: "small"
                   });
+                  event.target.setPlaybackQuality?.("small");
                   event.target.playVideo();
                   pendingVideoIdRef.current = null;
                 } else if (initialVid) {
@@ -4670,8 +4675,10 @@ export default function BrnsicMusicPage() {
         try {
           ytPlayerRef.current.loadVideoById({
             videoId: vid,
-            startSeconds: 0
+            startSeconds: 0,
+            suggestedQuality: "small"
           });
+          ytPlayerRef.current.setPlaybackQuality?.("small");
           ytPlayerRef.current.unMute();
           if (isMuted) setIsMuted(false);
           ytPlayerRef.current.setVolume(Math.max(80, volume * 100));
