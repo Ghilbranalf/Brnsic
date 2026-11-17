@@ -4332,13 +4332,11 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
-  // 6. Precise Audio Time & Real Duration Polling (Intelligent Adaptive Interval)
+  // 6. Precise Audio Time & Real Duration Polling (Optimized to prevent 20fps full-page re-renders)
+  const lastRenderedTimeRef = useRef<number>(0);
   useEffect(() => {
-    // Only poll ultra-fast (50ms) if user is actively viewing lyrics or the expanded seekbar player!
-    // When browsing / scrolling the home screen, poll at 1000ms so scrolling never drops frames!
     const isDesktop = typeof window !== "undefined" && window.innerWidth >= 1024;
-    const isHighPrecisionNeeded = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics" || isDesktop;
-    const pollInterval = (isMobilePlayerOpen || isZoomed || mobileTab === "lyrics") ? 50 : isDesktop ? 100 : 1000;
+    const pollInterval = (isMobilePlayerOpen || isZoomed || mobileTab === "lyrics") ? 250 : isDesktop ? 500 : 1000;
 
     const timer = setInterval(() => {
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
@@ -4348,10 +4346,11 @@ export default function BrnsicMusicPage() {
             const exactSeconds = ytPlayerRef.current.getCurrentTime();
             if (typeof exactSeconds === "number" && !isNaN(exactSeconds)) {
               currentTimeRef.current = exactSeconds;
-              // Only trigger React state re-render if user actually sees the time/seekbar!
-              // When browsing the home screen on mobile, time is updated in ref with ZERO re-render cost!
+              // Only trigger React state re-render if user actually sees the time/seekbar AND time moved meaningfully!
               const isTimeVisible = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics" || (typeof window !== "undefined" && window.innerWidth >= 768);
-              if (isTimeVisible) {
+              const minStep = mobileTab === "lyrics" ? 0.2 : 0.45;
+              if (isTimeVisible && Math.abs(exactSeconds - lastRenderedTimeRef.current) >= minStep) {
+                lastRenderedTimeRef.current = exactSeconds;
                 setCurrentTime(exactSeconds);
               }
             }
@@ -4422,7 +4421,7 @@ export default function BrnsicMusicPage() {
     }, pollInterval);
 
     return () => clearInterval(timer);
-  }, [currentTrack, isMobilePlayerOpen, isZoomed, mobileTab]);
+  }, [currentTrack.id, isMobilePlayerOpen, isZoomed, mobileTab]);
 
   // Instantly sync currentTime the moment fullscreen player or lyrics is opened
   useEffect(() => {
