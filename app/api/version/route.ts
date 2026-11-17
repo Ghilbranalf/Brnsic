@@ -15,15 +15,15 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "4.0.3",
-    versionCode: 21,
-    minVersionCode: 21,
+    version: "4.0.4",
+    versionCode: 22,
+    minVersionCode: 22,
     releaseDate: "2026-11-17",
-    title: "Brnsic v4.0.3",
-    notes: "Pembaruan v4.0.3: Desain Dynamic Island lebih tipis (30dp) & posisi lebih tinggi sejajar punch-hole seperti iOS.",
+    title: "Brnsic v4.0.4",
+    notes: "Pembaruan v4.0.4: Penyesuaian ketebalan Dynamic Island menjadi 34dp agar lebih pas dan nyaman dilihat.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: false,
-    buildId: "20261117-slim-island-v403"
+    buildId: "20261117-island-34dp-v404"
   });
 }

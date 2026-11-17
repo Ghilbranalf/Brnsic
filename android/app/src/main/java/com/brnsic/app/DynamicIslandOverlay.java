@@ -380,19 +380,19 @@ public class DynamicIslandOverlay {
         pill.setOrientation(LinearLayout.HORIZONTAL);
         pill.setGravity(Gravity.CENTER_VERTICAL);
 
-        // Slim iOS Dynamic Island proportions
-        int pillWidth = dpToPx(188);
-        int pillHeight = dpToPx(30);
+        // Slim iOS Dynamic Island proportions (balanced 34dp height)
+        int pillWidth = dpToPx(194);
+        int pillHeight = dpToPx(34);
         LinearLayout.LayoutParams pillParams = new LinearLayout.LayoutParams(pillWidth, pillHeight);
         pill.setLayoutParams(pillParams);
 
-        int padHoriz = dpToPx(8);
-        int padVert = dpToPx(4);
+        int padHoriz = dpToPx(9);
+        int padVert = dpToPx(5);
         pill.setPadding(padHoriz, padVert, padHoriz, padVert);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.BLACK);
-        bg.setCornerRadius(dpToPx(15));
+        bg.setCornerRadius(dpToPx(17));
         bg.setStroke(dpToPx(1), Color.parseColor("#2AFFFFFF"));
         pill.setBackground(bg);
 
@@ -400,8 +400,8 @@ public class DynamicIslandOverlay {
             pill.setElevation(dpToPx(12));
         }
 
-        // Cover on Left (20dp x 20dp, rounded 6dp)
-        int coverSize = dpToPx(20);
+        // Cover on Left (22dp x 22dp, rounded 6dp)
+        int coverSize = dpToPx(22);
         collapsedCover = new ImageView(context);
         LinearLayout.LayoutParams coverParams = new LinearLayout.LayoutParams(coverSize, coverSize);
         collapsedCover.setLayoutParams(coverParams);
@@ -426,7 +426,7 @@ public class DynamicIslandOverlay {
 
         // Live Dancing Waveform on Right (Warm Amber/Orange)
         collapsedWave = new WaveformView(context, Color.parseColor("#ffaa00"));
-        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(32), dpToPx(15));
+        LinearLayout.LayoutParams waveParams = new LinearLayout.LayoutParams(dpToPx(34), dpToPx(16));
         collapsedWave.setLayoutParams(waveParams);
         collapsedWave.setClickable(false);
         collapsedWave.setFocusable(false);
