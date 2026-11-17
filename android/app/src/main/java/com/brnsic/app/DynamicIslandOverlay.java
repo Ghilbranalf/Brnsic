@@ -32,6 +32,7 @@ public class DynamicIslandOverlay {
 
     private final Context context;
     private final WindowManager windowManager;
+    private WindowManager activeWindowManager;
     private final SharedPreferences prefs;
 
     private FrameLayout containerView;
@@ -91,6 +92,9 @@ public class DynamicIslandOverlay {
     }
 
     public static boolean canDrawOverlay(Context context) {
+        if (DynamicIslandAccessibilityService.isRunning()) {
+            return true;
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             return Settings.canDrawOverlays(context);
         }
@@ -109,15 +113,30 @@ public class DynamicIslandOverlay {
                 buildViews();
             }
 
+            DynamicIslandAccessibilityService a11yService = DynamicIslandAccessibilityService.getInstance();
+            WindowManager targetWm = windowManager;
             int layoutType;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
+            if (a11yService != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                WindowManager a11yWm = a11yService.getOverlayWindowManager();
+                if (a11yWm != null) {
+                    targetWm = a11yWm;
+                    layoutType = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
+                } else {
+                    layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                            ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                            : WindowManager.LayoutParams.TYPE_PHONE;
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
             } else {
                 layoutType = WindowManager.LayoutParams.TYPE_PHONE;
             }
 
             int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                     | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                     | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
 
             layoutParams = new WindowManager.LayoutParams(
@@ -137,7 +156,8 @@ public class DynamicIslandOverlay {
 
             applyPositionConfigInternal();
 
-            windowManager.addView(containerView, layoutParams);
+            targetWm.addView(containerView, layoutParams);
+            activeWindowManager = targetWm;
             isAdded = true;
 
             applyDataToViews();
@@ -176,7 +196,8 @@ public class DynamicIslandOverlay {
         if (layoutParams == null || containerView == null || !isAdded) return;
         try {
             applyPositionConfigInternal();
-            windowManager.updateViewLayout(containerView, layoutParams);
+            WindowManager wm = activeWindowManager != null ? activeWindowManager : windowManager;
+            wm.updateViewLayout(containerView, layoutParams);
         } catch (Exception ignored) {}
     }
 
@@ -186,9 +207,20 @@ public class DynamicIslandOverlay {
             progressHandler.removeCallbacks(progressUpdater);
             if (collapsedWave != null) collapsedWave.setPlaying(false);
             if (expandedWave != null) expandedWave.setPlaying(false);
-            windowManager.removeView(containerView);
+            WindowManager wm = activeWindowManager != null ? activeWindowManager : windowManager;
+            wm.removeView(containerView);
+            activeWindowManager = null;
             isAdded = false;
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            isAdded = false;
+            activeWindowManager = null;
+        }
+    }
+
+    public void reattachWithCurrentMode() {
+        if (!isAdded) return;
+        hide();
+        show();
     }
 
     public void dismiss() {
@@ -265,7 +297,8 @@ public class DynamicIslandOverlay {
 
         if (isAdded && layoutParams != null) {
             try {
-                windowManager.updateViewLayout(containerView, layoutParams);
+                WindowManager wm = activeWindowManager != null ? activeWindowManager : windowManager;
+                wm.updateViewLayout(containerView, layoutParams);
             } catch (Exception ignored) {}
         }
 

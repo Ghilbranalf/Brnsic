@@ -102,6 +102,20 @@ public class BackgroundAudioService extends Service implements
         }
     }
 
+    public static void reattachDynamicIsland() {
+        if (activeInstance != null) {
+            activeInstance.mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (activeInstance.dynamicIslandOverlay != null) {
+                        activeInstance.dynamicIslandOverlay.reattachWithCurrentMode();
+                        activeInstance.refreshOverlayState();
+                    }
+                }
+            });
+        }
+    }
+
     public static void setDynamicIslandEnabled(final boolean enabled) {
         if (activeInstance != null) {
             android.content.SharedPreferences prefs = activeInstance.getSharedPreferences("brnsic_overlay_prefs", Context.MODE_PRIVATE);

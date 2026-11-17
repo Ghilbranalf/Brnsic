@@ -10979,6 +10979,31 @@ export default function BrnsicMusicPage() {
                           Kanan Atas
                         </button>
                       </div>
+
+                      <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between gap-2">
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-semibold text-white/90">
+                            Mode Tembus Status Bar (Accessibility)
+                          </span>
+                          <span className="text-[10px] text-[#b3b3b3]">
+                            {(typeof window !== "undefined" && (window as any).BrnsicNative?.isAccessibilityOverlayEnabled?.())
+                              ? "Aktif — kapsul tampil di layer teratas OS"
+                              : "Aktifkan agar bisa dipencet di area status bar"}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if ((window as any).BrnsicNative?.requestAccessibilityOverlayPermission) {
+                              (window as any).BrnsicNative.requestAccessibilityOverlayPermission();
+                            }
+                          }}
+                          className="shrink-0 py-1.5 px-2.5 rounded-lg bg-[#1ed760]/20 hover:bg-[#1ed760]/30 text-[#1ed760] text-[10px] font-bold transition cursor-pointer"
+                        >
+                          {(typeof window !== "undefined" && (window as any).BrnsicNative?.isAccessibilityOverlayEnabled?.())
+                            ? "Aktif ✓"
+                            : "Aktifkan"}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

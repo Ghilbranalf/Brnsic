@@ -303,6 +303,30 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public boolean isAccessibilityOverlayEnabled() {
+            return DynamicIslandAccessibilityService.isRunning();
+        }
+
+        @JavascriptInterface
+        public void requestAccessibilityOverlayPermission() {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(
+                            MainActivity.this,
+                            "Aktifkan \"Brnsic Dynamic Island\" di Layanan Terinstal / Aksesibilitas agar tembus status bar",
+                            Toast.LENGTH_LONG
+                        ).show();
+                    }
+                });
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
         public void restoreDynamicIsland() {
             BackgroundAudioService.restoreDynamicIsland();
         }

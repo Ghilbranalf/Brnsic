@@ -4,4 +4,5 @@
     <string name="title_activity_main">Brnsic</string>
     <string name="package_name">com.brnsic.app</string>
     <string name="custom_url_scheme">com.brnsic.app</string>
+    <string name="accessibility_service_description">Menampilkan Dynamic Island Brnsic di atas status bar agar tetap responsif disentuh dan tidak terhalang notifikasi. Tidak membaca konten layar.</string>
 </resources>
