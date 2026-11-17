@@ -11097,7 +11097,7 @@ export default function BrnsicMusicPage() {
               <div className="relative flex items-center justify-center my-3 w-full max-w-[220px]">
                 <div className="absolute inset-0 bg-[#1ed760]/20 blur-2xl rounded-full scale-110 pointer-events-none"></div>
                 <img
-                  src="/brnsic-logo-white-transparent.png"
+                  src="/brand-wordmark.png"
                   alt="Brnsic"
                   className="w-full h-auto max-h-14 object-contain relative z-10 drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]"
                 />
@@ -11426,7 +11426,7 @@ export default function BrnsicMusicPage() {
             <div className="relative flex items-center justify-center my-3 w-full">
               <div className="absolute inset-0 rounded-full bg-[#1ed760]/20 blur-3xl scale-150"></div>
               <img
-                src="/brnsic-logo-white-transparent.png"
+                src="/brand-wordmark.png"
                 alt="Brnsic"
                 className="w-48 sm:w-56 h-auto max-h-16 object-contain relative z-10 drop-shadow-[0_4px_25px_rgba(255,255,255,0.4)]"
               />
