@@ -15,15 +15,15 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "4.0.1",
-    versionCode: 19,
-    minVersionCode: 19,
-    releaseDate: "2026-11-01",
-    title: "Brnsic v4.0.1",
-    notes: "Pembaruan v4.0.1: Perbaikan offline fallback, pembersihan sesi offline guard, eliminasi error Service Worker Response, dan penanganan koneksi terputus.",
+    version: "4.0.2",
+    versionCode: 20,
+    minVersionCode: 20,
+    releaseDate: "2026-11-17",
+    title: "Brnsic v4.0.2",
+    notes: "Pembaruan v4.0.2: Mode Dynamic Island tembus status bar (AccessibilityService), perbaikan tombol aktivasi, dan upgrade algoritma rekomendasi musik.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: false,
-    buildId: "20261102-welcome-gate-v36"
+    buildId: "20261117-a11y-island-v402"
   });
 }

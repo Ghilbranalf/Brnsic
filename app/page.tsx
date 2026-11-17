@@ -10988,13 +10988,18 @@ export default function BrnsicMusicPage() {
                           <span className="text-[10px] text-[#b3b3b3]">
                             {(typeof window !== "undefined" && (window as any).BrnsicNative?.isAccessibilityOverlayEnabled?.())
                               ? "Aktif — kapsul tampil di layer teratas OS"
-                              : "Aktifkan agar bisa dipencet di area status bar"}
+                              : (typeof window !== "undefined" && (window as any).BrnsicNative?.requestAccessibilityOverlayPermission)
+                                ? "Aktifkan agar bisa dipencet di area status bar"
+                                : "Perlu install APK terbaru untuk mengaktifkan fitur ini"}
                           </span>
                         </div>
                         <button
                           onClick={() => {
-                            if ((window as any).BrnsicNative?.requestAccessibilityOverlayPermission) {
-                              (window as any).BrnsicNative.requestAccessibilityOverlayPermission();
+                            const native = (window as any).BrnsicNative;
+                            if (native?.requestAccessibilityOverlayPermission) {
+                              native.requestAccessibilityOverlayPermission();
+                            } else {
+                              showToast("APK di HP masih versi lama. Silakan install APK hasil build terbaru.");
                             }
                           }}
                           className="shrink-0 py-1.5 px-2.5 rounded-lg bg-[#1ed760]/20 hover:bg-[#1ed760]/30 text-[#1ed760] text-[10px] font-bold transition cursor-pointer"
