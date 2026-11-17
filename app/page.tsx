@@ -5385,24 +5385,35 @@ export default function BrnsicMusicPage() {
       }))
     ];
 
-    const instantMatches = clientPool.filter((item) => {
+    const matchesToken = (item: any, tok: string) => {
+      if (tok.length < 2) return false;
       const t = item.title.toLowerCase();
       const a = item.artist.toLowerCase();
       const tags = (item as any).tags || [];
-
-      // Substring match
-      if (t.includes(cleanQ) || a.includes(cleanQ)) return true;
-
-      // Token overlap & typo distance (e.g. "matahri" matches "matahari")
-      return qTokens.some((tok) => {
-        if (tok.length < 2) return false;
-        if (t.includes(tok) || a.includes(tok) || tags.some((tag: string) => tag.includes(tok))) return true;
-        return tags.some((tag: string) => {
-          if (Math.abs(tag.length - tok.length) > 2) return false;
-          return tag.startsWith(tok.slice(0, 3)) || tok.startsWith(tag.slice(0, 3));
-        });
+      if (t.includes(tok) || a.includes(tok) || tags.some((tag: string) => tag.includes(tok))) return true;
+      return tags.some((tag: string) => {
+        if (Math.abs(tag.length - tok.length) > 2) return false;
+        return tag.startsWith(tok.slice(0, 3)) || tok.startsWith(tag.slice(0, 3));
       });
-    }).map((item, idx) => ({
+    };
+
+    const strictMatches = clientPool.filter((item) => {
+      const t = item.title.toLowerCase();
+      const a = item.artist.toLowerCase();
+      if (t.includes(cleanQ) || a.includes(cleanQ)) return true;
+      const meaningful = qTokens.filter((tok) => tok.length >= 2);
+      if (meaningful.length >= 2) {
+        return meaningful.every((tok) => matchesToken(item, tok));
+      }
+      return meaningful.some((tok) => matchesToken(item, tok));
+    });
+
+    const filteredPool =
+      strictMatches.length > 0
+        ? strictMatches
+        : clientPool.filter((item) => qTokens.some((tok) => matchesToken(item, tok)));
+
+    const instantMatches = filteredPool.map((item, idx) => ({
       trackId: `instant-${item.youtubeId || idx}`,
       trackName: item.title,
       artistName: item.artist,
