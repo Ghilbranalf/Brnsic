@@ -1424,13 +1424,21 @@ const getSmartShuffleCandidates = (
     existingQueue.map((s) => ((s.title || s.trackName || "") as string).toLowerCase().trim())
   );
 
-  // Hybrid candidate pool: prioritize related tracks while still allowing taste-matched discovery from charts
-  const rawPool = [
-    ...catalogs.related,
-    ...catalogs.topIndo,
-    ...catalogs.mostPlayed,
-    ...catalogs.globalTrending
-  ];
+  // Prefer unplayed related tracks so Smart Shuffle stays in the current musical vibe
+  const unplayedRelated = (catalogs.related || []).filter((t) => {
+    const cleanT = ((t.title || t.trackName || "") as string).toLowerCase().trim();
+    return cleanT && !existingSet.has(cleanT) && !playedTitles.has(cleanT);
+  });
+
+  const rawPool =
+    unplayedRelated.length >= 4
+      ? unplayedRelated
+      : [
+          ...catalogs.related,
+          ...catalogs.topIndo,
+          ...catalogs.mostPlayed,
+          ...catalogs.globalTrending
+        ];
 
   const activeVector =
     userVector ||
@@ -4051,7 +4059,7 @@ export default function BrnsicMusicPage() {
           const data = JSON.parse(cached);
           if (data.indonesiaTop50 && data.indonesiaTop50.length > 0) {
             setIndonesiaTop50(data.indonesiaTop50);
-            setActiveQueue((prev) => (prev.length <= 5 ? data.indonesiaTop50 : prev));
+            setActiveQueue((prev) => (prev.length === 0 && !hasUserStartedPlaybackRef.current ? data.indonesiaTop50 : prev));
           }
           if (data.mostPlayedIndonesia && data.mostPlayedIndonesia.length > 0) setMostPlayedIndonesia(data.mostPlayedIndonesia);
           if (data.viralIndonesia && data.viralIndonesia.length > 0) setViralIndonesia(data.viralIndonesia);
@@ -4068,8 +4076,8 @@ export default function BrnsicMusicPage() {
         const data = await res.json();
         if (data.indonesiaTop50 && data.indonesiaTop50.length > 0) {
           setIndonesiaTop50(data.indonesiaTop50);
-          // Initialize activeQueue to Top 50 if currently small
-          setActiveQueue((prev) => (prev.length <= 5 ? data.indonesiaTop50 : prev));
+          // Initialize activeQueue to Top 50 only if completely empty and playback hasn't started
+          setActiveQueue((prev) => (prev.length === 0 && !hasUserStartedPlaybackRef.current ? data.indonesiaTop50 : prev));
         }
         if (data.mostPlayedIndonesia && data.mostPlayedIndonesia.length > 0)
           setMostPlayedIndonesia(data.mostPlayedIndonesia);
@@ -4932,10 +4940,8 @@ export default function BrnsicMusicPage() {
           }
         );
 
-        const upcoming = isShuffled
-          ? balancedShuffle(rankedDiscovery, playedSongTitlesRef.current)
-          : rankedDiscovery;
-        radioQueue = [song, ...upcoming];
+        // Keep rankedDiscovery order intact (already MMR-diversified & seed-weighted!)
+        radioQueue = [song, ...rankedDiscovery];
 
         activeQueueRef.current = radioQueue;
         activeQueueIndexRef.current = 0;
@@ -5181,14 +5187,29 @@ export default function BrnsicMusicPage() {
       }
     };
 
-    // A. Pick next unplayed from related recommendations & candidate pool via Context-Aware Hybrid Ranking
-    const candidatePool = [
-      ...(relatedQueue || []),
-      ...(globalTrending || []),
-      ...(indonesiaTop50 || []),
-      ...(mostPlayedIndonesia || []),
-      ...(viralIndonesia || [])
-    ];
+    // A. Pick next unplayed from related recommendations first (stay in the current song's vibe!)
+    const unplayedRelated = (relatedQueue || []).filter((t: any) => {
+      const title = (t?.title || t?.trackName || "").toLowerCase().trim();
+      const id = (t?.id || t?.trackId || "").toString().toLowerCase().trim();
+      return (
+        title &&
+        title !== (currentTrack.title || "").toLowerCase().trim() &&
+        !recentHistoryRef.current.includes(title) &&
+        !dislikedSongIds.includes(id) &&
+        !dislikedSongIds.includes(title)
+      );
+    });
+
+    const candidatePool =
+      unplayedRelated.length >= 4
+        ? unplayedRelated
+        : [
+            ...(relatedQueue || []),
+            ...(globalTrending || []),
+            ...(indonesiaTop50 || []),
+            ...(mostPlayedIndonesia || []),
+            ...(viralIndonesia || [])
+          ];
 
     const currentTitle = (currentTrack.title || "").toLowerCase().trim();
     const recentArtists = [
@@ -5206,7 +5227,7 @@ export default function BrnsicMusicPage() {
       [],
       {
         seedTrack: currentTrack,
-        seedWeight: 0.6,
+        seedWeight: 0.72,
         artistWeights: userTaste.artistWeights,
         playCounts: userTaste.playCounts,
         maxPerArtist: 2,
