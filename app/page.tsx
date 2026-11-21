@@ -3561,7 +3561,7 @@ export default function BrnsicMusicPage() {
     try {
       localStorage.setItem("brnsic_seasonal_theme", themeId);
     } catch (e) {}
-    showToast(newTheme.toastText || `Suasana diubah ke ${newTheme.name}`);
+    showToast(`Tema: ${newTheme.name}`);
   };
 
   // Spotify-grade Tri-State Shuffle Controller ("off" -> "standard" -> "smart" -> "off")
@@ -6193,7 +6193,6 @@ export default function BrnsicMusicPage() {
             <span className="font-black text-xl tracking-tight text-white select-none hidden sm:inline-block">
               Brnsic
             </span>
-            <SeasonalMascotIcon theme={seasonalTheme} onClick={() => showToast(seasonalTheme.toastText)} />
           </div>
 
           <button
@@ -6459,7 +6458,6 @@ export default function BrnsicMusicPage() {
                   className="w-8 h-8 rounded-lg object-contain shadow"
                 />
                 <span className="font-black text-lg text-white">Brnsic</span>
-                <SeasonalMascotIcon theme={seasonalTheme} onClick={() => showToast(seasonalTheme.toastText)} />
                 {!isOnline && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
                     Offline
