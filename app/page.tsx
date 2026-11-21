@@ -11189,42 +11189,34 @@ export default function BrnsicMusicPage() {
                 <span className="text-white/40 text-[11px] font-semibold">{dislikedTracks.length} lagu &rsaquo;</span>
               </button>
 
-              {/* Suasana & Tema Musiman (Seasonal Atmosphere & Holiday Accents) */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex flex-col gap-2.5 text-left">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base select-none">{seasonalTheme.emoji}</span>
-                    <span className="text-xs font-bold text-white">Suasana &amp; Tema Musiman</span>
+              {/* Tema Musiman (Minimal AMOLED Setting Row) */}
+              <div className="w-full py-3 px-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-white/10 text-white/75 flex items-center justify-center flex-shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-[#1ed760] truncate max-w-[130px]">
-                    {seasonalTheme.name}
-                  </span>
+                  <div className="min-w-0 text-left">
+                    <span className="text-xs font-bold text-white block truncate">Tema Musiman</span>
+                    <span className="text-[11px] text-white/45 block truncate">{seasonalTheme.name}</span>
+                  </div>
                 </div>
-
-                <p className="text-[11px] text-[#b3b3b3] leading-relaxed">
-                  {seasonalTheme.tagline}. Aksen dekoratif spesial otomatis aktif pada hari-hari tertentu tanpa merubah tata letak desain.
-                </p>
-
-                <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-white/10">
-                  {THEME_OPTIONS.map((opt) => {
-                    const isActive = seasonalThemeSetting === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleChangeSeasonalTheme(opt.id)}
-                        className={`py-2 px-2.5 rounded-xl text-[11px] font-bold transition flex items-center gap-2 cursor-pointer ${
-                          isActive
-                            ? "bg-[#1ed760] text-black shadow-sm"
-                            : "bg-white/5 hover:bg-white/10 text-white/80 active:scale-95"
-                        }`}
-                      >
-                        <span className="text-sm select-none">{opt.emoji}</span>
-                        <span className="truncate">{opt.label.split(" ")[0]}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <select
+                  value={seasonalThemeSetting}
+                  onChange={(e) => handleChangeSeasonalTheme(e.target.value as SeasonalThemeId)}
+                  aria-label="Pilih Tema Musiman"
+                  className="bg-[#161616] hover:bg-[#1f1f1f] text-white text-[11px] font-semibold rounded-xl px-3 py-1.5 border border-white/10 outline-none focus:border-[#1ed760] transition cursor-pointer flex-shrink-0"
+                >
+                  <option value="auto">Otomatis</option>
+                  <option value="halloween">Halloween</option>
+                  <option value="christmas">Natal</option>
+                  <option value="newyear">Tahun Baru</option>
+                  <option value="valentine">Valentine</option>
+                  <option value="ramadan">Ramadan</option>
+                  <option value="independenceday">HUT RI</option>
+                  <option value="off">Nonaktif</option>
+                </select>
               </div>
 
               {/* Dynamic Island Settings Card - EXCLUSIVELY FOR NATIVE ANDROID APK */}
