@@ -12,11 +12,8 @@ import {
   type FeatureVector
 } from "@/lib/recommendation";
 import {
-  SeasonalThemeId,
   SeasonalThemeInfo,
-  THEME_OPTIONS,
-  getSeasonalTheme,
-  SeasonalMascotIcon
+  getSeasonalTheme
 } from "@/lib/seasonal";
 
 // --- Types ---
@@ -1658,8 +1655,7 @@ export default function BrnsicMusicPage() {
   const [sleepTimerEndOfTrack, setSleepTimerEndOfTrack] = useState<boolean>(false);
   const [isSleepTimerModalOpen, setIsSleepTimerModalOpen] = useState<boolean>(false);
 
-  // 14B. Seasonal Atmosphere & Holiday Easter Eggs Engine
-  const [seasonalThemeSetting, setSeasonalThemeSetting] = useState<SeasonalThemeId>("auto");
+  // 14B. Automatic Calendar-Aware Seasonal Atmosphere Engine
   const [seasonalTheme, setSeasonalTheme] = useState<SeasonalThemeInfo>(() => getSeasonalTheme("auto"));
 
   // 14C. Real-time Network Connectivity Guard (Offline Mode Support)
@@ -2506,13 +2502,7 @@ export default function BrnsicMusicPage() {
       const islandPos = localStorage.getItem("brnsic_island_pos");
       if (islandPos === "left" || islandPos === "right") setIslandPosition(islandPos);
 
-      const savedSeasonal = localStorage.getItem("brnsic_seasonal_theme") as SeasonalThemeId | null;
-      if (savedSeasonal) {
-        setSeasonalThemeSetting(savedSeasonal);
-        setSeasonalTheme(getSeasonalTheme(savedSeasonal));
-      } else {
-        setSeasonalTheme(getSeasonalTheme("auto"));
-      }
+      setSeasonalTheme(getSeasonalTheme("auto"));
 
       const cachedUser = localStorage.getItem("brnsic_user_profile");
       const cachedToken = localStorage.getItem("brnsic_auth_token");
@@ -3552,16 +3542,6 @@ export default function BrnsicMusicPage() {
       setShuffleToast(null);
       setToastUndo(null);
     }, undo ? 4500 : 2800);
-  };
-
-  const handleChangeSeasonalTheme = (themeId: SeasonalThemeId) => {
-    setSeasonalThemeSetting(themeId);
-    const newTheme = getSeasonalTheme(themeId);
-    setSeasonalTheme(newTheme);
-    try {
-      localStorage.setItem("brnsic_seasonal_theme", themeId);
-    } catch (e) {}
-    showToast(`Tema: ${newTheme.name}`);
   };
 
   // Spotify-grade Tri-State Shuffle Controller ("off" -> "standard" -> "smart" -> "off")
@@ -5956,11 +5936,17 @@ export default function BrnsicMusicPage() {
   return (
     <div className="w-full max-w-[100vw] h-screen bg-black text-white flex flex-col p-0 md:p-2 gap-2 overflow-x-hidden overflow-y-hidden font-sans select-none relative">
       
-      {/* Subtle Seasonal & Daily Occasion Corner Ambient Glow (Zero layout shift, AMOLED preserved) */}
+      {/* Automatic Calendar-Aware Seasonal Atmosphere (Zero layout shift, AMOLED preserved) */}
       {seasonalTheme.ambientGradient !== "none" && (
         <div
           className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-1000 ease-in-out"
           style={{ background: seasonalTheme.ambientGradient }}
+        />
+      )}
+      {seasonalTheme.isSpecialEvent && seasonalTheme.topAccentLine !== "transparent" && (
+        <div
+          className="fixed top-0 left-0 right-0 h-[1.5px] pointer-events-none z-[60]"
+          style={{ background: seasonalTheme.topAccentLine }}
         />
       )}
       
@@ -11186,36 +11172,6 @@ export default function BrnsicMusicPage() {
                 </div>
                 <span className="text-white/40 text-[11px] font-semibold">{dislikedTracks.length} lagu &rsaquo;</span>
               </button>
-
-              {/* Tema Musiman (Minimal AMOLED Setting Row) */}
-              <div className="w-full py-3 px-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-7 h-7 rounded-full bg-white/10 text-white/75 flex items-center justify-center flex-shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                    </svg>
-                  </div>
-                  <div className="min-w-0 text-left">
-                    <span className="text-xs font-bold text-white block truncate">Tema Musiman</span>
-                    <span className="text-[11px] text-white/45 block truncate">{seasonalTheme.name}</span>
-                  </div>
-                </div>
-                <select
-                  value={seasonalThemeSetting}
-                  onChange={(e) => handleChangeSeasonalTheme(e.target.value as SeasonalThemeId)}
-                  aria-label="Pilih Tema Musiman"
-                  className="bg-[#161616] hover:bg-[#1f1f1f] text-white text-[11px] font-semibold rounded-xl px-3 py-1.5 border border-white/10 outline-none focus:border-[#1ed760] transition cursor-pointer flex-shrink-0"
-                >
-                  <option value="auto">Otomatis</option>
-                  <option value="halloween">Halloween</option>
-                  <option value="christmas">Natal</option>
-                  <option value="newyear">Tahun Baru</option>
-                  <option value="valentine">Valentine</option>
-                  <option value="ramadan">Ramadan</option>
-                  <option value="independenceday">HUT RI</option>
-                  <option value="off">Nonaktif</option>
-                </select>
-              </div>
 
               {/* Dynamic Island Settings Card - EXCLUSIVELY FOR NATIVE ANDROID APK */}
               {isInsideNativeApk && (
