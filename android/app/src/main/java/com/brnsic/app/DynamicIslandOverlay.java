@@ -92,9 +92,6 @@ public class DynamicIslandOverlay {
     }
 
     public static boolean canDrawOverlay(Context context) {
-        if (DynamicIslandAccessibilityService.isRunning()) {
-            return true;
-        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             return Settings.canDrawOverlays(context);
         }
@@ -113,21 +110,10 @@ public class DynamicIslandOverlay {
                 buildViews();
             }
 
-            DynamicIslandAccessibilityService a11yService = DynamicIslandAccessibilityService.getInstance();
             WindowManager targetWm = windowManager;
             int layoutType;
 
-            if (a11yService != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                WindowManager a11yWm = a11yService.getOverlayWindowManager();
-                if (a11yWm != null) {
-                    targetWm = a11yWm;
-                    layoutType = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
-                } else {
-                    layoutType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                            ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                            : WindowManager.LayoutParams.TYPE_PHONE;
-                }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
             } else {
                 layoutType = WindowManager.LayoutParams.TYPE_PHONE;

@@ -201,3 +201,59 @@ main section {
   mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
 }
+
+/* Brnsic AMOLED Acoustic Loader (GPU-composited, zero layout thrashing) */
+@keyframes brnsicPulseRing {
+  0% {
+    transform: scale(0.82);
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.15;
+  }
+  100% {
+    transform: scale(1.75);
+    opacity: 0;
+  }
+}
+
+@keyframes brnsicLogoBreath {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+
+@keyframes brnsicEqWave {
+  0%, 100% {
+    transform: scaleY(0.28);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.brnsic-pulse-ring {
+  animation: brnsicPulseRing 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.brnsic-pulse-ring-delay {
+  animation: brnsicPulseRing 2.2s cubic-bezier(0.22, 1, 0.36, 1) 1.1s infinite;
+  will-change: transform, opacity;
+}
+
+.brnsic-logo-breath {
+  animation: brnsicLogoBreath 2.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+.brnsic-eq-bar {
+  transform-origin: bottom;
+  animation: brnsicEqWave 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
+}

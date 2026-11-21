@@ -1345,9 +1345,18 @@ class MersenneTwister {
 // 1. Keeps songs within the playlist's relevant genre (Standard Shuffle)
 // 2. Spaces out artists to prevent clumping (Balanced Dispersion)
 // 3. Evaluates multiple candidate orders and picks the one minimizing repeats of recently played songs (Fewer Repeats)
+const fisherYatesShuffle = <T,>(items: T[], rngFn: () => number): T[] => {
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rngFn() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
+
 const balancedShuffle = (tracks: any[], playedTitles: Set<string>): any[] => {
   if (tracks.length <= 2) {
-    return [...tracks].sort(() => Math.random() - 0.5);
+    return fisherYatesShuffle(tracks, Math.random);
   }
 
   const rng = new MersenneTwister(Date.now() + Math.floor(Math.random() * 10000));
@@ -1355,7 +1364,7 @@ const balancedShuffle = (tracks: any[], playedTitles: Set<string>): any[] => {
   let bestCandidate: any[] = [];
   let lowestPenalty = Infinity;
 
-  const candidateCount = Math.min(8, Math.max(3, tracks.length));
+  const candidateCount = Math.min(12, Math.max(4, tracks.length));
 
   for (let c = 0; c < candidateCount; c++) {
     // 1. Group tracks by artist to prevent artist clumping
@@ -1366,13 +1375,15 @@ const balancedShuffle = (tracks: any[], playedTitles: Set<string>): any[] => {
       artistBuckets[artist].push(track);
     }
 
-    // 2. Distribute each artist's songs across [0, 1) with Mersenne Twister dither jitter
+    // 2. Distribute each artist's songs evenly across [0, 1) with a random phase offset
+    // so single-track artists don't clump at the start of the queue
     const weighted: Array<{ track: any; sortKey: number }> = [];
     for (const bucket of Object.values(artistBuckets)) {
       const len = bucket.length;
-      const shuffledBucket = [...bucket].sort(() => rng.random() - 0.5);
+      const shuffledBucket = fisherYatesShuffle(bucket, () => rng.random());
+      const phaseOffset = rng.random();
       shuffledBucket.forEach((track, i) => {
-        const baseRatio = (i + rng.random() * 0.45) / len;
+        const baseRatio = ((phaseOffset + i + rng.random() * 0.4) / len) % 1;
         weighted.push({ track, sortKey: baseRatio });
       });
     }
@@ -1380,22 +1391,27 @@ const balancedShuffle = (tracks: any[], playedTitles: Set<string>): any[] => {
     weighted.sort((a, b) => a.sortKey - b.sortKey);
     const candidate = weighted.map((w) => w.track);
 
-    // 3. Score permutation penalty: "Fewer Repeats"
+    // 3. Score permutation penalty: "Fewer Repeats" + artist spacing
     let penalty = 0;
-    const earlyCutoff = Math.ceil(candidate.length * 0.4);
-    for (let i = 0; i < earlyCutoff; i++) {
+    const earlyCutoff = Math.ceil(candidate.length * 0.6);
+    for (let i = 0; i < candidate.length; i++) {
       const cleanTitle = (candidate[i].title || candidate[i].trackName || "").toLowerCase().trim();
       if (playedTitles.has(cleanTitle)) {
-        penalty += (earlyCutoff - i) * 3;
+        penalty += i < earlyCutoff ? (earlyCutoff - i) * 3 : 1;
       }
     }
 
-    // Penalize adjacent songs by the exact same artist
+    // Penalize adjacent or near-adjacent songs by the exact same artist
     for (let i = 1; i < candidate.length; i++) {
-      const prevArtist = (candidate[i - 1].artist || candidate[i - 1].artistName || "").toLowerCase().trim();
       const currArtist = (candidate[i].artist || candidate[i].artistName || "").toLowerCase().trim();
-      if (prevArtist && prevArtist === currArtist) {
-        penalty += 5;
+      const prevArtist = (candidate[i - 1].artist || candidate[i - 1].artistName || "").toLowerCase().trim();
+      if (currArtist && currArtist === prevArtist) {
+        penalty += 6;
+      } else if (i >= 2) {
+        const prev2Artist = (candidate[i - 2].artist || candidate[i - 2].artistName || "").toLowerCase().trim();
+        if (currArtist && currArtist === prev2Artist) {
+          penalty += 2.5;
+        }
       }
     }
 
@@ -1635,6 +1651,12 @@ export default function BrnsicMusicPage() {
   // 14. Spotify Shuffle Tri-State: "off" | "standard" (balanced fewer repeats) | "smart" (hybrid recommendation)
   const [shuffleMode, setShuffleMode] = useState<"off" | "standard" | "smart">("standard");
   const [shuffleToast, setShuffleToast] = useState<string | null>(null);
+  const [toastUndo, setToastUndo] = useState<{ label: string; action: () => void } | null>(null);
+
+  // 14A. Sleep Timer & Smooth Audio Transitions
+  const [sleepTimerRemainingSec, setSleepTimerRemainingSec] = useState<number | null>(null);
+  const [sleepTimerEndOfTrack, setSleepTimerEndOfTrack] = useState<boolean>(false);
+  const [isSleepTimerModalOpen, setIsSleepTimerModalOpen] = useState<boolean>(false);
 
   // 14B. Seasonal Atmosphere & Holiday Easter Eggs Engine
   const [seasonalThemeSetting, setSeasonalThemeSetting] = useState<SeasonalThemeId>("auto");
@@ -2053,6 +2075,115 @@ export default function BrnsicMusicPage() {
   const playRequestIdRef = useRef<number>(0);
   const originalQueueRef = useRef<any[]>([]);
   const shuffleToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const sleepTimerEndOfTrackRef = useRef<boolean>(false);
+  const volumeFadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const prefetchedVideoIdsRef = useRef<Map<string, string>>(new Map());
+  const miniPlayerTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const fullPlayerTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const fadePlayerVolume = (targetVol: number, durationMs = 260, onDone?: () => void) => {
+    if (volumeFadeIntervalRef.current) {
+      clearInterval(volumeFadeIntervalRef.current);
+      volumeFadeIntervalRef.current = null;
+    }
+    const player = ytPlayerRef.current;
+    if (!player || typeof player.setVolume !== "function") {
+      onDone?.();
+      return;
+    }
+    try {
+      const startVol = typeof player.getVolume === "function" ? player.getVolume() : targetVol;
+      if (Math.abs(targetVol - startVol) < 2 || durationMs <= 0) {
+        player.setVolume(targetVol);
+        onDone?.();
+        return;
+      }
+      const steps = Math.max(4, Math.round(durationMs / 25));
+      let step = 0;
+      volumeFadeIntervalRef.current = setInterval(() => {
+        step++;
+        const progress = step / steps;
+        const nextVol = Math.round(startVol + (targetVol - startVol) * progress);
+        try {
+          ytPlayerRef.current?.setVolume(Math.max(0, Math.min(100, nextVol)));
+        } catch (e) {}
+        if (step >= steps) {
+          if (volumeFadeIntervalRef.current) {
+            clearInterval(volumeFadeIntervalRef.current);
+            volumeFadeIntervalRef.current = null;
+          }
+          onDone?.();
+        }
+      }, 25);
+    } catch (e) {
+      onDone?.();
+    }
+  };
+
+  useEffect(() => {
+    sleepTimerEndOfTrackRef.current = sleepTimerEndOfTrack;
+  }, [sleepTimerEndOfTrack]);
+
+  // Sleep Timer Countdown Effect
+  useEffect(() => {
+    if (sleepTimerRemainingSec === null) return;
+    if (sleepTimerRemainingSec <= 0) {
+      setSleepTimerRemainingSec(null);
+      isUserExplicitlyPausedRef.current = true;
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      stopBackgroundKeepalive();
+      fadePlayerVolume(0, 600, () => {
+        try {
+          ytPlayerRef.current?.pauseVideo?.();
+          ytPlayerRef.current?.setVolume?.(Math.max(80, volume * 100));
+        } catch (e) {}
+        if (typeof window !== "undefined" && (window as any).BrnsicNative?.pauseAudio) {
+          try {
+            (window as any).BrnsicNative.pauseAudio();
+          } catch (e) {}
+        }
+      });
+      showToast("Sleep Timer selesai: Pemutaran dihentikan.");
+      return;
+    }
+    const id = setTimeout(() => {
+      setSleepTimerRemainingSec((prev) => (prev !== null ? Math.max(0, prev - 1) : null));
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [sleepTimerRemainingSec]);
+
+  // Background Pre-fetch next 2 tracks' YouTube IDs for instant transitions
+  useEffect(() => {
+    if (!hasSessionPlaybackStartedRef.current || !activeQueue || activeQueue.length === 0) return;
+    const timer = setTimeout(() => {
+      const nextCandidates = activeQueue.slice(activeQueueIndex + 1, activeQueueIndex + 3);
+      nextCandidates.forEach((track) => {
+        if (!track || !track.title) return;
+        const cacheKey = `${(track.artist || "").toLowerCase().trim()}::${track.title.toLowerCase().trim()}`;
+        if (
+          track.youtubeId ||
+          getVerifiedVideoId(track.title, track.artist) ||
+          prefetchedVideoIdsRef.current.has(cacheKey)
+        ) {
+          return;
+        }
+        fetch(
+          `/api/youtube?artist=${encodeURIComponent(track.artist || "")}&title=${encodeURIComponent(
+            track.title
+          )}&q=${encodeURIComponent(`${track.artist || ""} ${track.title}`)}&duration=${track.duration || 210}`
+        )
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            if (d?.videoId) {
+              prefetchedVideoIdsRef.current.set(cacheKey, d.videoId);
+            }
+          })
+          .catch(() => {});
+      });
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, [activeQueueIndex, activeQueue]);
 
   // 1. Splash Screen Timer
   useEffect(() => {
@@ -3316,6 +3447,8 @@ export default function BrnsicMusicPage() {
       );
 
       // Remove from upcoming queue immediately
+      const prevQueueSnapshot = [...activeQueue];
+      const prevIdxSnapshot = activeQueueIndex;
       setActiveQueue((prev) =>
         prev.filter((t) => {
           const tId = t.id || t.title;
@@ -3324,7 +3457,24 @@ export default function BrnsicMusicPage() {
         })
       );
 
-      showToast(`Lagu disembunyikan: Brnsic tidak akan memutar "${song.title}" lagi`);
+      showToast(`Lagu disembunyikan: "${song.title}"`, {
+        label: "Urungkan",
+        action: () => {
+          const restoredIds = nextIds.filter((id) => id !== songId && id !== cleanTitle);
+          const restoredTracks = nextTracks.filter(
+            (t) => (t.id || t.title) !== songId && (t.title || "").toLowerCase().trim() !== cleanTitle
+          );
+          setDislikedSongIds(restoredIds);
+          setDislikedTracks(restoredTracks);
+          setActiveQueue(prevQueueSnapshot);
+          setActiveQueueIndex(prevIdxSnapshot);
+          try {
+            localStorage.setItem("brnsic_disliked_songs", JSON.stringify(restoredIds));
+            localStorage.setItem("brnsic_disliked_tracks_list", JSON.stringify(restoredTracks));
+          } catch (e) {}
+          showToast(`"${song.title}" dipulihkan.`);
+        }
+      });
 
       // If currently playing this song, skip immediately!
       if (currentTrack.id === song.id || (currentTrack.title || "").toLowerCase().trim() === cleanTitle) {
@@ -3375,19 +3525,33 @@ export default function BrnsicMusicPage() {
       playNextSong(true);
       return;
     }
+    const removedTrack = activeQueue[index];
+    const prevQueue = [...activeQueue];
+    const prevIdx = activeQueueIndex;
     const updated = activeQueue.filter((_, i) => i !== index);
     setActiveQueue(updated);
     if (index < activeQueueIndex) {
       setActiveQueueIndex(activeQueueIndex - 1);
     }
+    if (removedTrack?.title) {
+      showToast(`"${removedTrack.title}" dihapus dari antrean`, {
+        label: "Urungkan",
+        action: () => {
+          setActiveQueue(prevQueue);
+          setActiveQueueIndex(prevIdx);
+        }
+      });
+    }
   };
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, undo?: { label: string; action: () => void }) => {
     setShuffleToast(msg);
+    setToastUndo(undo || null);
     if (shuffleToastTimeoutRef.current) clearTimeout(shuffleToastTimeoutRef.current);
     shuffleToastTimeoutRef.current = setTimeout(() => {
       setShuffleToast(null);
-    }, 2800);
+      setToastUndo(null);
+    }, undo ? 4500 : 2800);
   };
 
   const handleChangeSeasonalTheme = (themeId: SeasonalThemeId) => {
@@ -3497,9 +3661,16 @@ export default function BrnsicMusicPage() {
           setActiveQueue(restored);
         }
       } else {
+        const curTitle = (currentTrack?.title || "").toLowerCase().trim();
         const filtered = curQ.filter((t) => !t.isSmartRecommendation);
+        const matchIdx = curTitle
+          ? filtered.findIndex((t) => (t.title || "").toLowerCase().trim() === curTitle)
+          : -1;
+        const safeIdx = matchIdx !== -1 ? matchIdx : Math.min(curIdx, Math.max(0, filtered.length - 1));
         activeQueueRef.current = filtered;
+        activeQueueIndexRef.current = safeIdx;
         setActiveQueue(filtered);
+        setActiveQueueIndex(safeIdx);
       }
       showToast("Shuffle Dimatikan: Memutar urut sesuai daftar asli.");
     }
@@ -4624,8 +4795,12 @@ export default function BrnsicMusicPage() {
       })
       .catch(() => {});
 
-    // Instant Audio Playback: Verified studio master priority over stale video IDs!
-    const directVid = getVerifiedVideoId(song.title, song.artist) || song.youtubeId;
+    // Instant Audio Playback: Verified studio master priority over stale video IDs & prefetched cache!
+    const prefetchKey = `${(song.artist || "").toLowerCase().trim()}::${(song.title || "").toLowerCase().trim()}`;
+    const directVid =
+      getVerifiedVideoId(song.title, song.artist) ||
+      song.youtubeId ||
+      prefetchedVideoIdsRef.current.get(prefetchKey);
     const startAudio = (vid: string) => {
       if (currentRequestId !== playRequestIdRef.current) return;
       lastTrackChangeTimeRef.current = Date.now();
@@ -4689,8 +4864,10 @@ export default function BrnsicMusicPage() {
           ytPlayerRef.current.setPlaybackQuality?.("small");
           ytPlayerRef.current.unMute();
           if (isMuted) setIsMuted(false);
-          ytPlayerRef.current.setVolume(Math.max(80, volume * 100));
+          const targetVol = Math.max(80, volume * 100);
+          ytPlayerRef.current.setVolume(Math.min(20, targetVol));
           ytPlayerRef.current.playVideo();
+          fadePlayerVolume(targetVol, 280);
           setTimeout(() => setIsLoadingSong(false), 1500);
         } catch (e) {
           console.error("Audio playback error", e);
@@ -5085,19 +5262,40 @@ export default function BrnsicMusicPage() {
 
   // INFINITE NEXT SONG ENGINE WITH TASTE PREFERENCE SCORING
   const playNextSong = (userTriggered = true) => {
+    // 0A. Sleep Timer "End of Current Track" check
+    if (!userTriggered && sleepTimerEndOfTrackRef.current) {
+      setSleepTimerEndOfTrack(false);
+      sleepTimerEndOfTrackRef.current = false;
+      isUserExplicitlyPausedRef.current = true;
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      stopBackgroundKeepalive();
+      try {
+        ytPlayerRef.current?.pauseVideo?.();
+        if (typeof window !== "undefined" && (window as any).BrnsicNative?.pauseAudio) {
+          (window as any).BrnsicNative.pauseAudio();
+        }
+      } catch (e) {}
+      showToast("Sleep Timer selesai: Berhenti di akhir lagu.");
+      return;
+    }
+
     // 0. User early-skip behavioral penalty (if user intentionally skipped in first 15 seconds)
     if (userTriggered && currentTrack && currentTime < 15 && currentTime >= 1) {
       recordTasteInteraction(currentTrack, "skip");
     }
 
     const currentMode = repeatModeRef.current;
+    const currentShuffleMode = shuffleModeRef.current;
     const currentQ = activeQueueRef.current && activeQueueRef.current.length > 0 ? activeQueueRef.current : activeQueue;
     const currentIdx = activeQueueIndexRef.current;
     const isLoopAlbum = isAlbumLoopModeRef.current;
 
-    // 1. If Repeat 1 (Single Track) is active, replay current song from 0
-    if (currentMode === "one") {
-      recordTasteInteraction(currentTrack, "replay");
+    // 1. If Repeat 1 (Single Track) is active and track ended naturally, replay current song from 0
+    if (currentMode === "one" && !userTriggered) {
+      if (currentTrack) {
+        recordTasteInteraction(currentTrack, "replay");
+      }
       setCurrentTime(0);
       hasTriggeredEndRef.current = false;
       if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
@@ -5130,7 +5328,7 @@ export default function BrnsicMusicPage() {
 
           // If in Smart Shuffle mode and upcoming queue is getting low (<= 3 tracks left),
           // dynamically generate and append more smart recommendations so music never stops!
-          if (shuffleMode === "smart" && currentQ.length - nextIdx <= 3) {
+          if (currentShuffleMode === "smart" && currentQ.length - nextIdx <= 3) {
             const freshSmartCandidates = getSmartShuffleCandidates(
               candidate,
               currentQ,
@@ -5143,7 +5341,8 @@ export default function BrnsicMusicPage() {
                 globalTrending: globalTrending
               },
               4,
-              dislikedSongIds
+              dislikedSongIds,
+              userTasteVector
             );
             if (freshSmartCandidates.length > 0) {
               const updated = [...currentQ, ...freshSmartCandidates];
@@ -5156,9 +5355,26 @@ export default function BrnsicMusicPage() {
       } else {
         // Reached the end of activeQueue!
         if (currentMode === "all" || isLoopAlbum) {
+          let targetQ = currentQ;
+          if (currentShuffleMode !== "off" && currentQ.length > 2) {
+            const reshuffled = balancedShuffle(currentQ, playedSongTitlesRef.current);
+            const curTitle = (currentTrack?.title || "").toLowerCase().trim();
+            if (curTitle && (reshuffled[0]?.title || "").toLowerCase().trim() === curTitle) {
+              const firstOtherIdx = reshuffled.findIndex(
+                (t) => (t.title || "").toLowerCase().trim() !== curTitle
+              );
+              if (firstOtherIdx > 0) {
+                [reshuffled[0], reshuffled[firstOtherIdx]] = [reshuffled[firstOtherIdx], reshuffled[0]];
+              }
+            }
+            targetQ = reshuffled;
+            activeQueueRef.current = targetQ;
+            setActiveQueue(targetQ);
+          }
+
           let loopIdx = 0;
-          while (loopIdx < currentQ.length) {
-            const item = currentQ[loopIdx];
+          while (loopIdx < targetQ.length) {
+            const item = targetQ[loopIdx];
             const isDisliked = item && (
               dislikedSongIds.includes(item.id) ||
               dislikedSongIds.includes((item.title || item.trackName || "").toLowerCase().trim())
@@ -5166,10 +5382,10 @@ export default function BrnsicMusicPage() {
             if (!isDisliked) break;
             loopIdx++;
           }
-          if (loopIdx < currentQ.length) {
+          if (loopIdx < targetQ.length) {
             activeQueueIndexRef.current = loopIdx;
             setActiveQueueIndex(loopIdx);
-            playAnySong(currentQ[loopIdx], userTriggered);
+            playAnySong(targetQ[loopIdx], userTriggered);
             return;
           }
         }
@@ -5187,13 +5403,15 @@ export default function BrnsicMusicPage() {
       }
     };
 
+    const currentTitle = (currentTrack?.title || "").toLowerCase().trim();
+
     // A. Pick next unplayed from related recommendations first (stay in the current song's vibe!)
     const unplayedRelated = (relatedQueue || []).filter((t: any) => {
       const title = (t?.title || t?.trackName || "").toLowerCase().trim();
       const id = (t?.id || t?.trackId || "").toString().toLowerCase().trim();
       return (
         title &&
-        title !== (currentTrack.title || "").toLowerCase().trim() &&
+        title !== currentTitle &&
         !recentHistoryRef.current.includes(title) &&
         !dislikedSongIds.includes(id) &&
         !dislikedSongIds.includes(title)
@@ -5211,9 +5429,8 @@ export default function BrnsicMusicPage() {
             ...(viralIndonesia || [])
           ];
 
-    const currentTitle = (currentTrack.title || "").toLowerCase().trim();
     const recentArtists = [
-      currentTrack.artist,
+      currentTrack?.artist,
       ...currentQ.slice(-2).map((s: any) => s?.artist)
     ].filter(Boolean) as string[];
 
@@ -5572,9 +5789,15 @@ export default function BrnsicMusicPage() {
             (window as any).BrnsicNative.pauseAudio();
           } catch (e) {}
         }
-        if (typeof ytPlayerRef.current.pauseVideo === "function") {
-          ytPlayerRef.current.pauseVideo();
-        }
+        const restoreVol = Math.max(80, volume * 100);
+        fadePlayerVolume(0, 200, () => {
+          if (typeof ytPlayerRef.current?.pauseVideo === "function") {
+            ytPlayerRef.current.pauseVideo();
+          }
+          try {
+            ytPlayerRef.current?.setVolume?.(restoreVol);
+          } catch (e) {}
+        });
       } else {
         isUserExplicitlyPausedRef.current = false;
         isPlayingRef.current = true;
@@ -5586,9 +5809,11 @@ export default function BrnsicMusicPage() {
           } catch (e) {}
         }
         if (typeof ytPlayerRef.current.playVideo === "function") {
+          const targetVol = Math.max(80, volume * 100);
           ytPlayerRef.current.unMute();
-          ytPlayerRef.current.setVolume(volume * 100);
+          ytPlayerRef.current.setVolume(Math.min(15, targetVol));
           ytPlayerRef.current.playVideo();
+          fadePlayerVolume(targetVol, 240);
         }
       }
     } catch (e) {
@@ -5744,19 +5969,24 @@ export default function BrnsicMusicPage() {
           ==================================================================== */}
       {isAuthChecking ? (
         <div className="fixed inset-0 z-[120] bg-black flex flex-col items-center justify-center select-none animate-fadeIn">
-          <div className="relative flex flex-col items-center justify-center gap-5">
-            <div className="absolute w-72 h-72 bg-[#1ed760]/15 rounded-full blur-[90px] pointer-events-none animate-pulse" />
-            <img
-              src="/app-icon.png"
-              alt="Brnsic"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
-              className="w-20 h-20 rounded-2xl object-contain shadow-2xl relative z-10"
-            />
-            <div className="flex items-center gap-2 mt-2">
-              <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-ping" />
-              <span className="text-xs text-[#b3b3b3] font-bold tracking-widest uppercase">
-                Menghubungkan Akun...
-              </span>
+          <div className="relative flex flex-col items-center justify-center gap-7">
+            <div className="relative flex items-center justify-center w-28 h-28">
+              <div className="absolute inset-0 rounded-full border border-[#1ed760]/45 brnsic-pulse-ring pointer-events-none" />
+              <div className="absolute inset-0 rounded-full border border-[#1ed760]/30 brnsic-pulse-ring-delay pointer-events-none" />
+              <div className="w-20 h-20 rounded-2xl bg-[#1ed760]/15 border border-[#1ed760]/35 flex items-center justify-center shadow-[0_0_40px_rgba(30,215,96,0.3)] relative z-10 brnsic-logo-breath">
+                <img
+                  src="/app-icon.png"
+                  alt="Brnsic"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
+                  className="w-16 h-16 rounded-xl object-contain"
+                />
+              </div>
+            </div>
+            <div className="flex items-end gap-1.5 h-5" aria-hidden="true">
+              <span className="w-1 h-5 rounded-full bg-[#1ed760] brnsic-eq-bar" style={{ animationDelay: "0ms" }} />
+              <span className="w-1 h-5 rounded-full bg-[#1ed760] brnsic-eq-bar" style={{ animationDelay: "160ms" }} />
+              <span className="w-1 h-5 rounded-full bg-[#1ed760] brnsic-eq-bar" style={{ animationDelay: "320ms" }} />
+              <span className="w-1 h-5 rounded-full bg-[#1ed760] brnsic-eq-bar" style={{ animationDelay: "120ms" }} />
             </div>
           </div>
         </div>
@@ -5782,7 +6012,7 @@ export default function BrnsicMusicPage() {
             <img
               src="/splash-logo.png"
               alt="Brnsic"
-              className="w-56 sm:w-64 object-contain relative z-10 drop-shadow-[0_0_35px_rgba(255,255,255,0.35)] mb-4"
+              className="w-56 sm:w-64 object-contain relative z-10 drop-shadow-[0_0_38px_rgba(30,215,96,0.45)] mb-4"
             />
 
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight relative z-10">
@@ -9457,6 +9687,24 @@ export default function BrnsicMusicPage() {
         {!isMobilePlayerOpen && hasUserStartedPlayback && (
           <div
             onClick={() => setIsMobilePlayerOpen(true)}
+            onTouchStart={(e) => {
+              const t = e.touches[0];
+              if (t) miniPlayerTouchStartRef.current = { x: t.clientX, y: t.clientY };
+            }}
+            onTouchEnd={(e) => {
+              const start = miniPlayerTouchStartRef.current;
+              miniPlayerTouchStartRef.current = null;
+              if (!start) return;
+              const t = e.changedTouches[0];
+              if (!t) return;
+              const dx = t.clientX - start.x;
+              const dy = t.clientY - start.y;
+              if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                e.stopPropagation();
+                if (dx < 0) playNextSong(true);
+                else playPrevSong();
+              }
+            }}
             className="pointer-events-auto mx-3 mb-2.5 max-w-lg w-[calc(100%-24px)] self-center bg-black/95 rounded-2xl p-2.5 flex items-center justify-between shadow-2xl cursor-pointer active:scale-[0.99] transition border border-white/10"
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -9664,7 +9912,25 @@ export default function BrnsicMusicPage() {
           5. THE EXACT "LIQUID AUDIO" FULLSCREEN EXPERIENCE
           ==================================================================== */}
       {isMobilePlayerOpen && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col p-4 md:p-6 overflow-hidden animate-fadeIn border-0">
+        <div
+          onTouchStart={(e) => {
+            const t = e.touches[0];
+            if (t) fullPlayerTouchStartRef.current = { x: t.clientX, y: t.clientY };
+          }}
+          onTouchEnd={(e) => {
+            const start = fullPlayerTouchStartRef.current;
+            fullPlayerTouchStartRef.current = null;
+            if (!start) return;
+            const t = e.changedTouches[0];
+            if (!t) return;
+            const dx = t.clientX - start.x;
+            const dy = t.clientY - start.y;
+            if (dy > 90 && dy > Math.abs(dx) * 1.5 && start.y < 240) {
+              setIsMobilePlayerOpen(false);
+            }
+          }}
+          className="fixed inset-0 z-50 bg-black flex flex-col p-4 md:p-6 overflow-hidden animate-fadeIn border-0"
+        >
           {/* DYNAMIC AMBIENT BLURRED ALBUM ARTWORK BACKDROP */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
             <img
@@ -9700,18 +9966,36 @@ export default function BrnsicMusicPage() {
               </span>
             </div>
 
-            <button
-              onClick={() => {
-                setIsMobilePlayerOpen(false);
-                setCurrentView("search");
-              }}
-              className="w-10 h-10 rounded-full liquid-glass-pill flex items-center justify-center text-white/80 hover:text-white"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSleepTimerModalOpen(true)}
+                title="Sleep Timer (Timer Tidur)"
+                className={`w-10 h-10 rounded-full liquid-glass-pill flex items-center justify-center transition relative ${
+                  sleepTimerRemainingSec !== null || sleepTimerEndOfTrack
+                    ? "text-[#1ed760]"
+                    : "text-white/80 hover:text-white"
+                }`}
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                {(sleepTimerRemainingSec !== null || sleepTimerEndOfTrack) && (
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#1ed760]"></span>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobilePlayerOpen(false);
+                  setCurrentView("search");
+                }}
+                className="w-10 h-10 rounded-full liquid-glass-pill flex items-center justify-center text-white/80 hover:text-white"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </button>
+            </div>
           </header>
 
           {/* Body Content by Tab */}
@@ -11017,36 +11301,6 @@ export default function BrnsicMusicPage() {
                           Kanan Atas
                         </button>
                       </div>
-
-                      <div className="pt-2 mt-1 border-t border-white/10 flex items-center justify-between gap-2">
-                        <div className="flex flex-col">
-                          <span className="text-[11px] font-semibold text-white/90">
-                            Mode Tembus Status Bar (Accessibility)
-                          </span>
-                          <span className="text-[10px] text-[#b3b3b3]">
-                            {(typeof window !== "undefined" && (window as any).BrnsicNative?.isAccessibilityOverlayEnabled?.())
-                              ? "Aktif — kapsul tampil di layer teratas OS"
-                              : (typeof window !== "undefined" && (window as any).BrnsicNative?.requestAccessibilityOverlayPermission)
-                                ? "Aktifkan agar bisa dipencet di area status bar"
-                                : "Perlu install APK terbaru untuk mengaktifkan fitur ini"}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const native = (window as any).BrnsicNative;
-                            if (native?.requestAccessibilityOverlayPermission) {
-                              native.requestAccessibilityOverlayPermission();
-                            } else {
-                              showToast("APK di HP masih versi lama. Silakan install APK hasil build terbaru.");
-                            }
-                          }}
-                          className="shrink-0 py-1.5 px-2.5 rounded-lg bg-[#1ed760]/20 hover:bg-[#1ed760]/30 text-[#1ed760] text-[10px] font-bold transition cursor-pointer"
-                        >
-                          {(typeof window !== "undefined" && (window as any).BrnsicNative?.isAccessibilityOverlayEnabled?.())
-                            ? "Aktif ✓"
-                            : "Aktifkan"}
-                        </button>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -11137,7 +11391,7 @@ export default function BrnsicMusicPage() {
                 <img
                   src="/brand-wordmark.png"
                   alt="Brnsic"
-                  className="w-full h-auto max-h-14 object-contain relative z-10 drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]"
+                  className="w-full h-auto max-h-14 object-contain relative z-10 drop-shadow-[0_0_24px_rgba(30,215,96,0.45)]"
                 />
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white">Masuk ke Brnsic</h2>
@@ -11557,13 +11811,112 @@ export default function BrnsicMusicPage() {
       )}
 
       {/* ====================================================================
-          12. TOAST: NOTIFIKASI INTERAKTIF SHUFFLE & TASTE MODE
+          11B. MODAL: SLEEP TIMER (PENGATUR WAKTU TIDUR)
+          ==================================================================== */}
+      {isSleepTimerModalOpen && (
+        <div
+          onClick={() => setIsSleepTimerModalOpen(false)}
+          className="fixed inset-0 z-[998] bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-[#121212] border border-white/15 rounded-3xl p-5 shadow-2xl flex flex-col gap-3"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-white">Sleep Timer</h3>
+                <p className="text-xs text-[#b3b3b3]">
+                  {sleepTimerEndOfTrack
+                    ? "Berhenti otomatis di akhir lagu ini"
+                    : sleepTimerRemainingSec !== null
+                      ? `Berhenti dalam ${Math.floor(sleepTimerRemainingSec / 60)}m ${String(sleepTimerRemainingSec % 60).padStart(2, "0")}d`
+                      : "Hentikan musik otomatis saat kamu tertidur"}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsSleepTimerModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 text-white/70 hover:text-white flex items-center justify-center text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              {[15, 30, 45, 60].map((mins) => (
+                <button
+                  key={mins}
+                  onClick={() => {
+                    setSleepTimerEndOfTrack(false);
+                    setSleepTimerRemainingSec(mins * 60);
+                    setIsSleepTimerModalOpen(false);
+                    showToast(`Sleep Timer diatur: ${mins} menit`);
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-[#1ed760] hover:text-black text-white text-xs font-bold transition"
+                >
+                  {mins} Menit
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                setSleepTimerRemainingSec(null);
+                setSleepTimerEndOfTrack(true);
+                setIsSleepTimerModalOpen(false);
+                showToast("Sleep Timer diatur: Akhir lagu ini");
+              }}
+              className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition ${
+                sleepTimerEndOfTrack
+                  ? "bg-[#1ed760] text-black"
+                  : "bg-white/10 hover:bg-white/20 text-white"
+              }`}
+            >
+              Akhir Lagu Ini
+            </button>
+
+            {(sleepTimerRemainingSec !== null || sleepTimerEndOfTrack) && (
+              <button
+                onClick={() => {
+                  setSleepTimerRemainingSec(null);
+                  setSleepTimerEndOfTrack(false);
+                  setIsSleepTimerModalOpen(false);
+                  showToast("Sleep Timer dimatikan");
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs font-bold transition"
+              >
+                Matikan Timer
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          12. TOAST: NOTIFIKASI INTERAKTIF SHUFFLE, TASTE MODE & UNDO
           ==================================================================== */}
       {shuffleToast && (
-        <div className="fixed top-5 sm:top-6 left-1/2 -translate-x-1/2 z-[999] pointer-events-none animate-fadeIn max-w-[90vw]">
-          <div className="bg-black/95 border border-white/20 px-4 py-2.5 rounded-full shadow-[0_10px_35px_rgba(0,0,0,0.85)] backdrop-blur-xl flex items-center gap-2.5 text-xs font-bold text-white max-w-sm text-center">
+        <div
+          className={`fixed top-5 sm:top-6 left-1/2 -translate-x-1/2 z-[999] animate-fadeIn max-w-[92vw] ${
+            toastUndo ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        >
+          <div className="bg-black/95 border border-white/20 px-4 py-2.5 rounded-full shadow-[0_10px_35px_rgba(0,0,0,0.85)] backdrop-blur-xl flex items-center gap-2.5 text-xs font-bold text-white max-w-md text-center">
             <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse flex-shrink-0"></span>
             <span className="truncate">{shuffleToast}</span>
+            {toastUndo && (
+              <button
+                onClick={() => {
+                  const fn = toastUndo.action;
+                  setShuffleToast(null);
+                  setToastUndo(null);
+                  if (shuffleToastTimeoutRef.current) clearTimeout(shuffleToastTimeoutRef.current);
+                  fn();
+                }}
+                className="ml-1 px-2.5 py-0.5 rounded-full bg-[#1ed760] text-black font-black text-[11px] hover:bg-[#1fdf64] active:scale-95 transition flex-shrink-0 cursor-pointer"
+              >
+                {toastUndo.label}
+              </button>
+            )}
           </div>
         </div>
       )}
