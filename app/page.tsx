@@ -2520,6 +2520,17 @@ export default function BrnsicMusicPage() {
           localStorage.setItem("brnsic_shuffle_mode", "standard");
         } catch (e) {}
       }
+      const savedHistory = localStorage.getItem("brnsic_recent_history");
+      if (savedHistory) {
+        try {
+          const parsedHist = JSON.parse(savedHistory);
+          if (Array.isArray(parsedHist)) {
+            const cleanHist = parsedHist.filter((s) => typeof s === "string" && s.trim()).slice(-40);
+            recentHistoryRef.current = cleanHist;
+            cleanHist.forEach((t) => playedSongTitlesRef.current.add(t));
+          }
+        } catch (e) {}
+      }
       const hasPlayed = localStorage.getItem("brnsic_has_user_played") === "true";
       setHasUserStartedPlayback(hasPlayed);
       hasUserStartedPlaybackRef.current = hasPlayed;
@@ -4896,6 +4907,9 @@ export default function BrnsicMusicPage() {
         if (recentHistoryRef.current.length > 60) {
           recentHistoryRef.current.shift();
         }
+        try {
+          localStorage.setItem("brnsic_recent_history", JSON.stringify(recentHistoryRef.current.slice(-40)));
+        } catch (e) {}
       }
     }
 
@@ -5274,8 +5288,12 @@ export default function BrnsicMusicPage() {
           }
         );
 
-        // Keep rankedDiscovery order intact (already MMR-diversified & seed-weighted!)
-        radioQueue = [song, ...rankedDiscovery];
+        // Shuffle discovery order when shuffle is active so next tracks vary across sessions
+        const finalDiscovery =
+          shuffleModeRef.current !== "off" && rankedDiscovery.length > 2
+            ? balancedShuffle(rankedDiscovery, playedSongTitlesRef.current)
+            : rankedDiscovery;
+        radioQueue = [song, ...finalDiscovery];
 
         activeQueueRef.current = radioQueue;
         activeQueueIndexRef.current = 0;

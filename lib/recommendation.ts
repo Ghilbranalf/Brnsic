@@ -439,8 +439,9 @@ export function rankTracksByDeepLearning(
     const isJunk = !JUNK_TRACK_REGEX.test(seedTitle) && JUNK_TRACK_REGEX.test(rawTitle);
     const junkPenalty = isJunk ? -0.8 : 0;
 
-    // UCB1 Exploration Term (Balances familiar songs with fresh discoveries)
+    // UCB1 Exploration Term + subtle stochastic jitter for Radio/Autoplay so next tracks stay fresh
     const explorationTerm = 0.06 * Math.sqrt(Math.log(candidates.length + 1) / (i + 1));
+    const radioJitter = !allowRecent ? (Math.random() - 0.5) * 0.14 : 0;
 
     const baseScore =
       cosine +
@@ -449,6 +450,7 @@ export function rankTracksByDeepLearning(
       tierBoost +
       priorityBoost +
       explorationTerm +
+      radioJitter +
       junkPenalty -
       overplayPenalty;
 
