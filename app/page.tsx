@@ -1447,15 +1447,23 @@ const getSmartShuffleCandidates = (
     return cleanT && !existingSet.has(cleanT) && !playedTitles.has(cleanT);
   });
 
+  const seedVec = currentSeed ? extractTrackFeatureVector(currentSeed) : null;
+  const fallbackCombined = [
+    ...catalogs.related,
+    ...catalogs.topIndo,
+    ...catalogs.mostPlayed,
+    ...catalogs.globalTrending
+  ];
+  const genreMatchedFallback = seedVec
+    ? fallbackCombined.filter((t) => computeCosineSimilarity(seedVec, extractTrackFeatureVector(t)) >= 0.78)
+    : fallbackCombined;
+
   const rawPool =
-    unplayedRelated.length >= 4
+    unplayedRelated.length >= 3
       ? unplayedRelated
-      : [
-          ...catalogs.related,
-          ...catalogs.topIndo,
-          ...catalogs.mostPlayed,
-          ...catalogs.globalTrending
-        ];
+      : genreMatchedFallback.length >= 3
+      ? genreMatchedFallback
+      : fallbackCombined;
 
   const activeVector =
     userVector ||
@@ -1486,7 +1494,7 @@ const getSmartShuffleCandidates = (
     [],
     {
       seedTrack: currentSeed,
-      seedWeight: 0.55,
+      seedWeight: 0.82,
       artistWeights: taste.artistWeights,
       playCounts: taste.playCounts,
       maxPerArtist: 2,
@@ -5201,7 +5209,9 @@ export default function BrnsicMusicPage() {
 
     try {
       const res = await fetch(
-        `/api/related?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`
+        `/api/related?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(
+          song.title
+        )}&genre=${encodeURIComponent(song.genre || "")}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -5214,34 +5224,48 @@ export default function BrnsicMusicPage() {
         setRelatedQueue(incomingRelated);
 
         // Spotify-grade Artist & Genre Radio Queue:
-        // If we have strong matching tracks from this artist and related circle (5+ tracks),
-        // keep the queue strictly aligned with this musical style without diluting it with unrelated catalogs!
+        // Keep the radio strictly anchored to the seed song's genre & related artist circle!
         originalQueueRef.current = [song, ...incomingRelated];
         let radioQueue: any[] = [];
-        const isShuffled = shuffleModeRef.current !== "off";
 
         const cleanSongTitle = (song.title || song.trackName || "").toLowerCase().trim();
+        const seedVec = extractTrackFeatureVector(song);
+        const fallbackAll = [
+          ...incomingRelated,
+          ...(globalTrending || []),
+          ...(indonesiaTop50 || []),
+          ...(mostPlayedIndonesia || [])
+        ];
+        const genreFilteredFallback = fallbackAll.filter(
+          (t) => computeCosineSimilarity(seedVec, extractTrackFeatureVector(t)) >= 0.78
+        );
+
         const candidatePool =
-          incomingRelated.length >= 6
+          incomingRelated.length >= 3
             ? incomingRelated
-            : [
-                ...incomingRelated,
-                ...(globalTrending || []),
-                ...(indonesiaTop50 || []),
-                ...(mostPlayedIndonesia || [])
-              ];
+            : genreFilteredFallback.length >= 3
+            ? genreFilteredFallback
+            : fallbackAll;
+
+        const radioCooldown = Array.from(
+          new Set([
+            ...(cleanSongTitle ? [cleanSongTitle] : []),
+            ...recentHistoryRef.current,
+            ...Array.from(playedSongTitlesRef.current)
+          ])
+        );
 
         const rankedDiscovery = rankTracksByDeepLearning(
           userTasteVector,
           candidatePool,
-          [cleanSongTitle, ...recentHistoryRef.current],
+          radioCooldown,
           dislikedSongIds,
           30,
           false,
           [],
           {
             seedTrack: song,
-            seedWeight: 0.65,
+            seedWeight: 0.9,
             artistWeights: userTaste.artistWeights,
             playCounts: userTaste.playCounts,
             maxPerArtist: 3,

@@ -24,8 +24,8 @@ export default function BrnsicThreeLoader({
         const height = container.clientHeight || window.innerHeight;
 
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-        camera.position.z = 5.2;
+        const camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 100);
+        camera.position.set(0, 0.25, 6.2);
 
         const renderer = new THREE.WebGLRenderer({
           antialias: true,
@@ -38,71 +38,98 @@ export default function BrnsicThreeLoader({
         container.innerHTML = "";
         container.appendChild(renderer.domElement);
 
-        // Core acoustic wireframe icosahedron
-        const coreGeo = new THREE.IcosahedronGeometry(1.08, 2);
-        const coreMat = new THREE.MeshBasicMaterial({
-          color: 0x1ed760,
-          wireframe: true,
-          transparent: true,
-          opacity: 0.38
-        });
-        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-        scene.add(coreMesh);
+        // 1. Flowing 3D Harmonic Melody Waves ("Alunan Nada")
+        const waveConfigs = [
+          { color: 0x1ed760, opacity: 0.85, amp: 0.55, freq: 1.4, speed: 2.1, z: 0.2, yOffset: 0 },
+          { color: 0x10b981, opacity: 0.48, amp: 0.42, freq: 1.9, speed: 1.6, z: -0.35, yOffset: 0.12 },
+          { color: 0xffffff, opacity: 0.22, amp: 0.32, freq: 2.3, speed: 1.3, z: -0.8, yOffset: -0.1 }
+        ];
 
-        // Inner glowing crystalline solid
-        const innerGeo = new THREE.IcosahedronGeometry(0.72, 1);
-        const innerMat = new THREE.MeshBasicMaterial({
-          color: 0x10b981,
-          transparent: true,
-          opacity: 0.14
-        });
-        const innerMesh = new THREE.Mesh(innerGeo, innerMat);
-        scene.add(innerMesh);
+        const pointCount = 120;
+        const waveLines: Array<{
+          line: any;
+          geo: any;
+          mat: any;
+          cfg: (typeof waveConfigs)[number];
+        }> = [];
 
-        // Orbital acoustic rings
-        const ring1Geo = new THREE.TorusGeometry(1.55, 0.014, 16, 100);
-        const ring1Mat = new THREE.MeshBasicMaterial({
+        for (const cfg of waveConfigs) {
+          const positions = new Float32Array(pointCount * 3);
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+          const mat = new THREE.LineBasicMaterial({
+            color: cfg.color,
+            transparent: true,
+            opacity: cfg.opacity
+          });
+          const line = new THREE.Line(geo, mat);
+          scene.add(line);
+          waveLines.push({ line, geo, mat, cfg });
+        }
+
+        // 2. Floating 3D Musical Notes drifting along the melody
+        const headGeo = new THREE.SphereGeometry(0.085, 16, 12);
+        const stemGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.32, 8);
+        const flagGeo = new THREE.BoxGeometry(0.11, 0.035, 0.02);
+
+        const noteMatGreen = new THREE.MeshBasicMaterial({
           color: 0x1ed760,
+          transparent: true,
+          opacity: 0.9
+        });
+        const noteMatSoft = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
           transparent: true,
           opacity: 0.55
         });
-        const ring1 = new THREE.Mesh(ring1Geo, ring1Mat);
-        ring1.rotation.x = Math.PI * 0.38;
-        ring1.rotation.y = Math.PI * 0.14;
-        scene.add(ring1);
 
-        const ring2Geo = new THREE.TorusGeometry(1.9, 0.009, 16, 100);
-        const ring2Mat = new THREE.MeshBasicMaterial({
-          color: 0xffffff,
-          transparent: true,
-          opacity: 0.2
-        });
-        const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
-        ring2.rotation.x = -Math.PI * 0.32;
-        ring2.rotation.y = Math.PI * 0.28;
-        scene.add(ring2);
+        const notes: Array<{
+          group: any;
+          baseX: number;
+          baseY: number;
+          baseZ: number;
+          speed: number;
+          phase: number;
+        }> = [];
 
-        // Ambient 3D sound particles
-        const particleCount = 140;
-        const positions = new Float32Array(particleCount * 3);
-        for (let i = 0; i < particleCount; i++) {
-          const radius = 2.1 + Math.random() * 2.2;
-          const theta = Math.random() * Math.PI * 2;
-          const phi = Math.acos(2 * Math.random() - 1);
-          positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-          positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-          positions[i * 3 + 2] = radius * Math.cos(phi);
+        const noteCount = 14;
+        for (let i = 0; i < noteCount; i++) {
+          const group = new THREE.Group();
+          const mat = i % 3 === 0 ? noteMatSoft : noteMatGreen;
+
+          const head = new THREE.Mesh(headGeo, mat);
+          head.scale.set(1.25, 0.85, 0.85);
+          head.rotation.z = 0.35;
+          group.add(head);
+
+          const stem = new THREE.Mesh(stemGeo, mat);
+          stem.position.set(0.08, 0.16, 0);
+          group.add(stem);
+
+          if (i % 2 === 0) {
+            const flag = new THREE.Mesh(flagGeo, mat);
+            flag.position.set(0.13, 0.3, 0);
+            flag.rotation.z = -0.35;
+            group.add(flag);
+          }
+
+          const baseX = -3.4 + (i / (noteCount - 1)) * 6.8 + (Math.random() - 0.5) * 0.4;
+          const baseY = (Math.random() - 0.5) * 1.6;
+          const baseZ = (Math.random() - 0.5) * 1.4;
+          group.position.set(baseX, baseY, baseZ);
+          const scale = 0.65 + Math.random() * 0.55;
+          group.scale.setScalar(scale);
+          scene.add(group);
+
+          notes.push({
+            group,
+            baseX,
+            baseY,
+            baseZ,
+            speed: 0.7 + Math.random() * 0.7,
+            phase: Math.random() * Math.PI * 2
+          });
         }
-        const particleGeo = new THREE.BufferGeometry();
-        particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-        const particleMat = new THREE.PointsMaterial({
-          color: 0x1ed760,
-          size: 0.038,
-          transparent: true,
-          opacity: 0.65
-        });
-        const particles = new THREE.Points(particleGeo, particleMat);
-        scene.add(particles);
 
         const handleResize = () => {
           if (!mountRef.current) return;
@@ -120,18 +147,33 @@ export default function BrnsicThreeLoader({
           frameId = requestAnimationFrame(animate);
           const t = clock.getElapsedTime();
 
-          const pulse = 1 + Math.sin(t * 2.4) * 0.055;
-          coreMesh.scale.setScalar(pulse);
-          coreMesh.rotation.y = t * 0.45;
-          coreMesh.rotation.x = Math.sin(t * 0.6) * 0.25;
+          // Update flowing harmonic waves
+          for (const { geo, cfg } of waveLines) {
+            const posAttr = geo.getAttribute("position");
+            for (let i = 0; i < pointCount; i++) {
+              const u = i / (pointCount - 1);
+              const x = -4.8 + u * 9.6;
+              // Envelope tapers smoothly at screen edges
+              const envelope = Math.sin(u * Math.PI);
+              const y =
+                cfg.yOffset +
+                envelope *
+                  cfg.amp *
+                  (Math.sin(x * cfg.freq - t * cfg.speed) * 0.68 +
+                    Math.cos(x * (cfg.freq * 1.7) + t * (cfg.speed * 0.7)) * 0.32);
+              const z = cfg.z + Math.sin(x * 0.8 + t * 1.1) * 0.18;
+              posAttr.setXYZ(i, x, y, z);
+            }
+            posAttr.needsUpdate = true;
+          }
 
-          innerMesh.scale.setScalar(1 + Math.cos(t * 2.4) * 0.06);
-          innerMesh.rotation.y = -t * 0.35;
-
-          ring1.rotation.z = t * 0.55;
-          ring2.rotation.z = -t * 0.38;
-          particles.rotation.y = t * 0.12;
-          particles.rotation.x = Math.sin(t * 0.25) * 0.08;
+          // Drift musical notes along the wave
+          for (const n of notes) {
+            n.group.position.y = n.baseY + Math.sin(t * n.speed + n.phase) * 0.42;
+            n.group.position.x = n.baseX + Math.cos(t * 0.45 + n.phase) * 0.18;
+            n.group.rotation.y = Math.sin(t * 0.8 + n.phase) * 0.35;
+            n.group.rotation.z = Math.sin(t * 1.2 + n.phase) * 0.12;
+          }
 
           renderer.render(scene, camera);
         };
@@ -140,16 +182,15 @@ export default function BrnsicThreeLoader({
         cleanupFn = () => {
           window.removeEventListener("resize", handleResize);
           cancelAnimationFrame(frameId);
-          coreGeo.dispose();
-          coreMat.dispose();
-          innerGeo.dispose();
-          innerMat.dispose();
-          ring1Geo.dispose();
-          ring1Mat.dispose();
-          ring2Geo.dispose();
-          ring2Mat.dispose();
-          particleGeo.dispose();
-          particleMat.dispose();
+          for (const { geo, mat } of waveLines) {
+            geo.dispose();
+            mat.dispose();
+          }
+          headGeo.dispose();
+          stemGeo.dispose();
+          flagGeo.dispose();
+          noteMatGreen.dispose();
+          noteMatSoft.dispose();
           renderer.dispose();
           if (renderer.domElement.parentNode === container) {
             container.removeChild(renderer.domElement);
@@ -171,7 +212,7 @@ export default function BrnsicThreeLoader({
     <div className="fixed inset-0 z-[120] bg-black flex items-center justify-center select-none overflow-hidden">
       <div ref={mountRef} className="absolute inset-0 w-full h-full" />
       <div className="relative z-10 flex items-center justify-center pointer-events-none">
-        <div className="w-16 h-16 rounded-2xl bg-black/75 border border-[#1ed760]/40 flex items-center justify-center shadow-[0_0_35px_rgba(30,215,96,0.35)]">
+        <div className="w-16 h-16 rounded-2xl bg-black/80 border border-[#1ed760]/45 flex items-center justify-center shadow-[0_0_38px_rgba(30,215,96,0.35)]">
           <img
             src="/app-icon.png"
             alt="Brnsic"
