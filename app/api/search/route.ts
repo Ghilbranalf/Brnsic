@@ -148,6 +148,21 @@ const KNOWN_TOP_SONGS: Array<{ title: string; artist: string; popularity: number
 
 const JUNK_SEARCH_REGEX = /\b(karaoke|instrumental|tribute|parody|parodi|reaction|workout|gym mix|fitness|running mix|sped up|slowed|reverb|8d audio|nightcore|1 hour|10 hours|ringtone|lullaby)\b/i;
 
+function normalizePhonetic(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\bgweh\b/g, "gueh")
+    .replace(/\bguwe\b/g, "gue")
+    .replace(/\bgw\b/g, "gue")
+    .replace(/oe/g, "u")
+    .replace(/dj/g, "j")
+    .replace(/tj/g, "c")
+    .replace(/we/g, "ue")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function fetchJsonTimeout(url: string, options: RequestInit = {}, timeoutMs = 2800): Promise<any | null> {
   try {
     const controller = new AbortController();
@@ -358,6 +373,8 @@ export async function GET(request: Request) {
     }
 
     const primaryQuery = queryRaw;
+    const phoneticQuery = normalizePhonetic(queryClean);
+    const localQuery = phoneticQuery && phoneticQuery !== queryClean ? phoneticQuery : primaryQuery;
 
     // 3. Multi-Entity Parallel Search: Deezer (HD avatars + popularity rank) + iTunes Worldwide/ID + YouTube InnerTube
     const [songRes, artistRes, albumRes, indoSongRes, innerTubeSongs, deezerTrackRes, deezerArtistRes] = await Promise.all([
@@ -370,8 +387,8 @@ export async function GET(request: Request) {
       // Albums (iTunes)
       fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(primaryQuery)}&entity=album&limit=8&country=id`, { next: { revalidate: 86400 } }, 2800)
         .then((d) => d || { results: [] }),
-      // Secondary local Indonesian search (iTunes ID)
-      fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(primaryQuery)}&country=id&entity=song&limit=20`, { next: { revalidate: 3600 } }, 2800)
+      // Secondary local Indonesian search (iTunes ID, using phonetic-normalized query when applicable)
+      fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(localQuery)}&country=id&entity=song&limit=20`, { next: { revalidate: 3600 } }, 2800)
         .then((d) => d || { results: [] }),
       // Real-time InnerTube search (guarantees underground, regional & TikTok hits)
       searchInnerTubeMusic(primaryQuery),
@@ -575,9 +592,12 @@ export async function GET(request: Request) {
     }
 
     // 8. Spotify-Grade Relevance & Popularity Scoring Function
+    const qPhon = normalizePhonetic(queryClean);
     const computeRelevance = (item: any): number => {
       const t = item.trackName.toLowerCase().trim();
       const a = item.artistName.toLowerCase().trim();
+      const tPhon = normalizePhonetic(t);
+      const aPhon = normalizePhonetic(a);
       let score = 0;
 
       // 1. Heavy penalty for workout, gym mix, fitness, tribute, parody, or karaoke tracks
@@ -585,54 +605,67 @@ export async function GET(request: Request) {
         score -= 15000;
       }
 
-      // 2. Exact Title Matches
-      if (t === queryClean) {
+      // 2. Exact & Phonetic Title Matches
+      if (t === queryClean || (qPhon && tPhon === qPhon)) {
         score += 12000;
-      } else if (t.startsWith(queryClean)) {
-        score += 6000;
-      } else if (t.includes(queryClean)) {
-        score += 3000;
+      } else if (t.startsWith(queryClean) || (qPhon && tPhon.startsWith(qPhon))) {
+        score += 6500;
+      } else if (t.includes(queryClean) || (qPhon && tPhon.includes(qPhon))) {
+        score += 4800;
       }
 
-      // 3. Exact Artist Matches
-      if (a === queryClean) {
+      // 3. Exact & Phonetic Artist Matches
+      if (a === queryClean || (qPhon && aPhon === qPhon)) {
         score += 8000;
-      } else if (a.startsWith(queryClean)) {
+      } else if (a.startsWith(queryClean) || (qPhon && aPhon.startsWith(qPhon))) {
         score += 4000;
-      } else if (a.includes(queryClean)) {
+      } else if (a.includes(queryClean) || (qPhon && aPhon.includes(qPhon))) {
         score += 2000;
       }
 
-      // 4. Token matches (all tokens matching gets extra boost)
-      const tokens = queryClean.split(" ").filter(Boolean);
-      const titleTokensMatch = tokens.filter((tok) => t.includes(tok)).length;
-      const artistTokensMatch = tokens.filter((tok) => a.includes(tok)).length;
-      const combinedTokensMatch = tokens.filter((tok) => t.includes(tok) || a.includes(tok)).length;
-      score += titleTokensMatch * 650 + artistTokensMatch * 550;
+      // 4. Token matches (require strong token overlap for multi-word queries)
+      const tokens = (qPhon || queryClean).split(" ").filter(Boolean);
+      const titleTokensMatch = tokens.filter((tok) => tPhon.includes(tok) || t.includes(tok)).length;
+      const artistTokensMatch = tokens.filter((tok) => aPhon.includes(tok) || a.includes(tok)).length;
+      const combinedTokensMatch = tokens.filter(
+        (tok) => tPhon.includes(tok) || aPhon.includes(tok) || t.includes(tok) || a.includes(tok)
+      ).length;
+      score += titleTokensMatch * 800 + artistTokensMatch * 600;
       if (tokens.length >= 2 && combinedTokensMatch === tokens.length) {
-        score += 2500;
+        score += 3500;
       }
 
-      // 5. Real Popularity Rank (Deezer rank up to 1,000,000 -> up to +2500) + Official Studio Source Bonus
-      if (item.deezerRank > 0) {
-        score += Math.min(2500, Math.round(item.deezerRank / 350));
-      }
-      if (item.source === "deezer" || item.source === "itunes" || item.source === "itunes-top") {
-        score += 600;
+      const minRequiredTokens = tokens.length >= 2 ? Math.ceil(tokens.length * 0.6) : 1;
+      const hasStrongMatch = combinedTokensMatch >= minRequiredTokens || tPhon.includes(qPhon) || aPhon.includes(qPhon);
+
+      if (tokens.length >= 2 && !hasStrongMatch) {
+        score -= 4500;
       }
 
-      // 6. Verified Top Hits Bonus
-      for (const hit of KNOWN_TOP_SONGS) {
-        const hTitle = hit.title.toLowerCase();
-        const hArtist = hit.artist.toLowerCase();
-        if (t === hTitle || (t.includes(hTitle) && (a.includes(hArtist) || hArtist.includes(a)))) {
-          score += hit.popularity * 45;
-          break;
+      // 5. Real Popularity Rank & Official Studio Source Authority
+      if (hasStrongMatch) {
+        if (item.deezerRank > 0) {
+          score += Math.min(2500, Math.round(item.deezerRank / 350));
+        }
+        if (item.source === "deezer" || item.source === "itunes" || item.source === "itunes-top") {
+          score += 2200;
         }
       }
 
-      // 7. Verified Artist Bonus
-      if (KNOWN_ARTISTS.includes(a) || deezerArtistPhotoMap.has(a)) {
+      // 6. Verified Top Hits Bonus (only if strong query match)
+      if (hasStrongMatch) {
+        for (const hit of KNOWN_TOP_SONGS) {
+          const hTitle = hit.title.toLowerCase();
+          const hArtist = hit.artist.toLowerCase();
+          if (t === hTitle || (t.includes(hTitle) && (a.includes(hArtist) || hArtist.includes(a)))) {
+            score += hit.popularity * 45;
+            break;
+          }
+        }
+      }
+
+      // 7. Verified Artist Bonus (only if strong query match)
+      if (hasStrongMatch && (KNOWN_ARTISTS.includes(a) || deezerArtistPhotoMap.has(a))) {
         score += 1200;
       }
 
