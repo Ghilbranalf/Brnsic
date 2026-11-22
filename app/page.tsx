@@ -4753,7 +4753,14 @@ export default function BrnsicMusicPage() {
     setIsLoadingSong(true);
     setCurrentTime(0);
     if (song.title) {
-      playedSongTitlesRef.current.add(song.title.toLowerCase().trim());
+      const normPlayedTitle = song.title.toLowerCase().trim();
+      playedSongTitlesRef.current.add(normPlayedTitle);
+      if (recentHistoryRef.current[recentHistoryRef.current.length - 1] !== normPlayedTitle) {
+        recentHistoryRef.current.push(normPlayedTitle);
+        if (recentHistoryRef.current.length > 60) {
+          recentHistoryRef.current.shift();
+        }
+      }
     }
 
     const optimisticTrack: Track = { ...song };
@@ -5302,14 +5309,17 @@ export default function BrnsicMusicPage() {
     // 2. If inside active queue and not at the last track
     if (currentQ && currentQ.length > 0) {
       let nextIdx = currentIdx + 1;
-      // Skip any candidate in upcoming queue that the user has disliked!
+      const curTrackTitleLower = (currentTrack?.title || "").toLowerCase().trim();
+      // Skip any candidate in upcoming queue that the user has disliked or is an immediate duplicate title!
       while (nextIdx < currentQ.length) {
         const item = currentQ[nextIdx];
+        const itemTitleLower = (item?.title || item?.trackName || "").toLowerCase().trim();
         const isDisliked = item && (
           dislikedSongIds.includes(item.id) ||
-          dislikedSongIds.includes((item.title || item.trackName || "").toLowerCase().trim())
+          dislikedSongIds.includes(itemTitleLower)
         );
-        if (!isDisliked) break;
+        const isImmediateDuplicate = currentQ.length > 1 && itemTitleLower && itemTitleLower === curTrackTitleLower;
+        if (!isDisliked && !isImmediateDuplicate) break;
         nextIdx++;
       }
 
@@ -5398,6 +5408,12 @@ export default function BrnsicMusicPage() {
     };
 
     const currentTitle = (currentTrack?.title || "").toLowerCase().trim();
+    const sessionCooldownSet = new Set<string>([
+      ...(currentTitle ? [currentTitle] : []),
+      ...recentHistoryRef.current,
+      ...Array.from(playedSongTitlesRef.current)
+    ]);
+    const sessionCooldownList = Array.from(sessionCooldownSet);
 
     // A. Pick next unplayed from related recommendations first (stay in the current song's vibe!)
     const unplayedRelated = (relatedQueue || []).filter((t: any) => {
@@ -5405,8 +5421,7 @@ export default function BrnsicMusicPage() {
       const id = (t?.id || t?.trackId || "").toString().toLowerCase().trim();
       return (
         title &&
-        title !== currentTitle &&
-        !recentHistoryRef.current.includes(title) &&
+        !sessionCooldownSet.has(title) &&
         !dislikedSongIds.includes(id) &&
         !dislikedSongIds.includes(title)
       );
@@ -5431,7 +5446,7 @@ export default function BrnsicMusicPage() {
     const rankedCandidates = rankTracksByDeepLearning(
       userTasteVector,
       candidatePool,
-      [currentTitle, ...recentHistoryRef.current],
+      sessionCooldownList,
       dislikedSongIds,
       12,
       false,
@@ -5448,13 +5463,13 @@ export default function BrnsicMusicPage() {
     );
 
     if (rankedCandidates.length > 0) {
-      // Pick from top 2 diverse candidates (preferring artists different from currentTrack)
-      const currentArtistLower = (currentTrack.artist || "").toLowerCase().trim();
+      // Pick from top 5 diverse candidates (preferring artists different from currentTrack)
+      const currentArtistLower = (currentTrack?.artist || "").toLowerCase().trim();
       const nonSameArtist = rankedCandidates.filter(
         (c) => (c.artist || "").toLowerCase().trim() !== currentArtistLower
       );
       const poolToPick = nonSameArtist.length > 0 ? nonSameArtist : rankedCandidates;
-      const topChoices = poolToPick.slice(0, Math.min(2, poolToPick.length));
+      const topChoices = poolToPick.slice(0, Math.min(5, poolToPick.length));
       const nextSong = topChoices[Math.floor(Math.random() * topChoices.length)];
       markPlayed(nextSong);
       const nextQ = [...currentQ, nextSong];
