@@ -5532,7 +5532,7 @@ export default function BrnsicMusicPage() {
         }
       } else {
         // Reached the end of activeQueue!
-        if (currentMode === "all" || isLoopAlbum) {
+        if ((currentMode === "all" || isLoopAlbum) && currentQ.length > 1) {
           let targetQ = currentQ;
           if (currentShuffleMode !== "off" && currentQ.length > 2) {
             const reshuffled = balancedShuffle(currentQ, playedSongTitlesRef.current);
@@ -5614,9 +5614,9 @@ export default function BrnsicMusicPage() {
       : rawFallbackPool;
 
     const candidatePool =
-      unplayedRelated.length >= 4
+      unplayedRelated.length >= 2
         ? unplayedRelated
-        : genreMatchedFallback.length >= 4
+        : genreMatchedFallback.length >= 2
         ? genreMatchedFallback
         : rawFallbackPool;
 
@@ -8095,7 +8095,7 @@ export default function BrnsicMusicPage() {
                   {homeMlRanked.map((t: any, i: number) => (
                     <div
                       key={t.id || `${t.title}-${i}`}
-                      onClick={() => handlePlayFromList(t, homeMlRanked, i)}
+                      onClick={() => handlePlaySingleSongWithRadio(t)}
                       className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10"
                     >
                       <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-3 shadow-md">
@@ -8163,7 +8163,7 @@ export default function BrnsicMusicPage() {
                     indonesiaTop50.slice(0, 6).map((t: any, i) => (
                       <div
                         key={t.id || i}
-                        onClick={() => handlePlayFromList(t, indonesiaTop50, i)}
+                        onClick={() => handlePlaySingleSongWithRadio(t)}
                         className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10 border border-white/10 min-w-0"
                       >
                         <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
@@ -8243,7 +8243,7 @@ export default function BrnsicMusicPage() {
                     (t: any, i) => (
                       <div
                         key={t.id || i}
-                        onClick={() => handlePlayFromList(t, mostPlayedIndonesia.length > 0 ? mostPlayedIndonesia : indonesiaTop50, i)}
+                        onClick={() => handlePlaySingleSongWithRadio(t)}
                         className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10 border border-white/10 min-w-0"
                       >
                         <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
@@ -8310,7 +8310,7 @@ export default function BrnsicMusicPage() {
                     globalTrending.slice(0, 6).map((t: any, i) => (
                       <div
                         key={t.id || i}
-                        onClick={() => handlePlayFromList(t, globalTrending, i)}
+                        onClick={() => handlePlaySingleSongWithRadio(t)}
                         className="liquid-glass-card rounded-2xl p-3 flex flex-col group cursor-pointer transition hover:bg-white/10 border border-white/10 min-w-0"
                       >
                         <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 relative shadow-md bg-[#242424]">
