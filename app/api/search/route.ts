@@ -196,10 +196,19 @@ async function searchInnerTubeMusic(query: string): Promise<any[]> {
 
         if (id && title) {
           if (!queryIsJunk && JUNK_SEARCH_REGEX.test(title)) return;
+          const cleanOwner = artist.replace(/\s*-\s*topic/i, "").trim().toLowerCase();
           if (title.includes(" - ")) {
             const parts = title.split(" - ");
-            artist = parts[0].trim();
-            title = parts.slice(1).join(" - ").trim();
+            const left = parts[0].trim();
+            const right = parts.slice(1).join(" - ").trim();
+            // If right side matches channel owner (e.g. "Song Title - ArtistName"), keep right as artist
+            if (cleanOwner && right.toLowerCase().includes(cleanOwner)) {
+              artist = right;
+              title = left;
+            } else {
+              artist = left;
+              title = right;
+            }
           }
           title = title
             .replace(/\s*[\(\[](official|audio|music video|video|lyric|lyrics|mv|visualizer|lirik|official audio|official video)[\)\]]/gi, "")
@@ -238,7 +247,9 @@ async function searchInnerTubeMusic(query: string): Promise<any[]> {
   }
 }
 
-// As-you-type trending suggestions directly from YouTube & Google Complete API
+const NON_MUSIC_SUGGESTION_REGEX = /\b(review|unboxing|pillow|bulgy|tag|tutorial|gameplay|walkthrough|reaction|meme|prank|shorts|episode|ep\s*\d+|trailer|movie|film|news|berita|harga|beli|shopee|tokopedia)\b/i;
+
+// As-you-type music-filtered suggestions from YouTube Complete API
 async function fetchTrendingSearchSuggestions(query: string): Promise<string[]> {
   try {
     const url = `https://suggestqueries-clients6.youtube.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(query)}`;
@@ -254,7 +265,15 @@ async function fetchTrendingSearchSuggestions(query: string): Promise<string[]> 
     if (match) {
       const data = JSON.parse(match[1]);
       if (Array.isArray(data[1])) {
-        return data[1].map((item: any) => item[0]).filter((s: any) => typeof s === "string" && s.trim());
+        return data[1]
+          .map((item: any) => item[0])
+          .filter(
+            (s: any) =>
+              typeof s === "string" &&
+              s.trim().length > 0 &&
+              !NON_MUSIC_SUGGESTION_REGEX.test(s) &&
+              !JUNK_SEARCH_REGEX.test(s)
+          );
       }
     }
   } catch (e) {}
@@ -525,9 +544,13 @@ export async function GET(request: Request) {
         continue;
       }
 
-      const dedupeKey = `${artist.toLowerCase()} ${title.toLowerCase()}`.replace(/[^a-z0-9]/g, "");
-      if (!seenSongs.has(dedupeKey)) {
+      const normArtist = artist.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const normTitle = title.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const dedupeKey = `${normArtist}::${normTitle}`;
+      const swappedKey = `${normTitle}::${normArtist}`;
+      if (!seenSongs.has(dedupeKey) && !seenSongs.has(swappedKey)) {
         seenSongs.add(dedupeKey);
+        seenSongs.add(swappedKey);
         const durationSec =
           typeof t.trackTimeMillis === "number" && t.trackTimeMillis > 0
             ? Math.round(t.trackTimeMillis / 1000)
@@ -623,39 +646,65 @@ export async function GET(request: Request) {
 
     const isKnownArtist = KNOWN_ARTISTS.includes(queryClean) || Boolean(VERIFIED_ARTIST_AVATARS[queryClean]);
 
+    const topDeezerArtist = (deezerArtistRes.data || [])[0];
+    const effectiveArtistName =
+      matchedArtistObj?.artistName ||
+      (topDeezerArtist && topDeezerArtist.name.toLowerCase().trim() === queryClean ? topDeezerArtist.name : null);
+
+    // Boost songs belonging to the exact matched artist so their catalog ranks above random homonyms
+    if (effectiveArtistName) {
+      const effLower = effectiveArtistName.toLowerCase().trim();
+      uniqueSongs.sort((x, y) => {
+        const xMatch = x.artistName.toLowerCase().trim() === effLower ? 5000 : 0;
+        const yMatch = y.artistName.toLowerCase().trim() === effLower ? 5000 : 0;
+        return (computeRelevance(y) + yMatch) - (computeRelevance(x) + xMatch);
+      });
+    }
+
     const exactSongMatch = uniqueSongs.find((s) => {
       const st = s.trackName.toLowerCase().replace(/[^a-z0-9]/g, "");
       const qc = queryClean.replace(/[^a-z0-9]/g, "");
       return st === qc;
     });
 
-    const topDeezerArtist = (deezerArtistRes.data || [])[0];
-    const effectiveArtistName =
-      matchedArtistObj?.artistName ||
-      (topDeezerArtist && topDeezerArtist.name.toLowerCase().trim() === queryClean ? topDeezerArtist.name : null);
+    const effectiveArtistTracks = effectiveArtistName
+      ? uniqueSongs.filter((s) => s.artistName.toLowerCase().includes(effectiveArtistName.toLowerCase()))
+      : [];
+    const effectiveArtistAlbums = effectiveArtistName
+      ? albums.filter((al) => al.artist.toLowerCase().includes(effectiveArtistName.toLowerCase()))
+      : [];
+    const effectiveArtistFans = effectiveArtistName
+      ? (deezerArtistPhotoMap.get(effectiveArtistName.toLowerCase().trim())?.nbFan || 0)
+      : 0;
 
-    // An artist is Top Result ONLY if:
-    // - The query is explicitly a recognized/exact artist, OR
+    // An artist is Top Result if:
+    // - The query is explicitly a recognized artist, OR
+    // - The matched artist has multiple tracks / an album / real fan base, OR
     // - There is NO exact song match by another artist.
     if (
       effectiveArtistName &&
-      (isKnownArtist || !exactSongMatch || exactSongMatch.artistName.toLowerCase().includes(effectiveArtistName.toLowerCase()))
+      (isKnownArtist ||
+        effectiveArtistTracks.length >= 2 ||
+        effectiveArtistAlbums.length >= 1 ||
+        effectiveArtistFans >= 50 ||
+        !exactSongMatch ||
+        exactSongMatch.artistName.toLowerCase().includes(effectiveArtistName.toLowerCase()))
     ) {
       const dzInfo = deezerArtistPhotoMap.get(effectiveArtistName.toLowerCase().trim());
       const avatar =
         VERIFIED_ARTIST_AVATARS[effectiveArtistName.toLowerCase()] ||
         dzInfo?.picture ||
-        uniqueSongs.find((s) => s.artistName.toLowerCase() === effectiveArtistName.toLowerCase())?.artworkUrl100 ||
+        effectiveArtistTracks[0]?.artworkUrl100 ||
         `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(effectiveArtistName)}&backgroundColor=1f1f1f&textColor=ffffff`;
 
-      const topTracks = uniqueSongs.filter((s) => s.artistName.toLowerCase().includes(effectiveArtistName.toLowerCase())).slice(0, 5);
+      const topTracks = effectiveArtistTracks.slice(0, 5);
 
       topResult = {
         type: "artist",
         id: matchedArtistObj ? `artist-${matchedArtistObj.artistId}` : `artist-dz-${dzInfo?.id || effectiveArtistName}`,
         artistId: matchedArtistObj?.artistId,
         title: effectiveArtistName,
-        artist: matchedArtistObj?.primaryGenreName || "Artis Terverifikasi",
+        artist: matchedArtistObj?.primaryGenreName || "Artis",
         avatar,
         topTracks
       };
@@ -671,12 +720,32 @@ export async function GET(request: Request) {
       };
     }
 
+    // Build clean music-focused suggestions from matched artists & top songs first, then filtered YT suggestions
+    const musicSuggestions: string[] = [];
+    const seenSug = new Set<string>();
+    const pushSug = (s: string) => {
+      const clean = s.trim();
+      const key = clean.toLowerCase();
+      if (clean && !seenSug.has(key)) {
+        seenSug.add(key);
+        musicSuggestions.push(clean);
+      }
+    };
+    if (effectiveArtistName) pushSug(effectiveArtistName);
+    for (const s of uniqueSongs.slice(0, 4)) {
+      pushSug(`${s.artistName} ${s.trackName}`);
+    }
+    for (const s of liveSuggestions) {
+      if (musicSuggestions.length >= 8) break;
+      pushSug(s);
+    }
+
     return NextResponse.json({
       topResult,
       songs: uniqueSongs.slice(0, 30),
       artists: artists.slice(0, 6),
       albums: albums.slice(0, 8),
-      suggestions: liveSuggestions.slice(0, 8),
+      suggestions: musicSuggestions.slice(0, 8),
       correctedQuery: correctedQuery && correctedQuery.toLowerCase() !== queryClean ? correctedQuery : null,
       originalQuery: queryRaw,
       results: uniqueSongs.slice(0, 30) // Backwards compatible with legacy frontend
