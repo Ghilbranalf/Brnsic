@@ -1531,7 +1531,9 @@ export default function BrnsicMusicPage() {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const currentTimeRef = useRef<number>(0);
   const [volume, setVolume] = useState<number>(0.8);
+  const volumeRef = useRef<number>(0.8);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const isMutedRef = useRef<boolean>(false);
   const [isLoadingSong, setIsLoadingSong] = useState<boolean>(false);
 
   // 3. Repeat & Loop Mode: "off" (default - never repeat!), "all" (repeat list), "one" (repeat single track)
@@ -2030,6 +2032,8 @@ export default function BrnsicMusicPage() {
   useEffect(() => { currentViewRef.current = currentView; }, [currentView]);
   useEffect(() => { isOnboardingModalOpenRef.current = isOnboardingModalOpen; }, [isOnboardingModalOpen]);
   useEffect(() => { shuffleModeRef.current = shuffleMode; }, [shuffleMode]);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
   // Unified Bulletproof Track Completion Trigger & Anti-Skipping Guard
   const lastTrackChangeTimeRef = useRef<number>(0);
@@ -4399,6 +4403,14 @@ export default function BrnsicMusicPage() {
                 hasTriggeredEndRef.current = false; // Safely unlock end trigger now that track is actively playing
                 consecutiveErrorsRef.current = 0; // Reset error streak on successful playback
                 startBackgroundKeepalive();
+                // Guarantee audio is unmuted at user's volume once YouTube enters PLAYING state
+                try {
+                  if (!isMutedRef.current) {
+                    event.target.unMute?.();
+                    const targetVol = Math.max(10, Math.round(volumeRef.current * 100));
+                    event.target.setVolume?.(targetVol);
+                  }
+                } catch (e) {}
 
                 // CLIENT-SIDE RUNTIME AUDIO WATCHDOG:
                 // Instantly detect and abort non-music videos (> 20 minutes news podcasts / streams)
@@ -4843,11 +4855,13 @@ export default function BrnsicMusicPage() {
           });
           ytPlayerRef.current.setPlaybackQuality?.("small");
           ytPlayerRef.current.unMute();
-          if (isMuted) setIsMuted(false);
-          const targetVol = Math.max(80, volume * 100);
-          ytPlayerRef.current.setVolume(Math.min(20, targetVol));
+          if (isMuted) {
+            setIsMuted(false);
+            isMutedRef.current = false;
+          }
+          const targetVol = Math.max(10, Math.round(volumeRef.current * 100));
+          ytPlayerRef.current.setVolume(targetVol);
           ytPlayerRef.current.playVideo();
-          fadePlayerVolume(targetVol, 280);
           setTimeout(() => setIsLoadingSong(false), 1500);
         } catch (e) {
           console.error("Audio playback error", e);
@@ -5769,7 +5783,7 @@ export default function BrnsicMusicPage() {
             (window as any).BrnsicNative.pauseAudio();
           } catch (e) {}
         }
-        const restoreVol = Math.max(80, volume * 100);
+        const restoreVol = Math.max(10, Math.round(volumeRef.current * 100));
         fadePlayerVolume(0, 200, () => {
           if (typeof ytPlayerRef.current?.pauseVideo === "function") {
             ytPlayerRef.current.pauseVideo();
@@ -5789,11 +5803,10 @@ export default function BrnsicMusicPage() {
           } catch (e) {}
         }
         if (typeof ytPlayerRef.current.playVideo === "function") {
-          const targetVol = Math.max(80, volume * 100);
+          const targetVol = Math.max(10, Math.round(volumeRef.current * 100));
           ytPlayerRef.current.unMute();
-          ytPlayerRef.current.setVolume(Math.min(15, targetVol));
+          ytPlayerRef.current.setVolume(targetVol);
           ytPlayerRef.current.playVideo();
-          fadePlayerVolume(targetVol, 240);
         }
       }
     } catch (e) {
