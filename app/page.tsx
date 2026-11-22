@@ -6296,7 +6296,7 @@ export default function BrnsicMusicPage() {
             <div className="relative">
               <button
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="w-9 h-9 rounded-full bg-white text-black hover:bg-neutral-200 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0 overflow-hidden"
+                className="w-9 h-9 rounded-full bg-[#1ed760] text-black hover:bg-[#1fdf64] flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0 overflow-hidden"
                 title={`Profil: ${currentUser.name}`}
               >
                 <span className="text-black font-bold text-base select-none leading-none inline-flex items-center justify-center text-center -translate-y-[0.5px]">
@@ -6480,7 +6480,7 @@ export default function BrnsicMusicPage() {
                 {currentUser ? (
                   <button
                     onClick={() => setIsProfileModalOpen(true)}
-                    className="w-8 h-8 rounded-full bg-white text-black hover:bg-neutral-200 flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0 overflow-hidden"
+                    className="w-8 h-8 rounded-full bg-[#1ed760] text-black hover:bg-[#1fdf64] flex items-center justify-center transition active:scale-95 shadow cursor-pointer flex-shrink-0 overflow-hidden"
                     title={currentUser.name}
                   >
                     <span className="text-black font-bold text-sm select-none leading-none inline-flex items-center justify-center text-center -translate-y-[0.5px]">
@@ -11047,7 +11047,7 @@ export default function BrnsicMusicPage() {
 
             {/* Spotify Hero Header */}
             <div className="flex items-center gap-4 pt-1">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white text-black shadow-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border-2 border-white/20">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#1ed760] text-black shadow-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border-2 border-[#1ed760]/40">
                 {currentUser?.avatar && !currentUser.avatar.includes("identicon") ? (
                   <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
