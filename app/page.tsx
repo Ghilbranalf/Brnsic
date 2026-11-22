@@ -7,6 +7,8 @@ import {
   buildTasteVectorFromHistory,
   trainUserVectorOnInteraction,
   rankTracksByDeepLearning,
+  extractTrackFeatureVector,
+  computeCosineSimilarity,
   detectUserMood,
   type MoodInsight,
   type FeatureVector
@@ -35,6 +37,7 @@ interface Track {
   previewUrl?: string;
   plays?: string;
   collectionId?: number | string;
+  genre?: string;
   lyrics: LyricLine[];
   isSmartRecommendation?: boolean;
 }
@@ -4772,7 +4775,11 @@ export default function BrnsicMusicPage() {
     } catch (e) {}
 
     // Fetch related songs asynchronously
-    fetch(`/api/related?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(song.title)}`)
+    fetch(
+      `/api/related?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(
+        song.title
+      )}&genre=${encodeURIComponent(song.genre || "")}`
+    )
       .then((r) => r.json())
       .then((d) => {
         if (currentRequestId !== playRequestIdRef.current) return;
@@ -5427,16 +5434,24 @@ export default function BrnsicMusicPage() {
       );
     });
 
+    const rawFallbackPool = [
+      ...(relatedQueue || []),
+      ...(globalTrending || []),
+      ...(indonesiaTop50 || []),
+      ...(mostPlayedIndonesia || []),
+      ...(viralIndonesia || [])
+    ];
+    const seedVec = currentTrack ? extractTrackFeatureVector(currentTrack) : null;
+    const genreMatchedFallback = seedVec
+      ? rawFallbackPool.filter((t) => computeCosineSimilarity(seedVec, extractTrackFeatureVector(t)) >= 0.72)
+      : rawFallbackPool;
+
     const candidatePool =
       unplayedRelated.length >= 4
         ? unplayedRelated
-        : [
-            ...(relatedQueue || []),
-            ...(globalTrending || []),
-            ...(indonesiaTop50 || []),
-            ...(mostPlayedIndonesia || []),
-            ...(viralIndonesia || [])
-          ];
+        : genreMatchedFallback.length >= 4
+        ? genreMatchedFallback
+        : rawFallbackPool;
 
     const recentArtists = [
       currentTrack?.artist,
@@ -5453,7 +5468,7 @@ export default function BrnsicMusicPage() {
       [],
       {
         seedTrack: currentTrack,
-        seedWeight: 0.72,
+        seedWeight: 0.88,
         artistWeights: userTaste.artistWeights,
         playCounts: userTaste.playCounts,
         maxPerArtist: 2,

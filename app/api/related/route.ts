@@ -85,13 +85,14 @@ async function fetchDeezerArtistGraph(artist: string): Promise<{
   deezerArtistId: number | null;
   relatedArtists: Array<{ id: number; name: string }>;
   sameArtistTracks: RelatedTrack[];
+  radioTracks: RelatedTrack[];
 }> {
   const searchData = await fetchJsonWithTimeout(
     `https://api.deezer.com/search/artist?q=${encodeURIComponent(artist)}&limit=5`
   );
   const candidates = Array.isArray(searchData?.data) ? searchData.data : [];
   if (candidates.length === 0) {
-    return { deezerArtistId: null, relatedArtists: [], sameArtistTracks: [] };
+    return { deezerArtistId: null, relatedArtists: [], sameArtistTracks: [], radioTracks: [] };
   }
 
   const artistLower = artist.toLowerCase().trim();
@@ -102,12 +103,13 @@ async function fetchDeezerArtistGraph(artist: string): Promise<{
 
   const artistId = exactMatch?.id;
   if (!artistId) {
-    return { deezerArtistId: null, relatedArtists: [], sameArtistTracks: [] };
+    return { deezerArtistId: null, relatedArtists: [], sameArtistTracks: [], radioTracks: [] };
   }
 
-  const [relatedData, topData] = await Promise.all([
+  const [relatedData, topData, radioData] = await Promise.all([
     fetchJsonWithTimeout(`https://api.deezer.com/artist/${artistId}/related?limit=12`),
-    fetchJsonWithTimeout(`https://api.deezer.com/artist/${artistId}/top?limit=10`)
+    fetchJsonWithTimeout(`https://api.deezer.com/artist/${artistId}/top?limit=10`),
+    fetchJsonWithTimeout(`https://api.deezer.com/artist/${artistId}/radio?limit=20`)
   ]);
 
   const relatedArtists: Array<{ id: number; name: string }> = (relatedData?.data || [])
@@ -126,7 +128,19 @@ async function fetchDeezerArtistGraph(artist: string): Promise<{
     tier: "same_artist" as const
   }));
 
-  return { deezerArtistId: artistId, relatedArtists, sameArtistTracks };
+  const radioTracks: RelatedTrack[] = (radioData?.data || []).map((t: any) => ({
+    id: `deezer-${t.id}`,
+    title: t.title_short || t.title,
+    artist: t.artist?.name || artist,
+    album: t.album?.title || "Single",
+    duration: t.duration || 210,
+    cover: t.album?.cover_big || t.album?.cover_medium || t.album?.cover || "",
+    genre: "",
+    reason: `Radio ${exactMatch.name || artist}`,
+    tier: "related_artist" as const
+  }));
+
+  return { deezerArtistId: artistId, relatedArtists, sameArtistTracks, radioTracks };
 }
 
 async function fetchDeezerArtistTopTracks(
@@ -223,7 +237,8 @@ export async function GET(request: Request) {
       )
     ]);
 
-    const detectedGenre = itunesSame.detectedGenre;
+    const seedGenreParam = searchParams.get("genre") || "";
+    const detectedGenre = itunesSame.detectedGenre || seedGenreParam;
     const deezerArtistMap = new Map<string, { id: number; name: string }>();
     for (const rel of deezerGraph.relatedArtists) {
       deezerArtistMap.set(rel.name.toLowerCase().trim(), rel);
@@ -268,17 +283,21 @@ export async function GET(request: Request) {
       })
     );
 
-    // 3. Genre fallback bucket if artist has very few related artists
-    let genreBucket: RelatedTrack[] = [];
-    if (relatedBuckets.flat().length < 8 && detectedGenre) {
+    // 3. Same-genre radio & fallback bucket (Deezer Artist Radio first, then strict genre-matched iTunes)
+    let genreBucket: RelatedTrack[] = [...(deezerGraph.radioTracks || [])];
+    if (relatedBuckets.flat().length + genreBucket.length < 8 && detectedGenre) {
       const gRes = await fetchItunesTracksForArtist(
         detectedGenre,
         `Genre serupa: ${detectedGenre}`,
         "genre_mood",
         false,
-        15
+        25
       );
-      genreBucket = gRes.tracks;
+      const genreLower = detectedGenre.toLowerCase().trim();
+      const strictlyMatchedGenre = gRes.tracks.filter(
+        (t) => (t.genre || "").toLowerCase().includes(genreLower) || genreLower.includes((t.genre || "").toLowerCase())
+      );
+      genreBucket.push(...strictlyMatchedGenre);
     }
 
     // 4. Deduplicate & filter junk (karaoke, slowed+reverb, covers)
