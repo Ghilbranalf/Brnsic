@@ -25,6 +25,10 @@ model User {
   likedSongs          LikedSong[]
   playlists           Playlist[]
   activities          UserActivity[]
+  sentFriendships     Friendship[]   @relation("FriendshipRequester")
+  receivedFriendships Friendship[]   @relation("FriendshipAddressee")
+  sentShares          PlaylistShare[] @relation("ShareSender")
+  receivedShares      PlaylistShare[] @relation("ShareReceiver")
 
   @@map("users")
 }
@@ -86,4 +90,40 @@ model UserActivity {
 
   @@index([userId, createdAt(sort: Desc)])
   @@map("user_activity")
+}
+
+model Friendship {
+  id          String   @id @default(uuid())
+  requesterId String   @map("requester_id")
+  addresseeId String   @map("addressee_id")
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  requester User @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([requesterId])
+  @@index([addresseeId])
+  @@map("friendships")
+}
+
+model PlaylistShare {
+  id            String   @id @default(uuid())
+  senderId      String   @map("sender_id")
+  receiverId    String   @map("receiver_id")
+  playlistId    String?  @map("playlist_id")
+  playlistName  String   @map("playlist_name")
+  playlistCover String?  @map("playlist_cover")
+  songs         Json     @default("[]")
+  status        String   @default("pending")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  sender   User @relation("ShareSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ShareReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([receiverId, createdAt(sort: Desc)])
+  @@index([senderId])
+  @@map("playlist_shares")
 }

@@ -17,6 +17,7 @@ import {
   SeasonalThemeInfo,
   getSeasonalTheme
 } from "@/lib/seasonal";
+import BrnsicThreeLoader from "@/components/BrnsicThreeLoader";
 
 // --- Types ---
 interface LyricLine {
@@ -1678,6 +1679,18 @@ export default function BrnsicMusicPage() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthSubmitting, setIsAuthSubmitting] = useState<boolean>(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState<boolean>(false);
+
+  // 15B. Friends & Playlist Exchange State
+  const [isFriendsModalOpen, setIsFriendsModalOpen] = useState<boolean>(false);
+  const [friendsTab, setFriendsTab] = useState<"friends" | "inbox">("friends");
+  const [friendsList, setFriendsList] = useState<any[]>([]);
+  const [incomingFriendRequests, setIncomingFriendRequests] = useState<any[]>([]);
+  const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<any[]>([]);
+  const [friendSearchQuery, setFriendSearchQuery] = useState<string>("");
+  const [friendSearchResults, setFriendSearchResults] = useState<any[]>([]);
+  const [receivedShares, setReceivedShares] = useState<any[]>([]);
+  const [isFriendsLoading, setIsFriendsLoading] = useState<boolean>(false);
+  const [sharePlaylistTarget, setSharePlaylistTarget] = useState<UserPlaylist | null>(null);
 
   // 16. Cold-Start Onboarding (Pick 3+ Artists or Genres)
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState<boolean>(false);
@@ -3549,6 +3562,118 @@ export default function BrnsicMusicPage() {
       setShuffleToast(null);
       setToastUndo(null);
     }, undo ? 4500 : 2800);
+  };
+
+  const loadFriendsAndShares = async (searchQ = "") => {
+    if (!currentUser) return;
+    setIsFriendsLoading(true);
+    try {
+      const [friendsRes, sharesRes] = await Promise.all([
+        fetch(`/api/friends${searchQ.trim().length >= 2 ? `?q=${encodeURIComponent(searchQ.trim())}` : ""}`),
+        fetch("/api/friends/share")
+      ]);
+      if (friendsRes.ok) {
+        const fd = await friendsRes.json();
+        setFriendsList(fd.friends || []);
+        setIncomingFriendRequests(fd.incomingRequests || []);
+        setOutgoingFriendRequests(fd.outgoingRequests || []);
+        if (searchQ.trim().length >= 2) {
+          setFriendSearchResults(fd.searchResults || []);
+        } else {
+          setFriendSearchResults([]);
+        }
+      }
+      if (sharesRes.ok) {
+        const sd = await sharesRes.json();
+        setReceivedShares(sd.receivedShares || []);
+      }
+    } catch (e) {}
+    setIsFriendsLoading(false);
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      loadFriendsAndShares();
+    }
+  }, [currentUser?.id]);
+
+  const handleFriendAction = async (
+    action: "request" | "accept" | "reject" | "remove",
+    payload: { targetUserId?: string; friendshipId?: string; email?: string }
+  ) => {
+    try {
+      const res = await fetch("/api/friends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...payload })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Gagal memproses permintaan teman");
+        return;
+      }
+      if (action === "request") showToast("Permintaan pertemanan terkirim");
+      else if (action === "accept") showToast("Sekarang kalian berteman!");
+      else if (action === "reject") showToast("Permintaan ditolak");
+      else if (action === "remove") showToast("Teman dihapus");
+      await loadFriendsAndShares(friendSearchQuery);
+    } catch (e) {
+      showToast("Gagal menghubungi server");
+    }
+  };
+
+  const handleSendPlaylistToFriend = async (receiverId: string, playlist: UserPlaylist) => {
+    try {
+      const res = await fetch("/api/friends/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send",
+          receiverId,
+          playlistId: playlist.id,
+          playlistName: playlist.name,
+          playlistCover: playlist.cover,
+          songs: playlist.songs
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Gagal mengirim playlist");
+        return;
+      }
+      setSharePlaylistTarget(null);
+      showToast(`Playlist "${playlist.name}" dikirim ke teman!`);
+    } catch (e) {
+      showToast("Gagal mengirim playlist");
+    }
+  };
+
+  const handleRespondShare = async (action: "accept" | "decline", shareId: string) => {
+    try {
+      const res = await fetch("/api/friends/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, shareId })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Gagal memproses playlist");
+        return;
+      }
+      if (action === "accept" && data.playlist) {
+        const nextPlaylists = [data.playlist, ...userPlaylists];
+        setUserPlaylists(nextPlaylists);
+        try {
+          localStorage.setItem("brnsic_user_playlists", JSON.stringify(nextPlaylists));
+        } catch (e) {}
+        showToast(`Playlist "${data.playlist.name}" disimpan ke koleksimu!`);
+      } else {
+        showToast("Kiriman playlist dihapus");
+      }
+      await loadFriendsAndShares(friendSearchQuery);
+    } catch (e) {
+      showToast("Gagal menghubungi server");
+    }
   };
 
   // Spotify-grade Tri-State Shuffle Controller ("off" -> "standard" -> "smart" -> "off")
@@ -5997,28 +6122,7 @@ export default function BrnsicMusicPage() {
           O. MANDATORY AUTHENTICATION: FULLSCREEN WELCOME GATE (OPSI A)
           ==================================================================== */}
       {isAuthChecking ? (
-        <div className="fixed inset-0 z-[120] bg-black flex flex-col items-center justify-center select-none animate-fadeIn">
-          <div className="relative flex flex-col items-center justify-center gap-7">
-            <div className="relative flex items-center justify-center w-28 h-28">
-              <div className="absolute inset-0 rounded-full border border-[#1ed760]/45 brnsic-pulse-ring pointer-events-none" />
-              <div className="absolute inset-0 rounded-full border border-[#1ed760]/30 brnsic-pulse-ring-delay pointer-events-none" />
-              <div className="w-20 h-20 rounded-2xl bg-[#1ed760]/15 border border-[#1ed760]/35 flex items-center justify-center shadow-[0_0_40px_rgba(30,215,96,0.3)] relative z-10 brnsic-logo-breath">
-                <img
-                  src="/app-icon.png"
-                  alt="Brnsic"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
-                  className="w-16 h-16 rounded-xl object-contain"
-                />
-              </div>
-            </div>
-            <div className="flex items-end gap-1.5 h-5" aria-hidden="true">
-              <span className="w-1 h-5 rounded-full bg-[#1ed760] brnsic-eq-bar" style={{ animationDelay: "0ms" }} />
-              <span className="w-1 h-5 rounded-full bg-[#1ed760] brnsic-eq-bar" style={{ animationDelay: "160ms" }} />
-              <span className="w-1 h-5 rounded-full bg-[#1ed760] brnsic-eq-bar" style={{ animationDelay: "320ms" }} />
-              <span className="w-1 h-5 rounded-full bg-[#1ed760] brnsic-eq-bar" style={{ animationDelay: "120ms" }} />
-            </div>
-          </div>
-        </div>
+        <BrnsicThreeLoader fallbackIconSrc={BRNSIC_APP_ICON_B64} />
       ) : !currentUser ? (
         <div className="fixed inset-0 z-[110] bg-black text-white flex flex-col justify-between p-6 sm:p-12 overflow-y-auto no-scrollbar font-sans select-none animate-fadeIn">
           {/* Top Brand Bar */}
@@ -6257,7 +6361,7 @@ export default function BrnsicMusicPage() {
               autoComplete="off"
               autoCorrect="off"
               spellCheck="false"
-              placeholder="Cari lagu apa saja (misal: Bernadya, Hindia, Sal Priadi)..."
+              placeholder="Cari lagu, artis, atau album..."
               value={searchQuery}
               onFocus={() => {
                 if (currentView !== "search") setCurrentView("search");
@@ -6438,6 +6542,38 @@ export default function BrnsicMusicPage() {
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-white truncate">Lagu Disembunyikan</div>
                 <div className="text-xs text-[#b3b3b3]">{dislikedTracks.length} lagu • Tidak Disukai</div>
+              </div>
+            </div>
+
+            {/* Friends & Playlist Exchange Entry */}
+            <div
+              onClick={() => {
+                setFriendsTab(
+                  receivedShares.some((s) => s.status === "pending") && incomingFriendRequests.length === 0
+                    ? "inbox"
+                    : "friends"
+                );
+                setIsFriendsModalOpen(true);
+                loadFriendsAndShares();
+              }}
+              className="flex items-center gap-3 p-2 rounded-xl cursor-pointer transition hover:bg-[#1a1a1a]"
+            >
+              <div className="w-11 h-11 rounded-lg bg-[#161618] border border-white/10 flex items-center justify-center text-[#1ed760] flex-shrink-0 relative">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                {(incomingFriendRequests.length > 0 || receivedShares.some((s) => s.status === "pending")) && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#1ed760] border-2 border-black" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-white truncate">Teman &amp; Tukar Playlist</div>
+                <div className="text-xs text-[#b3b3b3]">
+                  {friendsList.length} teman • {receivedShares.filter((s) => s.status === "pending").length} kiriman
+                </div>
               </div>
             </div>
 
@@ -6823,6 +6959,26 @@ export default function BrnsicMusicPage() {
                     className="text-xs font-bold text-red-400 hover:text-red-300 px-3.5 py-2 rounded-full bg-red-500/10 hover:bg-red-500/20 transition cursor-pointer"
                   >
                     Hapus Playlist
+                  </button>
+                )}
+
+                {activeCustomPlaylist.songs.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSharePlaylistTarget(activeCustomPlaylist);
+                      setFriendsTab("friends");
+                      setIsFriendsModalOpen(true);
+                      loadFriendsAndShares();
+                    }}
+                    className="text-xs font-bold text-[#1ed760] hover:text-white px-3.5 py-2 rounded-full bg-[#1ed760]/15 hover:bg-[#1ed760]/25 transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <line x1="19" y1="8" x2="19" y2="14" />
+                      <line x1="22" y1="11" x2="16" y2="11" />
+                    </svg>
+                    <span>Kirim ke Teman</span>
                   </button>
                 )}
 
@@ -7284,6 +7440,38 @@ export default function BrnsicMusicPage() {
                   <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-bold text-white truncate">Lagu yang Disembunyikan</h3>
                     <p className="text-xs text-[#b3b3b3]">{dislikedTracks.length} lagu di-blacklist</p>
+                  </div>
+                </div>
+
+                {/* Teman & Tukar Playlist Card (Mobile) */}
+                <div
+                  onClick={() => {
+                    setFriendsTab(
+                      receivedShares.some((s) => s.status === "pending") && incomingFriendRequests.length === 0
+                        ? "inbox"
+                        : "friends"
+                    );
+                    setIsFriendsModalOpen(true);
+                    loadFriendsAndShares();
+                  }}
+                  className="bg-white/5 border border-white/10 hover:border-white/20 p-4 rounded-2xl flex items-center gap-4 cursor-pointer transition hover:scale-[1.01] active:scale-[0.99] shadow mt-2"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-[#161618] border border-white/10 flex items-center justify-center text-[#1ed760] flex-shrink-0 relative">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    {(incomingFriendRequests.length > 0 || receivedShares.some((s) => s.status === "pending")) && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#1ed760] border-2 border-black" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-white truncate">Teman &amp; Tukar Playlist</h3>
+                    <p className="text-xs text-[#b3b3b3]">
+                      {friendsList.length} teman • {receivedShares.filter((s) => s.status === "pending").length} kiriman masuk
+                    </p>
                   </div>
                 </div>
               </div>
@@ -8166,7 +8354,7 @@ export default function BrnsicMusicPage() {
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck="false"
-                    placeholder="Cari lagu apa saja (misal: Bernadya, Hindia, Sal Priadi)..."
+                    placeholder="Cari lagu, artis, atau album..."
                     value={searchQuery}
                     onChange={(e) => handleSearchInput(e.target.value)}
                     className="w-full h-12 rounded-full bg-[#242424] pl-11 pr-10 text-sm text-white placeholder-[#b3b3b3] outline-none border border-transparent focus:border-white transition"
@@ -11798,6 +11986,313 @@ export default function BrnsicMusicPage() {
                   </svg>
                   <span>Perbarui Aplikasi Sekarang</span>
                 </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          11C. MODAL: TEMAN & TUKAR PLAYLIST
+          ==================================================================== */}
+      {isFriendsModalOpen && (
+        <div
+          onClick={() => {
+            setIsFriendsModalOpen(false);
+            setSharePlaylistTarget(null);
+          }}
+          className="fixed inset-0 z-[997] bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-3 sm:p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[#0d0d0f] border border-white/15 rounded-3xl p-5 shadow-2xl flex flex-col gap-4 max-h-[85vh] overflow-hidden"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-white">
+                  {sharePlaylistTarget ? `Kirim "${sharePlaylistTarget.name}"` : "Teman & Tukar Playlist"}
+                </h3>
+                <p className="text-xs text-[#b3b3b3]">
+                  {sharePlaylistTarget
+                    ? "Pilih teman untuk menerima playlist ini"
+                    : "Berteman dan saling bertukar playlist musik"}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsFriendsModalOpen(false);
+                  setSharePlaylistTarget(null);
+                }}
+                className="w-8 h-8 rounded-full bg-white/10 text-white/70 hover:text-white flex items-center justify-center text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {!sharePlaylistTarget && (
+              <div className="flex bg-[#161618] p-1 rounded-full border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setFriendsTab("friends")}
+                  className={`flex-1 py-2 rounded-full text-xs font-bold transition ${
+                    friendsTab === "friends" ? "bg-[#1ed760] text-black" : "text-white/70 hover:text-white"
+                  }`}
+                >
+                  Teman ({friendsList.length})
+                  {incomingFriendRequests.length > 0 ? ` • +${incomingFriendRequests.length}` : ""}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFriendsTab("inbox")}
+                  className={`flex-1 py-2 rounded-full text-xs font-bold transition ${
+                    friendsTab === "inbox" ? "bg-[#1ed760] text-black" : "text-white/70 hover:text-white"
+                  }`}
+                >
+                  Playlist Masuk ({receivedShares.filter((s) => s.status === "pending").length})
+                </button>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3 pr-1">
+              {friendsTab === "friends" || sharePlaylistTarget ? (
+                <>
+                  {!sharePlaylistTarget && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={friendSearchQuery}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFriendSearchQuery(val);
+                          if (val.trim().length >= 2) {
+                            loadFriendsAndShares(val);
+                          } else {
+                            setFriendSearchResults([]);
+                          }
+                        }}
+                        placeholder="Cari nama atau email pengguna..."
+                        className="flex-1 bg-[#161618] border border-white/10 focus:border-[#1ed760] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/40 outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {/* Search Results */}
+                  {!sharePlaylistTarget && friendSearchQuery.trim().length >= 2 && (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/45">
+                        Hasil Pencarian
+                      </span>
+                      {friendSearchResults.length === 0 ? (
+                        <p className="text-xs text-white/40 py-2">Pengguna tidak ditemukan.</p>
+                      ) : (
+                        friendSearchResults.map((u) => (
+                          <div
+                            key={u.id}
+                            className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-full bg-[#1ed760] text-black font-bold text-xs flex items-center justify-center flex-shrink-0">
+                                {(u.name?.[0] || u.email?.[0] || "U").toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-white truncate">{u.name}</div>
+                                <div className="text-[10px] text-white/45 truncate">{u.email}</div>
+                              </div>
+                            </div>
+                            {u.relation === "friend" ? (
+                              <span className="text-[10px] font-bold text-[#1ed760] px-2.5 py-1 rounded-full bg-[#1ed760]/15">
+                                Teman
+                              </span>
+                            ) : u.relation === "outgoing" ? (
+                              <span className="text-[10px] font-bold text-white/50 px-2.5 py-1 rounded-full bg-white/10">
+                                Terkirim
+                              </span>
+                            ) : u.relation === "incoming" ? (
+                              <button
+                                onClick={() => handleFriendAction("accept", { friendshipId: u.friendshipId })}
+                                className="text-[10px] font-bold text-black bg-[#1ed760] px-3 py-1 rounded-full cursor-pointer"
+                              >
+                                Terima
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleFriendAction("request", { targetUserId: u.id })}
+                                className="text-[10px] font-bold text-black bg-white hover:bg-[#1ed760] px-3 py-1 rounded-full transition cursor-pointer"
+                              >
+                                + Tambah
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Incoming Friend Requests */}
+                  {!sharePlaylistTarget && incomingFriendRequests.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#1ed760]">
+                        Permintaan Pertemanan ({incomingFriendRequests.length})
+                      </span>
+                      {incomingFriendRequests.map((reqUser) => (
+                        <div
+                          key={reqUser.friendshipId}
+                          className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#1ed760]/10 border border-[#1ed760]/25"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-[#1ed760] text-black font-bold text-xs flex items-center justify-center flex-shrink-0">
+                              {(reqUser.name?.[0] || "U").toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-white truncate">{reqUser.name}</div>
+                              <div className="text-[10px] text-white/50 truncate">{reqUser.email}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => handleFriendAction("accept", { friendshipId: reqUser.friendshipId })}
+                              className="text-[10px] font-bold bg-[#1ed760] text-black px-2.5 py-1 rounded-full cursor-pointer"
+                            >
+                              Terima
+                            </button>
+                            <button
+                              onClick={() => handleFriendAction("reject", { friendshipId: reqUser.friendshipId })}
+                              className="text-[10px] font-bold bg-white/10 text-white/70 px-2.5 py-1 rounded-full cursor-pointer"
+                            >
+                              Tolak
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Friends List */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/45">
+                      Daftar Teman
+                    </span>
+                    {isFriendsLoading && friendsList.length === 0 ? (
+                      <p className="text-xs text-white/40 py-4 text-center">Memuat...</p>
+                    ) : friendsList.length === 0 ? (
+                      <p className="text-xs text-white/40 py-4 text-center">
+                        Belum ada teman. Cari nama atau email pengguna di atas untuk berteman.
+                      </p>
+                    ) : (
+                      friendsList.map((f) => (
+                        <div
+                          key={f.id}
+                          className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-[#1ed760] text-black font-bold text-xs flex items-center justify-center flex-shrink-0">
+                              {(f.name?.[0] || f.email?.[0] || "U").toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-white truncate">{f.name}</div>
+                              <div className="text-[10px] text-white/45 truncate">{f.email}</div>
+                            </div>
+                          </div>
+                          {sharePlaylistTarget ? (
+                            <button
+                              onClick={() => handleSendPlaylistToFriend(f.id, sharePlaylistTarget)}
+                              className="text-[11px] font-bold bg-[#1ed760] text-black px-3 py-1.5 rounded-full hover:bg-[#1fdf64] transition cursor-pointer flex-shrink-0"
+                            >
+                              Kirim
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {userPlaylists.length > 0 && (
+                                <button
+                                  onClick={() => {
+                                    setSharePlaylistTarget(userPlaylists[0]);
+                                  }}
+                                  className="text-[10px] font-bold bg-[#1ed760]/15 text-[#1ed760] hover:bg-[#1ed760]/25 px-2.5 py-1 rounded-full transition cursor-pointer"
+                                  title="Kirim playlist ke teman ini"
+                                >
+                                  Kirim Playlist
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleFriendAction("remove", { friendshipId: f.friendshipId })}
+                                className="text-[10px] font-bold bg-white/10 text-white/60 hover:text-red-400 px-2 py-1 rounded-full transition cursor-pointer"
+                                title="Hapus teman"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Tab 2: Received Playlist Shares */
+                <div className="flex flex-col gap-2">
+                  {receivedShares.length === 0 ? (
+                    <p className="text-xs text-white/40 py-6 text-center">
+                      Belum ada playlist yang dikirim temanmu.
+                    </p>
+                  ) : (
+                    receivedShares.map((sh) => {
+                      const songsArr = Array.isArray(sh.songs) ? sh.songs : [];
+                      return (
+                        <div
+                          key={sh.id}
+                          className="p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-2.5"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-xl bg-[#161618] border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center text-[#1ed760] font-black">
+                              {sh.playlistCover ? (
+                                <img src={sh.playlistCover} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                "B"
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-bold text-white truncate">{sh.playlistName}</div>
+                              <div className="text-[11px] text-white/50 truncate">
+                                Dari {sh.sender?.name || "Teman"} • {songsArr.length} lagu
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {songsArr.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  handlePlayFromList(songsArr[0], songsArr, 0);
+                                  setIsFriendsModalOpen(false);
+                                }}
+                                className="flex-1 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition cursor-pointer"
+                              >
+                                Putar
+                              </button>
+                            )}
+                            {sh.status === "pending" ? (
+                              <>
+                                <button
+                                  onClick={() => handleRespondShare("accept", sh.id)}
+                                  className="flex-1 py-1.5 rounded-full bg-[#1ed760] hover:bg-[#1fdf64] text-black text-[11px] font-bold transition cursor-pointer"
+                                >
+                                  Simpan Playlist
+                                </button>
+                                <button
+                                  onClick={() => handleRespondShare("decline", sh.id)}
+                                  className="px-3 py-1.5 rounded-full bg-white/10 text-white/60 hover:text-red-400 text-[11px] font-bold transition cursor-pointer"
+                                >
+                                  Hapus
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-[10px] font-bold text-[#1ed760] px-2.5">Tersimpan ✓</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               )}
             </div>
           </div>
