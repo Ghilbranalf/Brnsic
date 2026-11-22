@@ -15,15 +15,15 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "4.0.4",
-    versionCode: 22,
-    minVersionCode: 22,
-    releaseDate: "2026-11-17",
-    title: "Brnsic v4.0.4",
-    notes: "Pembaruan v4.0.4: Penyesuaian ketebalan Dynamic Island menjadi 34dp agar lebih pas dan nyaman dilihat.",
+    version: "4.0.5",
+    versionCode: 23,
+    minVersionCode: 23,
+    releaseDate: "2026-11-22",
+    title: "Brnsic v4.0.5",
+    notes: "Pembaruan v4.0.5: Menghapus tombol aksesibilitas melayang, perbaikan shuffle & pemutaran, Sleep Timer, swipe gesture, dan tema kalender otomatis.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: false,
-    buildId: "20261117-island-34dp-v404"
+    buildId: "20261122-clean-v405"
   });
 }
