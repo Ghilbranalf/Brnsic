@@ -5250,9 +5250,11 @@ export default function BrnsicMusicPage() {
           ...(indonesiaTop50 || []),
           ...(mostPlayedIndonesia || [])
         ];
-        const genreFilteredFallback = fallbackAll.filter(
-          (t) => computeCosineSimilarity(seedVec, extractTrackFeatureVector(t)) >= 0.78
-        );
+        const genreFilteredFallback = fallbackAll.filter((t) => {
+          const tVec = extractTrackFeatureVector(t);
+          if (seedVec[6] < 0.2 && tVec[6] > 0.5) return false;
+          return computeCosineSimilarity(seedVec, tVec) >= 0.78;
+        });
 
         const candidatePool =
           incomingRelated.length >= 3
@@ -5436,7 +5438,7 @@ export default function BrnsicMusicPage() {
   };
 
   // INFINITE NEXT SONG ENGINE WITH TASTE PREFERENCE SCORING
-  const playNextSong = (userTriggered = true) => {
+  const playNextSong = async (userTriggered = true) => {
     // 0A. Sleep Timer "End of Current Track" check
     if (!userTriggered && sleepTimerEndOfTrackRef.current) {
       setSleepTimerEndOfTrack(false);
@@ -5590,19 +5592,40 @@ export default function BrnsicMusicPage() {
     const sessionCooldownList = Array.from(sessionCooldownSet);
 
     // A. Pick next unplayed from related recommendations first (stay in the current song's vibe!)
-    const unplayedRelated = (relatedQueue || []).filter((t: any) => {
-      const title = (t?.title || t?.trackName || "").toLowerCase().trim();
-      const id = (t?.id || t?.trackId || "").toString().toLowerCase().trim();
-      return (
-        title &&
-        !sessionCooldownSet.has(title) &&
-        !dislikedSongIds.includes(id) &&
-        !dislikedSongIds.includes(title)
-      );
-    });
+    let activeRelatedPool = relatedQueue || [];
+    const filterUnplayed = (list: any[]) =>
+      list.filter((t: any) => {
+        const title = (t?.title || t?.trackName || "").toLowerCase().trim();
+        const id = (t?.id || t?.trackId || "").toString().toLowerCase().trim();
+        return (
+          title &&
+          !sessionCooldownSet.has(title) &&
+          !dislikedSongIds.includes(id) &&
+          !dislikedSongIds.includes(title)
+        );
+      });
+
+    let unplayedRelated = filterUnplayed(activeRelatedPool);
+    if (unplayedRelated.length < 2 && currentTrack?.artist) {
+      try {
+        const relRes = await fetch(
+          `/api/related?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(
+            currentTrack.title || ""
+          )}&genre=${encodeURIComponent(currentTrack.genre || "")}`
+        );
+        if (relRes.ok) {
+          const relData = await relRes.json();
+          if (Array.isArray(relData?.related) && relData.related.length > 0) {
+            activeRelatedPool = relData.related;
+            setRelatedQueue(relData.related);
+            unplayedRelated = filterUnplayed(activeRelatedPool);
+          }
+        }
+      } catch (e) {}
+    }
 
     const rawFallbackPool = [
-      ...(relatedQueue || []),
+      ...activeRelatedPool,
       ...(globalTrending || []),
       ...(indonesiaTop50 || []),
       ...(mostPlayedIndonesia || []),
@@ -5610,7 +5633,11 @@ export default function BrnsicMusicPage() {
     ];
     const seedVec = currentTrack ? extractTrackFeatureVector(currentTrack) : null;
     const genreMatchedFallback = seedVec
-      ? rawFallbackPool.filter((t) => computeCosineSimilarity(seedVec, extractTrackFeatureVector(t)) >= 0.72)
+      ? rawFallbackPool.filter((t) => {
+          const tVec = extractTrackFeatureVector(t);
+          if (seedVec[6] < 0.2 && tVec[6] > 0.5) return false;
+          return computeCosineSimilarity(seedVec, tVec) >= 0.76;
+        })
       : rawFallbackPool;
 
     const candidatePool =

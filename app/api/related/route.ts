@@ -163,6 +163,84 @@ async function fetchDeezerArtistTopTracks(
   }));
 }
 
+async function fetchYouTubeRelatedMix(
+  artist: string,
+  title: string,
+  genre: string
+): Promise<RelatedTrack[]> {
+  try {
+    const query = title
+      ? `${artist} ${title} similar songs ${genre}`.trim()
+      : `${artist} ${genre} music`.trim();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    const ytRes = await fetch("https://www.youtube.com/youtubei/v1/search?prettyPrint=false", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        context: {
+          client: { clientName: "WEB", clientVersion: "2.20240410.01.00", hl: "en", gl: "US" }
+        },
+        query
+      }),
+      signal: controller.signal,
+      next: { revalidate: 3600 }
+    });
+    clearTimeout(timer);
+    if (!ytRes.ok) return [];
+    const data = await ytRes.json();
+    const items: RelatedTrack[] = [];
+    const walk = (o: any) => {
+      if (!o || typeof o !== "object" || items.length >= 16) return;
+      if (o.videoRenderer) {
+        const vr = o.videoRenderer;
+        const vid = vr.videoId;
+        let rawTitle = vr.title?.runs?.[0]?.text || vr.title?.simpleText || "";
+        let rawArtist = vr.ownerText?.runs?.[0]?.text || "";
+        const durStr = vr.lengthText?.simpleText || "";
+        const thumb = vr.thumbnail?.thumbnails?.slice(-1)[0]?.url;
+        if (vid && rawTitle) {
+          let durSec = 210;
+          if (durStr) {
+            const dp = durStr.split(".").join(":").split(":");
+            if (dp.length === 2) durSec = parseInt(dp[0], 10) * 60 + parseInt(dp[1], 10);
+            else if (dp.length === 3) durSec = parseInt(dp[0], 10) * 3600 + parseInt(dp[1], 10) * 60 + parseInt(dp[2], 10);
+          }
+          if (durSec < 60 || durSec > 480) return;
+          if (rawTitle.includes(" - ")) {
+            const parts = rawTitle.split(" - ");
+            rawArtist = parts[0].trim();
+            rawTitle = parts.slice(1).join(" - ").trim();
+          }
+          rawTitle = rawTitle
+            .replace(/\s*[\(\[](official|audio|music video|video|lyric|lyrics|mv|visualizer|lirik)[\)\]]/gi, "")
+            .replace(/#\S+/g, "")
+            .trim();
+          rawArtist = rawArtist.replace(/\s*-\s*topic/i, "").trim();
+          if (rawTitle && rawArtist) {
+            items.push({
+              id: `yt-${vid}`,
+              title: rawTitle,
+              artist: rawArtist,
+              album: "Single",
+              duration: durSec,
+              cover: thumb || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+              genre: genre || "",
+              reason: `Mirip dengan ${artist}`,
+              tier: "genre_mood"
+            });
+          }
+        }
+      }
+      for (const k of Object.keys(o)) walk(o[k]);
+    };
+    walk(data);
+    return items;
+  } catch {
+    return [];
+  }
+}
+
 async function fetchItunesTracksForArtist(
   artistQuery: string,
   reason: string,
@@ -283,7 +361,7 @@ export async function GET(request: Request) {
       })
     );
 
-    // 3. Same-genre radio & fallback bucket (Deezer Artist Radio first, then strict genre-matched iTunes)
+    // 3. Same-genre radio & fallback bucket (Deezer Artist Radio first, then strict genre-matched iTunes, then YT InnerTube mix)
     let genreBucket: RelatedTrack[] = [...(deezerGraph.radioTracks || [])];
     if (relatedBuckets.flat().length + genreBucket.length < 8 && detectedGenre) {
       const gRes = await fetchItunesTracksForArtist(
@@ -298,6 +376,10 @@ export async function GET(request: Request) {
         (t) => (t.genre || "").toLowerCase().includes(genreLower) || genreLower.includes((t.genre || "").toLowerCase())
       );
       genreBucket.push(...strictlyMatchedGenre);
+    }
+    if (relatedBuckets.flat().length + genreBucket.length < 8) {
+      const ytMix = await fetchYouTubeRelatedMix(primaryArtist, title, detectedGenre);
+      genreBucket.push(...ytMix);
     }
 
     // 4. Deduplicate & filter junk (karaoke, slowed+reverb, covers)
