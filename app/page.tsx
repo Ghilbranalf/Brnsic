@@ -6397,10 +6397,12 @@ export default function BrnsicMusicPage() {
                 currentView === "disliked" ? "bg-[#282828]" : "hover:bg-[#1a1a1a]"
               }`}
             >
-              <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-[#e91429] via-[#8a121d] to-[#3a060b] flex items-center justify-center text-white font-black text-xs flex-shrink-0 shadow-md">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              <div className="w-11 h-11 rounded-lg bg-[#161618] border border-white/10 flex items-center justify-center text-white/75 flex-shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                  <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
                 </svg>
               </div>
               <div className="min-w-0 flex-1">
@@ -7083,12 +7085,13 @@ export default function BrnsicMusicPage() {
           {/* VIEW: DISLIKED / HIDDEN SONGS (LAGU YANG DISEMBUNYIKAN) */}
           {currentView === "disliked" && (
             <div>
-              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#e91429]/25 via-[#251014]/40 to-black md:to-black flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px] relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-[#e91429]/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl shadow-2xl bg-gradient-to-br from-[#e91429] via-[#8a121d] to-[#3a060b] flex items-center justify-center text-white flex-shrink-0 relative z-10 shadow-[0_15px_40px_rgba(233,20,41,0.3)]">
-                  <svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              <div className="p-6 sm:p-8 bg-gradient-to-b from-white/[0.06] to-black md:to-black flex flex-col sm:flex-row items-center sm:items-end gap-6 min-h-[260px] relative overflow-hidden">
+                <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl bg-[#141416] border border-white/10 shadow-2xl flex items-center justify-center text-white/80 flex-shrink-0 relative z-10">
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1 text-center sm:text-left relative z-10">
@@ -7238,12 +7241,14 @@ export default function BrnsicMusicPage() {
 
                 <div
                   onClick={() => setCurrentView("disliked")}
-                  className="bg-gradient-to-r from-[#e91429]/20 to-white/5 border border-[#e91429]/20 hover:border-[#e91429]/40 p-4 rounded-2xl flex items-center gap-4 cursor-pointer transition hover:scale-[1.01] active:scale-[0.99] shadow"
+                  className="bg-white/5 border border-white/10 hover:border-white/20 p-4 rounded-2xl flex items-center gap-4 cursor-pointer transition hover:scale-[1.01] active:scale-[0.99] shadow"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#e91429] via-[#8a121d] to-[#3a060b] flex items-center justify-center text-white flex-shrink-0 shadow-lg shadow-[#e91429]/20">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  <div className="w-12 h-12 rounded-xl bg-[#161618] border border-white/10 flex items-center justify-center text-white/75 flex-shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
                     </svg>
                   </div>
                   <div className="min-w-0 flex-1">
