@@ -14,6 +14,9 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Toast;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 import java.io.File;
 
@@ -563,6 +566,22 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         instance = this;
         try {
+            // Ensure Android 15+ Edge-to-Edge system bars (status bar & bottom nav bar) never overlap the WebView/navbar
+            View rootContent = findViewById(android.R.id.content);
+            if (rootContent != null) {
+                rootContent.setBackgroundColor(android.graphics.Color.BLACK);
+                ViewCompat.setOnApplyWindowInsetsListener(rootContent, (v, windowInsets) -> {
+                    Insets bars = windowInsets.getInsets(
+                        WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
+                    );
+                    Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+                    int bottomPad = Math.max(bars.bottom, ime.bottom);
+                    v.setPadding(bars.left, bars.top, bars.right, bottomPad);
+                    return WindowInsetsCompat.CONSUMED;
+                });
+                ViewCompat.requestApplyInsets(rootContent);
+            }
+
             PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
             if (powerManager != null) {
                 wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Brnsic:BackgroundAudioWakeLock");

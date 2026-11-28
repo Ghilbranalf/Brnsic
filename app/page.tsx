@@ -2081,6 +2081,9 @@ export default function BrnsicMusicPage() {
 
   // References
   const ytPlayerRef = useRef<any>(null);
+  const nativeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playbackModeRef = useRef<"audio" | "youtube">("audio");
+  const consecutiveNoLyricsSkipsRef = useRef<number>(0);
   const pendingVideoIdRef = useRef<string | null>(null);
   const activeVideoIdRef = useRef<string | null>(null);
   const availableCandidatesRef = useRef<string[]>([]);
@@ -2109,6 +2112,31 @@ export default function BrnsicMusicPage() {
     if (volumeFadeIntervalRef.current) {
       clearInterval(volumeFadeIntervalRef.current);
       volumeFadeIntervalRef.current = null;
+    }
+    if (playbackModeRef.current === "audio" && nativeAudioRef.current) {
+      const audioEl = nativeAudioRef.current;
+      const targetNorm = Math.max(0, Math.min(1, targetVol / 100));
+      const startNorm = audioEl.volume;
+      if (Math.abs(targetNorm - startNorm) < 0.02 || durationMs <= 0) {
+        audioEl.volume = targetNorm;
+        onDone?.();
+        return;
+      }
+      const steps = Math.max(4, Math.round(durationMs / 25));
+      let step = 0;
+      volumeFadeIntervalRef.current = setInterval(() => {
+        step++;
+        const progress = step / steps;
+        audioEl.volume = Math.max(0, Math.min(1, startNorm + (targetNorm - startNorm) * progress));
+        if (step >= steps) {
+          if (volumeFadeIntervalRef.current) {
+            clearInterval(volumeFadeIntervalRef.current);
+            volumeFadeIntervalRef.current = null;
+          }
+          onDone?.();
+        }
+      }, 25);
+      return;
     }
     const player = ytPlayerRef.current;
     if (!player || typeof player.setVolume !== "function") {
@@ -3105,56 +3133,8 @@ export default function BrnsicMusicPage() {
   const mediaStreamAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaStreamDestRef = useRef<any>(null);
 
-  // GitHub Proven iOS WebKit Background Audio Engine via MediaStreamDestination
-  // Tricks iOS Safari into classifying the tab as an active live-audio call,
-  // preventing background throttling and forcing the Lock Screen Now Playing widget to appear!
-  const startWebAudioKeepalive = () => {
-    try {
-      if (typeof window === "undefined") return;
-      // Android APK already uses native BackgroundAudioService (MediaPlayer + WakeLock);
-      // running a continuous WebAudio MediaStreamDestination on Android WebView can cause audio stutter.
-      if ((window as any).BrnsicNative?.isNativeApp?.()) return;
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioCtx();
-      }
-      if (audioContextRef.current.state === "suspended") {
-        audioContextRef.current.resume().catch(() => {});
-      }
-
-      if (!mediaStreamDestRef.current && audioContextRef.current.createMediaStreamDestination) {
-        const dest = audioContextRef.current.createMediaStreamDestination();
-        mediaStreamDestRef.current = dest;
-
-        // Sub-audible sine wave (20Hz, 0.00001 gain) - 100% inaudible to human ears
-        const osc = audioContextRef.current.createOscillator();
-        const gain = audioContextRef.current.createGain();
-        osc.type = "sine";
-        osc.frequency.value = 20;
-        gain.gain.value = 0.00001;
-        osc.connect(gain);
-        gain.connect(dest);
-        osc.start(0);
-        silentNodeRef.current = osc;
-
-        if (!mediaStreamAudioRef.current) {
-          const audioEl = document.createElement("audio");
-          audioEl.setAttribute("playsinline", "true");
-          audioEl.setAttribute("webkit-playsinline", "true");
-          audioEl.muted = false; // Must be unmuted so iOS CoreAudio treats it as audible!
-          audioEl.volume = 0.01;
-          audioEl.srcObject = dest.stream;
-          audioEl.play().catch(() => {});
-          mediaStreamAudioRef.current = audioEl;
-        }
-      } else if (mediaStreamAudioRef.current && mediaStreamAudioRef.current.paused) {
-        mediaStreamAudioRef.current.play().catch(() => {});
-      }
-    } catch (e) {
-      console.warn("MediaStream background audio anchor warning:", e);
-    }
-  };
+  // WebAudio MediaStream keepalive disabled: native <audio> playback handles iOS/PWA backgrounding directly without audio stutter.
+  const startWebAudioKeepalive = () => {};
 
   const stopWebAudioKeepalive = () => {
     try {
@@ -3183,6 +3163,26 @@ export default function BrnsicMusicPage() {
     } catch (e) {}
 
     const handleBackgroundKeepalive = () => {
+      if (playbackModeRef.current === "audio" && nativeAudioRef.current) {
+        const audioEl = nativeAudioRef.current;
+        if (!isUserExplicitlyPausedRef.current && isPlayingRef.current) {
+          const curr = audioEl.currentTime || 0;
+          const dur = audioEl.duration || 0;
+          if (
+            Date.now() - lastTrackChangeTimeRef.current > 8000 &&
+            dur > 20 &&
+            curr > 15 &&
+            curr >= dur - 1.5
+          ) {
+            handleTrackEnded("keepalive-eof");
+            return;
+          }
+          if (audioEl.paused && audioEl.src) {
+            audioEl.play().catch(() => {});
+          }
+        }
+        return;
+      }
       if (!isUserExplicitlyPausedRef.current && isPlayingRef.current && ytPlayerRef.current) {
         try {
           const curr = ytPlayerRef.current.getCurrentTime?.() || 0;
@@ -3847,6 +3847,16 @@ export default function BrnsicMusicPage() {
         (typeof navigator !== "undefined" && navigator.userAgent.includes("BrnsicNative")) ||
         (window as any).Capacitor?.getPlatform?.() === "android";
 
+      if (isNative && typeof window !== "undefined" && (window as any).BrnsicNative?.openExternalAuth) {
+        const bridgeOrigin =
+          window.location.origin && !window.location.origin.includes("localhost") && window.location.origin.startsWith("http")
+            ? window.location.origin
+            : "https://brnsic.vercel.app";
+        (window as any).BrnsicNative.openExternalAuth(`${bridgeOrigin}/api/auth/bridge`);
+        setIsAuthSubmitting(false);
+        return;
+      }
+
       const oauthRes = await fetch(`/api/auth/google/oauth?platform=${isNative ? "native_apk" : "web"}`).catch(() => null);
       if (oauthRes && oauthRes.ok) {
         const oauthData = await oauthRes.json();
@@ -4072,6 +4082,11 @@ export default function BrnsicMusicPage() {
       localStorage.removeItem("brnsic_user_taste_v1");
     } catch (e) {}
     try {
+      if (nativeAudioRef.current) {
+        nativeAudioRef.current.pause();
+        nativeAudioRef.current.removeAttribute("src");
+        nativeAudioRef.current.load();
+      }
       if (ytPlayerRef.current?.stopVideo) {
         ytPlayerRef.current.stopVideo();
       }
@@ -4655,13 +4670,152 @@ export default function BrnsicMusicPage() {
     };
   }, []);
 
-  // 6. Precise Audio Time & Real Duration Polling (Optimized to prevent 20fps full-page re-renders)
+  // 6. Native <audio> Event Listeners & Optimized Time Polling
+  useEffect(() => {
+    const audioEl = nativeAudioRef.current;
+    if (!audioEl) return;
+
+    const onPlay = () => {
+      if (playbackModeRef.current !== "audio") return;
+      setIsLoadingSong(false);
+      isUserExplicitlyPausedRef.current = false;
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+      hasTriggeredEndRef.current = false;
+      consecutiveErrorsRef.current = 0;
+    };
+
+    const onPause = () => {
+      if (playbackModeRef.current !== "audio") return;
+      const curr = audioEl.currentTime || 0;
+      const dur = audioEl.duration || 0;
+      if (
+        Date.now() - lastTrackChangeTimeRef.current > 8000 &&
+        dur > 20 &&
+        curr > 15 &&
+        curr >= dur - 1.5
+      ) {
+        handleTrackEnded("native-audio-paused-at-eof");
+        return;
+      }
+      if (!audioEl.ended) {
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+        if (typeof window !== "undefined" && "mediaSession" in navigator) {
+          try {
+            navigator.mediaSession.playbackState = "paused";
+          } catch (e) {}
+        }
+      }
+    };
+
+    const onEnded = () => {
+      if (playbackModeRef.current !== "audio") return;
+      if (hasUserStartedPlaybackRef.current && Date.now() - lastTrackChangeTimeRef.current > 4000) {
+        handleTrackEnded("native-audio-ended");
+      }
+    };
+
+    const onError = () => {
+      if (playbackModeRef.current !== "audio") return;
+      const vid = activeVideoIdRef.current;
+      if (vid && ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
+        // Seamless fallback to YouTube Iframe if direct audio stream fails
+        playbackModeRef.current = "youtube";
+        try {
+          ytPlayerRef.current.loadVideoById({
+            videoId: vid,
+            startSeconds: Math.floor(audioEl.currentTime || 0),
+            suggestedQuality: "small"
+          });
+          ytPlayerRef.current.unMute();
+          ytPlayerRef.current.setVolume(Math.max(10, Math.round(volumeRef.current * 100)));
+          ytPlayerRef.current.playVideo();
+        } catch (e) {
+          setIsLoadingSong(false);
+        }
+      } else {
+        setIsLoadingSong(false);
+      }
+    };
+
+    audioEl.addEventListener("play", onPlay);
+    audioEl.addEventListener("pause", onPause);
+    audioEl.addEventListener("ended", onEnded);
+    audioEl.addEventListener("error", onError);
+
+    return () => {
+      audioEl.removeEventListener("play", onPlay);
+      audioEl.removeEventListener("pause", onPause);
+      audioEl.removeEventListener("ended", onEnded);
+      audioEl.removeEventListener("error", onError);
+    };
+  }, []);
+
   const lastRenderedTimeRef = useRef<number>(0);
   useEffect(() => {
     const isDesktop = typeof window !== "undefined" && window.innerWidth >= 1024;
-    const pollInterval = (isMobilePlayerOpen || isZoomed || mobileTab === "lyrics") ? 250 : isDesktop ? 500 : 1000;
+    const pollInterval = (isMobilePlayerOpen || isZoomed || mobileTab === "lyrics") ? 350 : isDesktop ? 750 : 1000;
 
     const timer = setInterval(() => {
+      if (playbackModeRef.current === "audio" && nativeAudioRef.current) {
+        const audioEl = nativeAudioRef.current;
+        if (!audioEl.paused || audioEl.readyState >= 2) {
+          const exactSeconds = audioEl.currentTime;
+          if (typeof exactSeconds === "number" && !isNaN(exactSeconds)) {
+            currentTimeRef.current = exactSeconds;
+            const isTimeVisible = isMobilePlayerOpen || isZoomed || mobileTab === "lyrics" || (typeof window !== "undefined" && window.innerWidth >= 768);
+            const minStep = mobileTab === "lyrics" ? 0.25 : 0.6;
+            if (isTimeVisible && Math.abs(exactSeconds - lastRenderedTimeRef.current) >= minStep) {
+              lastRenderedTimeRef.current = exactSeconds;
+              setCurrentTime(exactSeconds);
+            }
+          }
+
+          const liveDur = audioEl.duration;
+          if (
+            typeof liveDur === "number" &&
+            !isNaN(liveDur) &&
+            isFinite(liveDur) &&
+            liveDur > 5 &&
+            liveDur <= 720 &&
+            Math.abs(liveDur - (currentTrack.duration || 0)) > 1
+          ) {
+            const roundedDur = Math.round(liveDur);
+            setCurrentTrack((prev) => ({ ...prev, duration: roundedDur }));
+            setIndonesiaTop50((prev) =>
+              prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
+            );
+            setActiveQueue((prev) =>
+              prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
+            );
+          }
+
+          const effectiveDur =
+            (typeof liveDur === "number" && isFinite(liveDur) && liveDur > 5 ? liveDur : null) ||
+            currentTrack.duration ||
+            210;
+
+          if (!hasLoggedCompletionRef.current && effectiveDur > 25 && exactSeconds / effectiveDur >= 0.8) {
+            hasLoggedCompletionRef.current = true;
+            recordTasteInteraction(currentTrack, "complete");
+          }
+
+          if (
+            !audioEl.paused &&
+            !hasTriggeredEndRef.current &&
+            hasUserStartedPlaybackRef.current &&
+            Date.now() - lastTrackChangeTimeRef.current > 8000 &&
+            effectiveDur > 20 &&
+            exactSeconds > 15 &&
+            exactSeconds >= effectiveDur - 1.0
+          ) {
+            handleTrackEnded("native-audio-dur-threshold");
+          }
+        }
+        return;
+      }
+
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
         try {
           const state = ytPlayerRef.current.getPlayerState ? ytPlayerRef.current.getPlayerState() : -1;
@@ -4798,6 +4952,11 @@ export default function BrnsicMusicPage() {
             return;
           }
         }
+        if (playbackModeRef.current === "audio" && nativeAudioRef.current) {
+          nativeAudioRef.current.volume = isMutedRef.current ? 0 : Math.max(0.1, volumeRef.current);
+          nativeAudioRef.current.play().catch(() => {});
+          return;
+        }
         if (ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
           try {
             ytPlayerRef.current.unMute?.();
@@ -4811,6 +4970,9 @@ export default function BrnsicMusicPage() {
         isPlayingRef.current = false;
         setIsPlaying(false);
         stopBackgroundKeepalive();
+        if (playbackModeRef.current === "audio" && nativeAudioRef.current) {
+          nativeAudioRef.current.pause();
+        }
         if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === "function") {
           try {
             ytPlayerRef.current.pauseVideo();
@@ -5005,9 +5167,45 @@ export default function BrnsicMusicPage() {
         } catch (e) {}
       }
 
-      // 2. Web Player / UI & Audio Sync
+      // 2. Web Player / iOS PWA Native <audio> Stream (with YouTube Iframe fallback)
       activeVideoIdRef.current = vid;
-      if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
+      if (!isNative && nativeAudioRef.current) {
+        playbackModeRef.current = "audio";
+        try {
+          if (ytPlayerRef.current?.pauseVideo) {
+            ytPlayerRef.current.pauseVideo();
+          }
+        } catch (e) {}
+
+        const audioEl = nativeAudioRef.current;
+        audioEl.src = `/api/stream?id=${encodeURIComponent(vid)}`;
+        audioEl.volume = isMutedRef.current ? 0 : Math.max(0.1, volumeRef.current);
+        audioEl.load();
+        audioEl
+          .play()
+          .then(() => {
+            setIsLoadingSong(false);
+          })
+          .catch(() => {
+            // Fallback to YouTube Iframe if native audio stream fails to start
+            if (currentRequestId !== playRequestIdRef.current) return;
+            playbackModeRef.current = "youtube";
+            if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
+              try {
+                ytPlayerRef.current.loadVideoById({
+                  videoId: vid,
+                  startSeconds: 0,
+                  suggestedQuality: "small"
+                });
+                ytPlayerRef.current.unMute();
+                ytPlayerRef.current.setVolume(Math.max(10, Math.round(volumeRef.current * 100)));
+                ytPlayerRef.current.playVideo();
+              } catch (e) {}
+            }
+            setTimeout(() => setIsLoadingSong(false), 1200);
+          });
+      } else if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
+        playbackModeRef.current = "youtube";
         try {
           ytPlayerRef.current.loadVideoById({
             videoId: vid,
@@ -5029,6 +5227,7 @@ export default function BrnsicMusicPage() {
           setIsLoadingSong(false);
         }
       } else {
+        playbackModeRef.current = "youtube";
         pendingVideoIdRef.current = vid;
         setTimeout(() => setIsLoadingSong(false), 1500);
       }
@@ -5134,8 +5333,24 @@ export default function BrnsicMusicPage() {
       .then((r) => r.json())
       .then((d) => {
         if (currentRequestId !== playRequestIdRef.current) return;
-        if (d.lyrics && d.lyrics.length > 0) {
+        if (d.hasLyrics && Array.isArray(d.lyrics) && d.lyrics.length > 0) {
+          consecutiveNoLyricsSkipsRef.current = 0;
           setCurrentTrack((prev) => ({ ...prev, lyrics: d.lyrics }));
+        } else {
+          // Strict rule: never play music without real lyrics
+          consecutiveNoLyricsSkipsRef.current += 1;
+          if (consecutiveNoLyricsSkipsRef.current <= 5 && playNextSongRef.current) {
+            showToast(`"${song.title}" tidak memiliki lirik, melewati...`);
+            playNextSongRef.current(false);
+          } else {
+            consecutiveNoLyricsSkipsRef.current = 0;
+            setCurrentTrack((prev) => ({ ...prev, lyrics: [] }));
+            setIsPlaying(false);
+            isPlayingRef.current = false;
+            nativeAudioRef.current?.pause();
+            ytPlayerRef.current?.pauseVideo?.();
+            showToast("Lagu yang tersedia tidak memiliki lirik.");
+          }
         }
       })
       .catch(() => {});
@@ -5991,6 +6206,34 @@ export default function BrnsicMusicPage() {
       }
     }
 
+    if (playbackModeRef.current === "audio" && nativeAudioRef.current) {
+      const audioEl = nativeAudioRef.current;
+      try {
+        if (isPlaying) {
+          isUserExplicitlyPausedRef.current = true;
+          isPlayingRef.current = false;
+          setIsPlaying(false);
+          stopBackgroundKeepalive();
+          const restoreVol = Math.max(10, Math.round(volumeRef.current * 100));
+          fadePlayerVolume(0, 180, () => {
+            audioEl.pause();
+            audioEl.volume = Math.max(0.1, restoreVol / 100);
+          });
+        } else {
+          isUserExplicitlyPausedRef.current = false;
+          isPlayingRef.current = true;
+          setIsPlaying(true);
+          startBackgroundKeepalive();
+          audioEl.volume = isMutedRef.current ? 0 : Math.max(0.1, volumeRef.current);
+          audioEl.play().catch(() => {});
+        }
+      } catch (e) {
+        setIsPlaying(!isPlaying);
+        isPlayingRef.current = !isPlaying;
+      }
+      return;
+    }
+
     if (!ytPlayerRef.current) {
       setIsPlaying(!isPlaying);
       isPlayingRef.current = !isPlaying;
@@ -6040,6 +6283,10 @@ export default function BrnsicMusicPage() {
   };
 
   const getActiveDuration = () => {
+    if (playbackModeRef.current === "audio" && nativeAudioRef.current) {
+      const d = nativeAudioRef.current.duration;
+      if (typeof d === "number" && !isNaN(d) && isFinite(d) && d > 5) return Math.round(d);
+    }
     try {
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getDuration === "function") {
         const d = ytPlayerRef.current.getDuration();
@@ -6058,7 +6305,11 @@ export default function BrnsicMusicPage() {
         (window as any).BrnsicNative.seekAudio(Math.round(safeSec * 1000));
       } catch (e) {}
     }
-    if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+    if (playbackModeRef.current === "audio" && nativeAudioRef.current) {
+      try {
+        nativeAudioRef.current.currentTime = safeSec;
+      } catch (e) {}
+    } else if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
       ytPlayerRef.current.seekTo(safeSec, true);
     }
     if (typeof window !== "undefined" && "mediaSession" in navigator && "setPositionState" in navigator.mediaSession) {
@@ -6079,7 +6330,11 @@ export default function BrnsicMusicPage() {
     const totalDuration = getActiveDuration();
     const targetSeconds = Math.round(pct * totalDuration);
     setCurrentTime(targetSeconds);
-    if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+    if (playbackModeRef.current === "audio" && nativeAudioRef.current) {
+      try {
+        nativeAudioRef.current.currentTime = targetSeconds;
+      } catch (e) {}
+    } else if (ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
       ytPlayerRef.current.seekTo(targetSeconds, true);
     }
   };
@@ -6105,6 +6360,10 @@ export default function BrnsicMusicPage() {
         (window as any).BrnsicNative.setVolume(pct);
       } catch (err) {}
     }
+    if (nativeAudioRef.current) {
+      nativeAudioRef.current.volume = pct;
+      nativeAudioRef.current.muted = false;
+    }
     if (ytPlayerRef.current && typeof ytPlayerRef.current.setVolume === "function") {
       ytPlayerRef.current.unMute();
       ytPlayerRef.current.setVolume(pct * 100);
@@ -6118,6 +6377,10 @@ export default function BrnsicMusicPage() {
       try {
         (window as any).BrnsicNative.setVolume(nextMuted ? 0 : volume);
       } catch (err) {}
+    }
+    if (nativeAudioRef.current) {
+      nativeAudioRef.current.muted = nextMuted;
+      nativeAudioRef.current.volume = nextMuted ? 0 : volume;
     }
     if (ytPlayerRef.current) {
       if (nextMuted) ytPlayerRef.current.mute();
@@ -6196,14 +6459,14 @@ export default function BrnsicMusicPage() {
         <div className="fixed inset-0 z-[110] bg-black text-white flex flex-col justify-between p-6 sm:p-12 overflow-y-auto no-scrollbar font-sans select-none animate-fadeIn">
           {/* Top Brand Bar */}
           <div className="flex items-center w-full max-w-md mx-auto">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-shrink-0">
               <img
                 src="/app-icon.png"
                 alt="Brnsic"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
-                className="w-8 h-8 rounded-lg object-contain shadow"
+                className="w-8 h-8 rounded-lg object-contain shadow flex-shrink-0"
               />
-              <span className="font-black text-lg text-white">Brnsic</span>
+              <span className="font-black text-lg text-white whitespace-nowrap">Brnsic</span>
             </div>
           </div>
 
@@ -6355,21 +6618,22 @@ export default function BrnsicMusicPage() {
         Rendered with opacity: 1 behind the UI (zIndex: -50) so Blink/Chromium never throttles or suspends media decoding.
         Real audio stream holds OS hardware audio session so music plays uninterrupted in the background when switching apps or locking phone!
       */}
+      <audio ref={nativeAudioRef} playsInline preload="auto" className="hidden" />
       <div
         className="fixed pointer-events-none"
         style={{
           position: "fixed",
           bottom: 0,
           right: 0,
-          width: "240px",
-          height: "180px",
-          opacity: 1,
+          width: "1px",
+          height: "1px",
+          opacity: 0.001,
           zIndex: -50,
           pointerEvents: "none",
           overflow: "hidden"
         }}
       >
-        <div id="master-yt-player" style={{ width: "240px", height: "180px" }}></div>
+        <div id="master-yt-player" style={{ width: "1px", height: "1px" }}></div>
       </div>
 
       {/* ====================================================================
@@ -6681,19 +6945,19 @@ export default function BrnsicMusicPage() {
         </aside>
 
         {/* --- CENTER MAIN CONTENT --- */}
-        <main className="bg-black md:bg-black md:rounded-lg overflow-y-auto custom-scrollbar flex flex-col relative pb-32 md:pb-6 overflow-x-hidden">
+        <main className="bg-black md:bg-black md:rounded-lg overflow-y-auto custom-scrollbar flex flex-col relative pb-40 md:pb-6 overflow-x-hidden">
           
           {/* MOBILE HEADER (BRNSIC MOBILE BRANDING) */}
           <div className="md:hidden flex flex-col gap-3 p-4 sticky top-0 z-30 bg-black border-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 flex-shrink-0">
                 <img
                   src="/app-icon.png"
                   alt="Brnsic"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
-                  className="w-8 h-8 rounded-lg object-contain shadow"
+                  className="w-8 h-8 rounded-lg object-contain shadow flex-shrink-0"
                 />
-                <span className="font-black text-lg text-white">Brnsic</span>
+                <span className="font-black text-lg text-white whitespace-nowrap">Brnsic</span>
                 {!isOnline && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
                     Offline
@@ -9972,7 +10236,10 @@ export default function BrnsicMusicPage() {
       {/* ====================================================================
           4. MOBILE & TABLET FLOATING MINI-PLAYER + LIQUID GLASS TAB BAR (IMAGE 1)
           ==================================================================== */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex flex-col pointer-events-none pb-3 sm:pb-4">
+      <div
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[45] flex flex-col pointer-events-none"
+        style={{ paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}
+      >
         {!isMobilePlayerOpen && hasUserStartedPlayback && (
           <div
             onClick={() => setIsMobilePlayerOpen(true)}
@@ -11637,12 +11904,12 @@ export default function BrnsicMusicPage() {
 
             {/* Header with Larger Transparent Brnsic Wordmark Logo (No Background Box) */}
             <div className="flex flex-col items-center text-center gap-2">
-              <div className="relative flex items-center justify-center my-3 w-full max-w-[220px]">
+              <div className="relative flex items-center justify-center my-3 w-full max-w-[260px]">
                 <div className="absolute inset-0 bg-[#1ed760]/20 blur-2xl rounded-full scale-110 pointer-events-none"></div>
                 <img
                   src="/brand-wordmark.png"
                   alt="Brnsic"
-                  className="w-full h-auto max-h-14 object-contain relative z-10 drop-shadow-[0_0_24px_rgba(30,215,96,0.45)]"
+                  className="w-full h-auto max-h-20 object-contain relative z-10 drop-shadow-[0_0_24px_rgba(30,215,96,0.45)]"
                 />
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white">Masuk ke Brnsic</h2>
@@ -11971,7 +12238,7 @@ export default function BrnsicMusicPage() {
               <img
                 src="/brand-wordmark.png"
                 alt="Brnsic"
-                className="w-48 sm:w-56 h-auto max-h-16 object-contain relative z-10 drop-shadow-[0_4px_25px_rgba(255,255,255,0.4)]"
+                className="w-60 sm:w-64 h-auto max-h-20 object-contain relative z-10 drop-shadow-[0_4px_25px_rgba(255,255,255,0.4)]"
               />
             </div>
 

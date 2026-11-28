@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { filterTracksWithLyrics } from "@/lib/lyrics";
 
 export const dynamic = "force-dynamic";
 
@@ -773,15 +774,29 @@ export async function GET(request: Request) {
       pushSug(s);
     }
 
+    // Strictly filter out songs that do not have real lyrics
+    const songsWithLyrics = await filterTracksWithLyrics(uniqueSongs.slice(0, 36), 10, 2000);
+
+    if (topResult?.type === "artist" && Array.isArray(topResult.topTracks)) {
+      topResult.topTracks = await filterTracksWithLyrics(topResult.topTracks, 6, 2000);
+    } else if (topResult?.type === "song") {
+      const hasMatch = songsWithLyrics.some(
+        (s) => s.trackName === topResult.trackName && s.artistName === topResult.artistName
+      );
+      if (!hasMatch) {
+        topResult = songsWithLyrics.length > 0 ? { type: "song", ...songsWithLyrics[0] } : null;
+      }
+    }
+
     return NextResponse.json({
       topResult,
-      songs: uniqueSongs.slice(0, 30),
+      songs: songsWithLyrics.slice(0, 30),
       artists: artists.slice(0, 6),
       albums: albums.slice(0, 8),
       suggestions: musicSuggestions.slice(0, 8),
       correctedQuery: correctedQuery && correctedQuery.toLowerCase() !== queryClean ? correctedQuery : null,
       originalQuery: queryRaw,
-      results: uniqueSongs.slice(0, 30) // Backwards compatible with legacy frontend
+      results: songsWithLyrics.slice(0, 30) // Backwards compatible with legacy frontend
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message, results: [], songs: [], artists: [], albums: [] }, { status: 500 });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { filterTracksWithLyrics } from "@/lib/lyrics";
 
 // Curated network of Indonesian & Global artists for high-relevance musical relationships (augments live Deezer graph)
 const ARTIST_RELATIONS: Record<string, string[]> = {
@@ -428,8 +429,10 @@ export async function GET(request: Request) {
     // Append any remaining same-artist or genre tracks at the tail
     collectedTracks.push(...sameArtistPool, ...cleanGenreBucket);
 
+    const filteredRelated = await filterTracksWithLyrics(collectedTracks.slice(0, 36), 10, 2000);
+
     return NextResponse.json({
-      related: collectedTracks.slice(0, 32),
+      related: filteredRelated.slice(0, 32),
       artistNetwork: combinedRelatedNames.slice(0, 10),
       detectedGenre
     });

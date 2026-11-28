@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { filterTracksWithLyrics } from "@/lib/lyrics";
 
 export const revalidate = 900; // Cache for 15 minutes to stay continuously updated
 
@@ -246,11 +247,23 @@ export async function GET() {
       console.error("Prisma most-played query error:", dbErr);
     }
 
+    const [
+      filteredIndoTop50,
+      filteredMostPlayed,
+      filteredViral,
+      filteredGlobal
+    ] = await Promise.all([
+      filterTracksWithLyrics(indonesiaTop50, 10, 2000),
+      filterTracksWithLyrics(mostPlayedIndonesia, 10, 2000),
+      filterTracksWithLyrics(viralIndonesia, 10, 2000),
+      filterTracksWithLyrics(globalTrending, 10, 2000)
+    ]);
+
     return NextResponse.json({
-      indonesiaTop50,
-      mostPlayedIndonesia,
-      viralIndonesia,
-      globalTrending,
+      indonesiaTop50: filteredIndoTop50,
+      mostPlayedIndonesia: filteredMostPlayed,
+      viralIndonesia: filteredViral,
+      globalTrending: filteredGlobal,
       popularArtists
     });
   } catch (err: any) {
