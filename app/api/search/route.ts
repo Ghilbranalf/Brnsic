@@ -374,31 +374,63 @@ export async function GET(request: Request) {
     }
 
     const primaryQuery = queryRaw;
+    const expandedSuggestion =
+      liveSuggestions.length > 0 &&
+      liveSuggestions[0].toLowerCase().trim().startsWith(queryClean) &&
+      liveSuggestions[0].trim().length > queryClean.length
+        ? liveSuggestions[0].trim()
+        : null;
+    const resolvedQuery = correctedQuery || expandedSuggestion || primaryQuery;
     const phoneticQuery = normalizePhonetic(queryClean);
-    const localQuery = phoneticQuery && phoneticQuery !== queryClean ? phoneticQuery : primaryQuery;
+    const localQuery =
+      phoneticQuery && phoneticQuery !== queryClean
+        ? phoneticQuery
+        : resolvedQuery;
 
-    // 3. Multi-Entity Parallel Search: Deezer (HD avatars + popularity rank) + iTunes Worldwide/ID + YouTube InnerTube
-    const [songRes, artistRes, albumRes, indoSongRes, innerTubeSongs, deezerTrackRes, deezerArtistRes] = await Promise.all([
-      // Songs (Worldwide iTunes)
-      fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(primaryQuery)}&entity=song&limit=25`, { next: { revalidate: 3600 } }, 2800)
+    // 3. Multi-Entity Parallel Search: Deezer (tracks/artists/albums) + iTunes + YouTube InnerTube + LRCLIB (Lyrics Search!)
+    const [
+      songRes,
+      artistRes,
+      albumRes,
+      indoSongRes,
+      innerTubeSongs,
+      deezerTrackRes,
+      deezerArtistRes,
+      deezerAlbumRes,
+      lrclibRes
+    ] = await Promise.all([
+      // Songs (Worldwide iTunes with resolved partial query)
+      fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(resolvedQuery)}&entity=song&limit=25`, { next: { revalidate: 3600 } }, 2800)
         .then((d) => d || { results: [] }),
       // Artists (iTunes)
-      fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(primaryQuery)}&entity=musicArtist&limit=6&country=id`, { next: { revalidate: 86400 } }, 2800)
+      fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(resolvedQuery)}&entity=musicArtist&limit=6&country=id`, { next: { revalidate: 86400 } }, 2800)
         .then((d) => d || { results: [] }),
       // Albums (iTunes)
-      fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(primaryQuery)}&entity=album&limit=8&country=id`, { next: { revalidate: 86400 } }, 2800)
+      fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(resolvedQuery)}&entity=album&limit=8&country=id`, { next: { revalidate: 86400 } }, 2800)
         .then((d) => d || { results: [] }),
-      // Secondary local Indonesian search (iTunes ID, using phonetic-normalized query when applicable)
+      // Secondary local Indonesian search (iTunes ID, using phonetic/resolved query)
       fetchJsonTimeout(`https://itunes.apple.com/search?term=${encodeURIComponent(localQuery)}&country=id&entity=song&limit=20`, { next: { revalidate: 3600 } }, 2800)
         .then((d) => d || { results: [] }),
       // Real-time InnerTube search (guarantees underground, regional & TikTok hits)
-      searchInnerTubeMusic(primaryQuery),
+      searchInnerTubeMusic(resolvedQuery),
       // Deezer Tracks (real popularity rank + HD album covers)
-      fetchJsonTimeout(`https://api.deezer.com/search/track?q=${encodeURIComponent(primaryQuery)}&limit=20`, { next: { revalidate: 3600 } }, 2800)
+      fetchJsonTimeout(`https://api.deezer.com/search/track?q=${encodeURIComponent(resolvedQuery)}&limit=20`, { next: { revalidate: 3600 } }, 2800)
         .then((d) => d || { data: [] }),
       // Deezer Artists (real HD artist photos + fan counts)
-      fetchJsonTimeout(`https://api.deezer.com/search/artist?q=${encodeURIComponent(primaryQuery)}&limit=6`, { next: { revalidate: 86400 } }, 2800)
-        .then((d) => d || { data: [] })
+      fetchJsonTimeout(`https://api.deezer.com/search/artist?q=${encodeURIComponent(resolvedQuery)}&limit=6`, { next: { revalidate: 86400 } }, 2800)
+        .then((d) => d || { data: [] }),
+      // Deezer Albums (rich album discovery)
+      fetchJsonTimeout(`https://api.deezer.com/search/album?q=${encodeURIComponent(resolvedQuery)}&limit=8`, { next: { revalidate: 86400 } }, 2800)
+        .then((d) => d || { data: [] }),
+      // LRCLIB Lyrics & Partial Title Search (supports searching by lyrics snippet, partial title, or artist!)
+      fetchJsonTimeout(
+        `https://lrclib.net/api/search?q=${encodeURIComponent(primaryQuery)}`,
+        {
+          headers: { "User-Agent": "BrnsicMusicApp/2.0 (https://brnsic.vercel.app)" },
+          next: { revalidate: 3600 }
+        },
+        2600
+      ).then((d) => (Array.isArray(d) ? d : []))
     ]);
 
     // Build Deezer artist HD photo lookup
@@ -493,6 +525,24 @@ export async function GET(request: Request) {
       }
     }
 
+    // Merge Deezer albums so album search is comprehensive
+    for (const dal of (deezerAlbumRes.data || [])) {
+      if (!dal?.title || !dal?.artist?.name) continue;
+      const norm = `${dal.artist.name} ${dal.title}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (!seenAlbums.has(norm)) {
+        seenAlbums.add(norm);
+        albums.push({
+          id: `album-dz-${dal.id}`,
+          collectionId: 0,
+          name: dal.title,
+          artist: dal.artist.name,
+          cover: dal.cover_big || dal.cover_medium || dal.cover || "",
+          year: "",
+          trackCount: dal.nb_tracks || 10
+        });
+      }
+    }
+
     // 6. Check if Top Artist is legitimately matched
     let artistTopTracks: any[] = [];
     const matchedArtistObj = rawArtists.find((a: any) => {
@@ -542,11 +592,30 @@ export async function GET(request: Request) {
       source: "deezer"
     }));
 
+    // Map LRCLIB matches (supports searching by lyrics snippet, partial title, artist, or album — 100% verified lyrics!)
+    const lrclibSongs = (lrclibRes || [])
+      .filter((r: any) => r?.trackName && r?.artistName && (r.syncedLyrics || r.plainLyrics))
+      .slice(0, 12)
+      .map((r: any) => ({
+        trackId: `lrc-${r.id}`,
+        trackName: r.trackName,
+        artistName: r.artistName,
+        album: r.albumName || "Single",
+        artworkUrl100:
+          VERIFIED_ARTIST_AVATARS[(r.artistName || "").toLowerCase().trim()] ||
+          deezerArtistPhotoMap.get((r.artistName || "").toLowerCase().trim())?.picture ||
+          "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=600&auto=format&fit=crop",
+        duration: Math.round(r.duration || 210),
+        hasVerifiedLyrics: true,
+        source: "lrclib-lyrics"
+      }));
+
     const rawSongs = [
       ...(artistTopTracks || []),
       ...deezerSongs,
       ...(indoSongRes.results || []),
       ...(songRes.results || []),
+      ...lrclibSongs,
       ...(innerTubeSongs || [])
     ];
     const uniqueSongs: any[] = [];
@@ -587,8 +656,16 @@ export async function GET(request: Request) {
           previewUrl: t.previewUrl,
           youtubeId: t.youtubeId,
           deezerRank: t.deezerRank || 0,
+          hasVerifiedLyrics: Boolean(t.hasVerifiedLyrics),
           source: t.source || "itunes"
         });
+      } else if (t.hasVerifiedLyrics) {
+        const existing = uniqueSongs.find((u) => {
+          const ua = u.artistName.toLowerCase().replace(/[^a-z0-9]/g, "");
+          const ut = u.trackName.toLowerCase().replace(/[^a-z0-9]/g, "");
+          return `${ua}::${ut}` === dedupeKey || `${ut}::${ua}` === dedupeKey;
+        });
+        if (existing) existing.hasVerifiedLyrics = true;
       }
     }
 

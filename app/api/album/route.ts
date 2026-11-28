@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { filterTracksWithLyrics } from "@/lib/lyrics";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -51,18 +52,21 @@ export async function GET(request: Request) {
       youtubeQuery: `${t.artistName} - ${t.trackName}`
     }));
 
+    const filteredTracks = await filterTracksWithLyrics(tracks, 8, 2400);
+    const finalTracks = filteredTracks.length > 0 ? filteredTracks : tracks;
+
     return NextResponse.json({
       album: {
         id: targetCollectionId,
         title: albumMeta.collectionName || albumName,
         artist: albumMeta.artistName || artistName,
         cover: (albumMeta.artworkUrl100 || "").replace("100x100bb", "600x600bb"),
-        trackCount: albumMeta.trackCount || tracks.length,
+        trackCount: finalTracks.length,
         releaseDate: albumMeta.releaseDate?.slice(0, 4) || "2024",
         genre: albumMeta.primaryGenreName || "Pop",
         copyright: albumMeta.copyright || ""
       },
-      tracks
+      tracks: finalTracks
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message, tracks: [] }, { status: 500 });

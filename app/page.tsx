@@ -4783,6 +4783,15 @@ export default function BrnsicMusicPage() {
           ) {
             const roundedDur = Math.round(liveDur);
             setCurrentTrack((prev) => ({ ...prev, duration: roundedDur }));
+            if (typeof window !== "undefined" && (window as any).BrnsicNative?.updateNativePlaybackState) {
+              try {
+                (window as any).BrnsicNative.updateNativePlaybackState(
+                  !audioEl.paused,
+                  Math.round(currentTimeRef.current * 1000),
+                  roundedDur * 1000
+                );
+              } catch (e) {}
+            }
             setIndonesiaTop50((prev) =>
               prev.map((t) => (t.title === currentTrack.title ? { ...t, duration: roundedDur } : t))
             );
@@ -5178,9 +5187,9 @@ export default function BrnsicMusicPage() {
         } catch (e) {}
       }
 
-      // 2. Web Player / iOS PWA Native <audio> Stream (with YouTube Iframe fallback)
+      // 2. Web / iOS PWA / Android APK Native <audio> Stream (pure audio, zero video frame decode, YT Iframe fallback)
       activeVideoIdRef.current = vid;
-      if (!isNative && nativeAudioRef.current) {
+      if (nativeAudioRef.current) {
         playbackModeRef.current = "audio";
         try {
           if (ytPlayerRef.current?.pauseVideo) {
@@ -5580,11 +5589,12 @@ export default function BrnsicMusicPage() {
     showToast(`Mengacak ${songs.length} lagu di playlist`);
   };
 
-  // Open Album View & Fetch Tracklist
-  const openAlbumView = async (albumName: string, artistName: string, collectionId?: number | string) => {
+  // Open Album View & Fetch Tracklist (supports instant 1-tap full album playback)
+  const openAlbumView = async (albumName: string, artistName: string, collectionId?: number | string, autoPlay = false) => {
     setIsLoadingSong(true);
     try {
-      const url = collectionId
+      const hasValidCollectionId = collectionId && Number(collectionId) > 0;
+      const url = hasValidCollectionId
         ? `/api/album?collectionId=${collectionId}`
         : `/api/album?album=${encodeURIComponent(albumName)}&artist=${encodeURIComponent(artistName)}`;
       const res = await fetch(url);
@@ -5592,6 +5602,10 @@ export default function BrnsicMusicPage() {
         const data = await res.json();
         setAlbumData(data);
         setCurrentView("album");
+        if (autoPlay && Array.isArray(data.tracks) && data.tracks.length > 0) {
+          playAlbumFull(data.album, data.tracks, false);
+          showToast(`Memutar album "${data.album?.title || albumName}" (${data.tracks.length} lagu)`);
+        }
       }
     } catch (err) {
       console.error("Failed to load album", err);
@@ -6486,9 +6500,9 @@ export default function BrnsicMusicPage() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#1ed760]/10 rounded-full blur-[100px] pointer-events-none" />
 
             <img
-              src="/splash-logo.png"
+              src="/brand-wordmark.png"
               alt="Brnsic"
-              className="w-56 sm:w-64 object-contain relative z-10 drop-shadow-[0_0_38px_rgba(30,215,96,0.45)] mb-4"
+              className="w-64 sm:w-72 h-auto max-h-24 object-contain relative z-10 drop-shadow-[0_0_38px_rgba(30,215,96,0.45)] mb-4"
             />
 
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight relative z-10">
@@ -6616,9 +6630,9 @@ export default function BrnsicMusicPage() {
               <div className="relative flex flex-col items-center justify-center gap-6">
                 <div className="absolute w-80 h-80 bg-white/[0.08] rounded-full blur-[100px] pointer-events-none" />
                 <img
-                  src="/splash-logo.png"
+                  src="/brand-wordmark.png"
                   alt="Brnsic"
-                  className="w-64 sm:w-80 object-contain relative z-10 drop-shadow-[0_0_40px_rgba(255,255,255,0.45)] transform hover:scale-105 transition"
+                  className="w-64 sm:w-80 h-auto max-h-28 object-contain relative z-10 drop-shadow-[0_0_40px_rgba(255,255,255,0.45)] transform hover:scale-105 transition"
                 />
               </div>
             </div>
@@ -9091,10 +9105,10 @@ export default function BrnsicMusicPage() {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          openAlbumView(album.name, album.artist, album.collectionId);
+                                          openAlbumView(album.name, album.artist, album.collectionId, true);
                                         }}
-                                        className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black shadow-xl flex items-center justify-center opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-2 transition duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-                                        title="Buka Album"
+                                        className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1ed760] text-black shadow-xl flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-hover:translate-y-0 sm:translate-y-2 transition duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+                                        title="Putar Satu Album"
                                       >
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                                           <path d="M8 5v14l11-7z" />
@@ -9343,10 +9357,10 @@ export default function BrnsicMusicPage() {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      openAlbumView(album.name, album.artist, album.collectionId);
+                                      openAlbumView(album.name, album.artist, album.collectionId, true);
                                     }}
-                                    className="absolute bottom-2 right-2 w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-xl flex items-center justify-center opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-2 transition duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-                                    title="Buka Album"
+                                    className="absolute bottom-2 right-2 w-11 h-11 rounded-full bg-[#1ed760] text-black shadow-xl flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-hover:translate-y-0 sm:translate-y-2 transition duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+                                    title="Putar Satu Album"
                                   >
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                                       <path d="M8 5v14l11-7z" />

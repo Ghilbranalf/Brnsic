@@ -597,8 +597,9 @@ export async function filterTracksWithLyrics<
     artistName?: string;
     duration?: number;
     trackTimeMillis?: number;
+    hasVerifiedLyrics?: boolean;
   }
->(tracks: T[], concurrency = 8, timeoutMs = 2200): Promise<T[]> {
+>(tracks: T[], concurrency = 8, timeoutMs = 2600): Promise<T[]> {
   if (!Array.isArray(tracks) || tracks.length === 0) return [];
 
   const results: Array<T | null> = new Array(tracks.length).fill(null);
@@ -607,6 +608,10 @@ export async function filterTracksWithLyrics<
     const batch = tracks.slice(i, i + concurrency);
     await Promise.all(
       batch.map(async (track, offset) => {
+        if (track.hasVerifiedLyrics) {
+          results[i + offset] = track;
+          return;
+        }
         const title = (track.title || track.trackName || "").trim();
         const artist = (track.artist || track.artistName || "").trim();
         const dur =
