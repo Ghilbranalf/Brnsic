@@ -786,10 +786,10 @@ const BrnsicLoader: React.FC<{ size?: "sm" | "md" | "lg"; text?: string; classNa
         <div className="absolute -inset-2.5 rounded-full border border-white/15 border-t-[#1ed760] animate-spin"></div>
         {/* Brnsic white minimalist logo provided by user */}
         <img
-          src="/brnsic-loader-logo.png"
+          src="/app-icon.png"
           alt="Brnsic Loader"
           onError={(e) => { (e.currentTarget as HTMLImageElement).src = BRNSIC_APP_ICON_B64; }}
-          className={`${logoSize} object-contain relative z-10 animate-pulse drop-shadow-[0_0_12px_rgba(255,255,255,0.45)]`}
+          className={`${logoSize} rounded-xl object-contain relative z-10 animate-pulse drop-shadow-[0_0_12px_rgba(255,255,255,0.45)]`}
         />
       </div>
       {/* Equalizer bars */}
@@ -12140,12 +12140,12 @@ export default function BrnsicMusicPage() {
             </button>
 
             {/* Ambient Logo Header */}
-            <div className="relative flex items-center justify-center pt-3 pb-1">
+            <div className="relative flex items-center justify-center pt-3 pb-1 w-full">
               <div className="absolute inset-0 rounded-full bg-[#1ed760]/25 blur-2xl scale-110"></div>
               <img
-                src="/brnsic-loader-logo.png"
+                src="/brand-wordmark.png"
                 alt="Brnsic"
-                className="w-24 h-24 sm:w-28 sm:h-28 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)]"
+                className="w-56 sm:w-64 h-auto max-h-20 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(0,0,0,0.5)]"
               />
             </div>
 
