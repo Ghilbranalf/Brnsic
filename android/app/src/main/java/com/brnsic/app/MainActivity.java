@@ -307,12 +307,20 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public boolean isAccessibilityOverlayEnabled() {
-            return false;
+            return BrnsicAccessibilityService.isRunning();
         }
 
         @JavascriptInterface
         public void requestAccessibilityOverlayPermission() {
-            // Accessibility service removed to prevent OS floating shortcut icon
+            runOnUiThread(() -> {
+                try {
+                    if (!BrnsicAccessibilityService.isRunning()) {
+                        Intent intent = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    }
+                } catch (Exception ignored) {}
+            });
         }
 
         @JavascriptInterface

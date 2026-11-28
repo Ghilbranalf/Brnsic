@@ -15,15 +15,15 @@ export async function GET() {
   } catch (e) {}
 
   return NextResponse.json({
-    version: "4.0.6",
-    versionCode: 24,
-    minVersionCode: 24,
+    version: "4.0.7",
+    versionCode: 25,
+    minVersionCode: 25,
     releaseDate: "2026-11-28",
-    title: "Brnsic v4.0.6",
-    notes: "Pembaruan v4.0.6: Filter ketat lagu berlirik, pemutar audio native bebas frame drop, perbaikan background play iPhone PWA, perbaikan navbar Android 15+, proporsi logo, dan jembatan login Chrome ke APK.",
+    title: "Brnsic v4.0.7",
+    notes: "Pembaruan v4.0.7: Dynamic Island kini memakai Accessibility Overlay agar bisa dipencet di atas status bar & notifikasi, bebas lag/ngeframe.",
     apkUrl: "/Brnsic.apk",
     apkSize,
     forceUpdate: true,
-    buildId: "20261128-v406"
+    buildId: "20261128-v407"
   });
 }

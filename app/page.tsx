@@ -5144,6 +5144,17 @@ export default function BrnsicMusicPage() {
           if ((window as any).BrnsicNative?.isOverlayPermissionGranted && !(window as any).BrnsicNative.isOverlayPermissionGranted()) {
             (window as any).BrnsicNative.requestOverlayPermission();
             showToast("Aktifkan izin 'Tampilkan di atas aplikasi lain' agar Dynamic Island muncul di Home Screen");
+          } else if (
+            (window as any).BrnsicNative?.isAccessibilityOverlayEnabled &&
+            !(window as any).BrnsicNative.isAccessibilityOverlayEnabled()
+          ) {
+            try {
+              if (!sessionStorage.getItem("brnsic_acc_prompted")) {
+                sessionStorage.setItem("brnsic_acc_prompted", "1");
+                (window as any).BrnsicNative.requestAccessibilityOverlayPermission?.();
+                showToast("Aktifkan Aksesibilitas 'Brnsic' agar Dynamic Island bisa dipencet di atas status bar & notifikasi");
+              }
+            } catch (e) {}
           }
           const durMs = Math.round((song.duration || optimisticTrack.duration || 210) * 1000);
           if ((window as any).BrnsicNative?.playAudioWithDuration) {

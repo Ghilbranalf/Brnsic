@@ -92,6 +92,9 @@ public class DynamicIslandOverlay {
     }
 
     public static boolean canDrawOverlay(Context context) {
+        if (BrnsicAccessibilityService.isRunning()) {
+            return true;
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             return Settings.canDrawOverlays(context);
         }
@@ -110,19 +113,25 @@ public class DynamicIslandOverlay {
                 buildViews();
             }
 
-            WindowManager targetWm = windowManager;
+            BrnsicAccessibilityService accService = BrnsicAccessibilityService.getInstance();
+            WindowManager targetWm;
             int layoutType;
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+            if (accService != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                targetWm = accService.getOverlayWindowManager();
+                layoutType = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
             } else {
-                layoutType = WindowManager.LayoutParams.TYPE_PHONE;
+                targetWm = windowManager;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+                } else {
+                    layoutType = WindowManager.LayoutParams.TYPE_PHONE;
+                }
             }
 
             int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                     | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                     | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                    | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                     | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
 
             layoutParams = new WindowManager.LayoutParams(
@@ -424,8 +433,13 @@ public class DynamicIslandOverlay {
         pill.setClickable(true);
         pill.setFocusable(false);
 
-        // Immediate Touch Consumer:
-        // Captures ACTION_DOWN immediately so system status bar / notification shade cannot intercept or steal the tap!
+        pill.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setExpanded(true);
+            }
+        });
+
         pill.setOnTouchListener(new View.OnTouchListener() {
             private float downX = 0;
             private float downY = 0;
@@ -435,18 +449,18 @@ public class DynamicIslandOverlay {
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        collapseStatusBarPanels(context);
                         downX = event.getRawX();
                         downY = event.getRawY();
                         downTime = System.currentTimeMillis();
                         return true;
 
                     case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
                         float diffX = Math.abs(event.getRawX() - downX);
                         float diffY = Math.abs(event.getRawY() - downY);
                         long elapsed = System.currentTimeMillis() - downTime;
                         if (elapsed < 600 && diffX < dpToPx(35) && diffY < dpToPx(35)) {
-                            setExpanded(true);
+                            v.performClick();
                             return true;
                         }
                         return true;
